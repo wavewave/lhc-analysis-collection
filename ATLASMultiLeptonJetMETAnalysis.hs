@@ -1,29 +1,75 @@
 {-# LANGUAGE RecordWildCards, GADTs #-}
 
-import Codec.Compression.GZip
-import Control.Monad
+import           Codec.Compression.GZip
+import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as LB
-import Data.Maybe
-import System.FilePath
-import System.Environment
-import Text.Hastache
-import Text.Hastache.Context
+import           Data.Maybe
+import qualified Data.Text.Lazy as T
+import           Data.Text.Lazy.Builder 
+import           Data.Text.Format 
+import           System.Environment
+import           System.FilePath
+import           System.IO 
+import           Text.Hastache
+import           Text.Hastache.Context
 -- 
-import HEP.Parser.LHCOAnalysis.Parse
+import           HEP.Parser.LHCOAnalysis.Parse
 -- 
-import HEP.Physics.Analysis.ATLAS.SUSY
+import           HEP.Physics.Analysis.ATLAS.SUSY
 -- 
 import Debug.Trace
 
-template = " ({{mgluino}},{{mstop}}) & {{xsec}} & {{totnum}} & {{singlelep3}} & {{singlelep4}} & {{singlelepsoft}} & {{multilep2}} & {{multilep4}} \\\\" 
+log10 x = log x / log 10
+
+getExponent10 x = floor (log10 x)
+
+getBody10 x = 10**(log10 x - fromIntegral (getExponent10 x))
+
+sciformat (Just x) = 
+  let e = getExponent10 x
+      b = getBody10 x 
+      -- trunced = (fromIntegral (floor (b*100)) / 100.0) * (10.0**fromIntegral e) 
+  in if e `elem` [-2,-1,0,1,2] 
+     then (T.unpack . toLazyText . fixed (2+(-e))) x
+     else "$" ++ ((T.unpack . toLazyText . fixed 2 . getBody10) x) ++ "\\times 10^{" 
+                      ++ (show e) ++ "}$" 
+sciformat (Nothing) = "0"
+
+filelist = 
+  [ ( 1000, 400, 3.67e-3
+    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ400.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
+  , ( 1000, 500, 3.67e-3
+    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ500.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
+  , ( 1000, 600, 3.67e-3
+    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ600.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
+  , ( 1000, 700, 3.67e-3
+    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ700.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
+  , ( 1000, 800, 3.67e-3
+    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ800.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz") ] 
+
+template = 
+  " ({{mgluino}},{{msquark}}) & {{xsec}} & {{totnum}} & {{singlelep3}} & {{singlelep4}} & {{singlelepsoft}} & {{multilep2}} & {{multilep4}} \\\\\n \
+  \ @4.7 fb$^{-1}$ &  &  & {{normsinglelep3}} & {{normsinglelep4}} & {{normsinglelepsoft}} & {{normmultilep2}} & {{normmultilep4}} \\\\\n \
+  \\\hline\n"
+
+normalize :: Double -> Int -> Int -> Maybe Double
+normalize xsec totnum x = 
+  if x /= 0 then Just (xsec*4.7e3/(fromIntegral totnum)*(fromIntegral x)) else Nothing 
 
   
 main = do 
+  h <- openFile "output.dat" WriteMode 
+  mapM_ (analysis h) filelist
+  hClose h 
+
+
+analysis :: Handle -> (Double,Double,Double,FilePath) -> IO ()
+analysis h (mgluino,msquark,xsec,fn) = do 
   putStrLn "atlas counting"
-  args <- getArgs
-  when (length args /= 1) $ error "./parsertest filename"
-  let fn = args !! 0 
-      basename = takeBaseName fn 
+  -- args <- getArgs
+  -- when (length args /= 1) $ error "./parsertest filename"
+  -- let fn = args !! 0 
+  --     basename = takeBaseName fn 
  
   bstr <- LB.readFile fn 
   let unzipped = decompress bstr 
@@ -47,16 +93,28 @@ main = do
   putStrLn $ "single lep soft = " ++ show singlelepsoft
   putStrLn $ "multi lep 2 = " ++ show multilep2
   putStrLn $ "multi lep 4 = " ++ show multilep4 
-
+  let normalize_ = normalize xsec totnum 
   let context "totnum" = MuVariable totnum 
       context "singlelep3" = MuVariable singlelep3
       context "singlelep4" = MuVariable singlelep4 
       context "singlelepsoft" = MuVariable singlelepsoft
       context "multilep2" = MuVariable multilep2 
       context "multilep4" = MuVariable multilep4 
+      context "normsinglelep3" = (MuVariable . sciformat . normalize_) singlelep3
+      context "normsinglelep4" = (MuVariable . sciformat . normalize_) singlelep4
+      context "normsinglelepsoft" = (MuVariable . sciformat . normalize_) singlelepsoft
+      context "normmultilep2" = (MuVariable . sciformat . normalize_) multilep2
+      context "normmultilep4" = (MuVariable . sciformat . normalize_) multilep4
+
+
+      context "mgluino" = MuVariable (floor mgluino :: Int)
+      context "msquark" = MuVariable (floor msquark :: Int) 
+      context "xsec" = MuVariable (sciformat (Just xsec))
+
+      -- ("$" ++ ((T.unpack . toLazyText . fixed 2 . getBody10) xsec) ++ "\\times 10^{" ++ (show (getExponent10 xsec)) ++ "}$" :: String)
       context _ = MuNothing
-  res <- hastacheStr defaultConfig (encodeStr template) (mkStrContext context) 
-  LB.putStrLn res
+  res <- hastacheStr (defaultConfig {muEscapeFunc=emptyEscape}) (encodeStr template) (mkStrContext context) 
+  LB.hPutStr h res
  
   
 
