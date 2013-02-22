@@ -1,5 +1,7 @@
 {-# LANGUAGE RecordWildCards, GADTs #-}
 
+module HEP.Physics.Analysis.ATLAS.SUSY where
+
 import Codec.Compression.GZip
 import Control.Applicative
 import Control.Monad
@@ -14,6 +16,8 @@ import HEP.Parser.LHCOAnalysis.PhysObj
 import HEP.Parser.LHCOAnalysis.Parse
 -- 
 import Debug.Trace
+
+
 
 data LeptonType = HardLepton | SoftLepton 
                 deriving Show 
@@ -261,32 +265,3 @@ isMultiLep4 :: EventType -> Bool
 isMultiLep4 (MultiLeptonEvent M4Jet) = True 
 isMultiLep4 _ = False 
   
-  
-
-main = do 
-  putStrLn "atlas counting"
-  args <- getArgs
-  when (length args /= 1) $ error "./parsertest filename"
-  let fn = args !! 0 
-      basename = takeBaseName fn 
- 
-  bstr <- LB.readFile fn 
-  let unzipped = decompress bstr 
-
-      evts = parsestr unzipped
-      signalevts = map (preselect HardLepton . taubjetMerge) evts 
-  -- print $ map meff signalevts
-      classified = mapMaybe classifyEvent signalevts 
-  -- print (length evts) 
-  putStrLn fn 
-  putStrLn $ "total number = " ++ show (length evts)
-  putStrLn $ "single lep 3 = " ++ (show . length . filter isSingleLep3) classified 
-  putStrLn $ "single lep 4 = " ++ (show . length . filter isSingleLep4) classified 
-  putStrLn $ "single lep soft = " ++ (show . length . filter isSingleLepSoft) classified 
-  putStrLn $ "multi lep 2 = " ++ (show . length . filter isMultiLep2) classified 
-  putStrLn $ "multi lep 4 = " ++ (show . length . filter isMultiLep4) classified 
-
-    
-  -- LB.putStrLn (LB.take 100 unzipped) 
-
-
