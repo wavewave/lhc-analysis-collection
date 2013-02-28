@@ -18,24 +18,10 @@ import           Text.Hastache.Context
 import           HEP.Parser.LHCOAnalysis.Parse
 -- 
 import           HEP.Physics.Analysis.ATLAS.SUSY
+import           HEP.Util.Format
 -- 
 import Debug.Trace
 
-log10 x = log x / log 10
-
-getExponent10 x = floor (log10 x)
-
-getBody10 x = 10**(log10 x - fromIntegral (getExponent10 x))
-
-sciformat (Just x) = 
-  let e = getExponent10 x
-      b = getBody10 x 
-      -- trunced = (fromIntegral (floor (b*100)) / 100.0) * (10.0**fromIntegral e) 
-  in if e `elem` [-2,-1,0,1,2] 
-     then (T.unpack . toLazyText . fixed (2+(-e))) x
-     else "$" ++ ((T.unpack . toLazyText . fixed 2 . getBody10) x) ++ "\\times 10^{" 
-                      ++ (show e) ++ "}$" 
-sciformat (Nothing) = "0"
 
 {-
 filelist = 
@@ -112,14 +98,14 @@ analysis h (mgluino,msquark,xsec,fn) = do
       context "singlelepsoft" = MuVariable singlelepsoft
       context "multilep2" = MuVariable multilep2 
       context "multilep4" = MuVariable multilep4 
-      context "normsinglelep3" = (MuVariable . sciformat . normalize_) singlelep3
-      context "normsinglelep4" = (MuVariable . sciformat . normalize_) singlelep4
-      context "normsinglelepsoft" = (MuVariable . sciformat . normalize_) singlelepsoft
-      context "normmultilep2" = (MuVariable . sciformat . normalize_) multilep2
-      context "normmultilep4" = (MuVariable . sciformat . normalize_) multilep4
+      context "normsinglelep3" = (MuVariable . sciformat_ . normalize_) singlelep3
+      context "normsinglelep4" = (MuVariable . sciformat_ . normalize_) singlelep4
+      context "normsinglelepsoft" = (MuVariable . sciformat_ . normalize_) singlelepsoft
+      context "normmultilep2" = (MuVariable . sciformat_ . normalize_) multilep2
+      context "normmultilep4" = (MuVariable . sciformat_ . normalize_) multilep4
       context "mgluino" = MuVariable (floor mgluino :: Int)
       context "msquark" = MuVariable (floor msquark :: Int) 
-      context "xsec" = MuVariable (sciformat (Just xsec))
+      context "xsec" = MuVariable (sciformat_ (Just xsec))
       context _ = MuNothing
   res <- hastacheStr (defaultConfig {muEscapeFunc=emptyEscape}) (encodeStr template) (mkStrContext context) 
   LB.hPutStr h res

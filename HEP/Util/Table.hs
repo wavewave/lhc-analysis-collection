@@ -28,6 +28,10 @@ emptyTable = Table 0 0 []
 singletonTable :: a -> Table a 
 singletonTable a = Table 1 1 [[Just a]] 
 
+nothingSingletonTable :: Table a 
+nothingSingletonTable = Table 1 1 [[Nothing]]
+
+
 resizeRow :: Int -> [[a]] -> [[a]] 
 resizeRow n xs 
   | length xs > n = take n xs 
@@ -46,7 +50,7 @@ resizeCol n ys
 a <-> b = let (a'_c,b'_c,v) | a_v > b_v = (a_c,resizeRow a_v b_c,a_v) 
                             | a_v == b_v = (a_c,b_c,a_v) 
                             | a_v < b_v = (resizeRow b_v a_c,b_c,b_v)
-              c = [ x++y | x <- a'_c , y <- b'_c ] 
+              c = zipWith (++) a'_c b'_c  
           in Table (a_h+b_h) v c
   where a_h = tableHSize a  
         a_v = tableVSize a
@@ -70,17 +74,17 @@ a <|> b = let (a'_c,b'_c,h) | a_h > b_h = (a_c,map (resizeCol a_h) b_c,a_h)
 
 
 
-class LaTeXable a where 
-  showLaTeX :: a -> String 
+class LaTeXableBy m where 
+  showLaTeXBy :: (a -> String) -> m a -> String 
 
-instance LaTeXable Int where 
-  showLaTeX n = show n 
+-- instance LaTeXable Int where 
+--   showLaTeX n = show n 
 
-instance LaTeXable a => LaTeXable (Maybe a) where 
-  showLaTeX Nothing = "" 
-  showLaTeX (Just x) = showLaTeX x
+instance LaTeXableBy Maybe where 
+  showLaTeXBy f Nothing = "" 
+  showLaTeXBy f (Just x) = f x
 
-instance LaTeXable a => LaTeXable (Table a) where
-  showLaTeX (Table _ _ c) = 
-    (intercalate "\\\\\n" . map (intercalate " & " . map showLaTeX)) c 
+instance LaTeXableBy Table where
+  showLaTeXBy f (Table _ _ c) = 
+    (intercalate "\\\\\n" . map (intercalate " & " . map (showLaTeXBy f))) c 
 
