@@ -4,7 +4,8 @@ module Main where
 
 import           Control.Applicative
 import           Control.Monad 
-import           Control.Monad.Error 
+import           Control.Monad.Error
+import           Control.Monad.Reader 
 import           Control.Monad.State 
 import           Data.Conduit
 import qualified Data.Conduit.List as CL
@@ -12,11 +13,16 @@ import qualified Data.Traversable as T
 import qualified Data.HashMap.Lazy as HM
 import           Data.Maybe 
 import           System.Environment
+import           System.FilePath ((</>))
 import           System.IO
 import           System.Log.Logger
 -- 
 import HEP.Parser.LHEParser.Type
 import HEP.Automation.MadGraph.Model.ADMXQLD111
+import HEP.Automation.MadGraph.Machine
+import HEP.Automation.MadGraph.Run
+import HEP.Automation.MadGraph.SetupType
+import HEP.Automation.MadGraph.UserCut
 -- 
 import HEP.Automation.EventChain.LHEConn
 import HEP.Automation.EventChain.FileDriver
@@ -28,6 +34,9 @@ import HEP.Automation.EventChain.Simulator
 import HEP.Automation.EventChain.Process
 import HEP.Automation.EventChain.Process.Generator
 import HEP.Automation.EventChain.Main 
+-- 
+import qualified Paths_madgraph_auto as PMadGraph 
+import qualified Paths_madgraph_auto_model as PModel 
 
 
 jets = [1,2,3,4,-1,-2,-3,-4,21]
@@ -64,25 +73,121 @@ map_2sq_2l2j2x =
 
 modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
 
+-- | 
+mgrunsetup :: Int -> MGRunSetup
+mgrunsetup n = 
+  MGRS { mgrs_numevent = n
+       , mgrs_machine = LHC7 ATLAS
+       , mgrs_rgrun   = Auto
+       , mgrs_rgscale = 200.0
+       , mgrs_match   = NoMatch
+       , mgrs_cut     = NoCut 
+       , mgrs_pythia  = RunPYTHIA -- NoPYTHIA
+       , mgrs_usercut = NoUserCutDef 
+       , mgrs_lhesanitizer = -- NoLHESanitize 
+                             LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
+       , mgrs_pgs     = RunPGS
+       , mgrs_jetalgo = Cone 0.4
+       , mgrs_uploadhep = NoUploadHEP
+       , mgrs_setnum  = 1
+       }
+
+-- |  
+{-
+getScriptSetup :: FilePath  -- ^ sandboxdir
+               -> FilePath  -- ^ mg5base 
+               -> FilePath  -- ^ mcrundir 
+               -> IO ScriptSetup
+getScriptSetup dir_sb dir_mg5 dir_mc = do 
+  mdldir <- (</> "template") <$> PModel.getDataDir
+  rundir <- (</> "template") <$> PMadGraph.getDataDir 
+  return $ 
+    SS { modeltmpldir = mdldir 
+       , runtmpldir = rundir 
+       , sandboxdir = dir_sb 
+       , mg5base    = dir_mg5
+       , mcrundir   = dir_mc 
+       }
+-}
+
 main :: IO () 
 main = do 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   args <- getArgs 
   when (length args /= 5) $ 
     fail "admproject_qld mgl msq msl mneut numofevent"
+  ssetup <- getScriptSetup "/home/wavewave/repo/workspace/montecarlo/working"
+                           "/home/wavewave/repo/ext/MadGraph5_v1_4_8_4/"
+                           "/home/wavewave/repo/workspace/montecarlo/mc/" 
+
+
   let mgl :: Double = read (args !! 0) 
       msq :: Double = read (args !! 1) 
       msl :: Double = read (args !! 2)
       mneut :: Double = read (args !! 3) 
       n :: Int = read (args !! 4)
+
+  let param = modelparam mgl msq msl mneut
+      mgrs = mgrunsetup 100
+
   evchainGen ADMXQLD111
-    ( "/home/wavewave/repo/workspace/montecarlo/working"
-    , "/home/wavewave/repo/ext/MadGraph5_v1_4_8_4/"
-    , "/home/wavewave/repo/workspace/montecarlo/mc/" ) 
+    ssetup 
     ("Work20130228","2sq_2l2j2x") 
-    (modelparam mgl msq msl mneut) 
+    param 
     map_2sq_2l2j2x p_2sq_2l2j2x 
-    n
+    mgrs 
+
+  let -- rsetup = mGRunSetup2RunSetup (modelparam mgl msq msl mneut) (mgrunsetup 100)
+      wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130228","2sq_2l2j2x")  mgrs 
+  phase2work wsetup 
+
+
+
+
+
+phase2work :: WorkSetup ADMXQLD111 -> IO ()
+phase2work wsetup = do 
+    r <- flip runReaderT wsetup . runErrorT $ do 
+       WS ssetup psetup rsetup _ <- ask 
+       -- let wb = mcrundir ssetup 
+       --    wn = workname psetup  
+       -- b <- liftIO $ (doesDirectoryExist (wb </> wn))
+       -- when (not b) $ createWorkDir ssetup psetup
+       cardPrepare                      
+       -- generateEvents   
+       case (lhesanitizer rsetup,usercut rsetup,pythia rsetup) of
+         (NoLHESanitize, NoUserCutDef,_) -> return ()
+         (NoLHESanitize, UserCutDef _,_) -> do 
+           runHEP2LHE       
+           runHEPEVT2STDHEP 
+           runPGS           
+           runClean         
+           updateBanner   
+         (LHESanitize pid, NoUserCutDef, RunPYTHIA) -> do 
+           sanitizeLHE
+           runPYTHIA
+           runHEP2LHE
+           runPGS           
+           runClean         
+           updateBanner   
+         (LHESanitize pid, NoUserCutDef, NoPYTHIA) -> do 
+           sanitizeLHE
+           updateBanner   
+         (LHESanitize pid, UserCutDef _,RunPYTHIA) -> do 
+           sanitizeLHE
+           runPYTHIA
+           runHEP2LHE       
+           runHEPEVT2STDHEP 
+           runPGS           
+           runClean         
+           updateBanner   
+         (LHESanitize pid, UserCutDef _,NoPYTHIA) -> do 
+           sanitizeLHE
+           updateBanner    
+       cleanHepFiles  
+    print r  
+    return ()
+
 
 
 
