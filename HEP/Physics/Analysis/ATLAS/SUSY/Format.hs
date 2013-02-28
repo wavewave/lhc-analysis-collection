@@ -6,9 +6,6 @@ import           Codec.Compression.GZip
 import           Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Maybe
-import qualified Data.Text.Lazy as T
-import           Data.Text.Lazy.Builder 
-import           Data.Text.Format 
 -- import           System.Environment
 import           System.FilePath
 import           System.IO 
