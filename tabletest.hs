@@ -11,5 +11,8 @@ main :: IO ()
 main = do 
   putStrLn "table test"
   let x = (s1 <|> s2 <|> s1)
-  print (x <-> x)
+      y = (s1 <|> s1 )
+  print (x <-> y)
+
+  print (resizeRow 3 [[Just 3]]) 
   -- putStrLn (showLaTeX ((s1 <-> s2) <|> s1))

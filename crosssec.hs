@@ -36,15 +36,15 @@ main :: IO ()
 main = do 
   putStrLn "simple cross section reading"
   cs <- runListT $ do 
-    mg <- ListT (return [1900,2000])
+    mg <- ListT (return [1900,2000] {- [200,300..2000] -})
     xs <- mapM (liftIO . xsec mg) [100,200..mg-100] 
     let combined = foldr (<|>) emptyTable xs
     return combined 
 
   let combined = foldr (<->) emptyTable cs
-  putStrLn $ showLaTeXBy (sciformat 2 . Just) combined 
+  -- putStrLn $ showLaTeXBy (sciformat 2 . Just) combined 
 
-  -- print combined 
+  print combined 
   --    t <- liftIO (xsec mg mq)
 
   -- let combined = foldr (<|>) emptyTable xs 

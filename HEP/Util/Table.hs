@@ -32,12 +32,15 @@ nothingSingletonTable :: Table a
 nothingSingletonTable = Table 1 1 [[Nothing]]
 
 
-resizeRow :: Int -> [[a]] -> [[a]] 
+resizeRow :: Int -> [[Maybe a]] -> [[Maybe a]] 
 resizeRow n xs 
   | length xs > n = take n xs 
   | length xs == n = xs 
-  | length xs < n = xs ++ replicate (n-length xs) [] 
-
+  | length xs < n && (not.null) xs = 
+      let c = length (head xs)
+          dummy = replicate c Nothing 
+      in xs ++ replicate (n-length xs) dummy  
+  | null xs = xs ++ replicate n [] 
 
 resizeCol :: Int -> [ Maybe a ] -> [ Maybe a ] 
 resizeCol n ys 
