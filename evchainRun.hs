@@ -48,11 +48,18 @@ adms = [9000201,-9000201,9000202,-9000202]
 
 sup = [1000002,-1000002] 
 
+{-
 p_2sq_2l2j2x :: DCross 
 p_2sq_2l2j2x = x (t proton, t proton, [p_sup, p_sup])
+-}
 
+{-
 p_sqsg_2l3j2x :: DCross 
 p_sqsg_2l3j2x = x (t proton, t proton, [p_sup,p_gluino]) 
+-}
+
+p_2sg_2l4j2x :: DCross
+p_2sg_2l4j2x = x (t proton, t proton, [p_gluino,p_gluino])
 
 p_gluino :: DDecay 
 p_gluino = d ([1000021], [p_sup,t jets]) 
@@ -60,14 +67,37 @@ p_gluino = d ([1000021], [p_sup,t jets])
 p_sup :: DDecay 
 p_sup = d (sup, [t leptons, t jets, t adms])
 
+idx_2sg_2l4j2x :: CrossID ProcSmplIdx
+idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x) 
+
+{-
 idx_sqsg_2l3j2x :: CrossID ProcSmplIdx 
 idx_sqsg_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_2l3j2x)
+-}
 
 {-
 idx_2sq_2l2j2x :: CrossID ProcSmplIdx
 idx_2sq_2l2j2x = mkCrossIDIdx (mkDICross p_2sq_2l2j2x)
 -}
 
+map_2sg_2l4j2x :: ProcSpecMap
+map_2sg_2l4j2x = 
+    HM.fromList [(Nothing             , "\n\
+                                        \generate p p > go go QED=0\n")
+                ,(Just (3,1000021,[]) , "\n\
+                                        \generate go > ul u~ \n\
+                                        \add process go > ul~ u \n")
+                ,(Just (4,1000021,[]) , "\n\
+                                        \generate go > ul u~ \n\
+                                        \add process go > ul~ u \n" )
+                ,(Just (1,1000002,[3]), "\ngenerate ul > d e+ sxxp~ \n")
+                ,(Just (1,-1000002,[3]),"\ngenerate ul~ > d~ e- sxxp \n")
+                ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
+                ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
+                ] 
+
+
+{-
 map_sqsg_2l3j2x :: ProcSpecMap
 map_sqsg_2l3j2x = 
     HM.fromList [(Nothing             , "\n\
@@ -81,6 +111,7 @@ map_sqsg_2l3j2x =
                 ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
                 ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
                 ] 
+-}
 
 {-
 map_2sq_2l2j2x :: ProcSpecMap
@@ -150,12 +181,12 @@ scanwork (mgl,msq,msl,mneut,n) = do
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130301_sqsg","sqsg_2l3j2x") 
+    ("Work20130301_2sg","2sg_2l4j2x") 
     param 
-    map_sqsg_2l3j2x p_sqsg_2l3j2x 
+    map_2sg_2l4j2x p_2sg_2l4j2x 
     mgrs 
 
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130301_sqsg","sqsg_2l3j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130301_2sg","2sg_2l4j2x")  mgrs 
   phase2work wsetup 
 
 
