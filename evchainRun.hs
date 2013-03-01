@@ -51,13 +51,38 @@ sup = [1000002,-1000002]
 p_2sq_2l2j2x :: DCross 
 p_2sq_2l2j2x = x (t proton, t proton, [p_sup, p_sup])
 
+p_sqsg_2l3j2x :: DCross 
+p_sqsg_2l3j2x = x (t proton, t proton, [p_sup,p_gluino]) 
+
+p_gluino :: DDecay 
+p_gluino = d ([1000021], [p_sup,t jets]) 
+
 p_sup :: DDecay 
 p_sup = d (sup, [t leptons, t jets, t adms])
 
+idx_sqsg_2l3j2x :: CrossID ProcSmplIdx 
+idx_sqsg_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_2l3j2x)
+
+{-
 idx_2sq_2l2j2x :: CrossID ProcSmplIdx
 idx_2sq_2l2j2x = mkCrossIDIdx (mkDICross p_2sq_2l2j2x)
+-}
 
+map_sqsg_2l3j2x :: ProcSpecMap
+map_sqsg_2l3j2x = 
+    HM.fromList [(Nothing             , "\n\
+                                        \generate p p > ul go QED=0\n\
+                                        \add process p p > ul~ go QED=0 \n")
+                ,(Just (3,1000002,[]) , "\ngenerate ul > d e+ sxxp~ \n")
+                ,(Just (3,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
+                ,(Just (4,1000021,[]) , "\n\
+                                        \generate go > ul u~ \n\
+                                        \add process go > ul~ u \n" )
+                ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
+                ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
+                ] 
 
+{-
 map_2sq_2l2j2x :: ProcSpecMap
 map_2sq_2l2j2x = 
     HM.fromList [(Nothing            ,"\n\
@@ -69,7 +94,7 @@ map_2sq_2l2j2x =
                 ,(Just (4,1000002,[]), "\ngenerate ul > d e+ sxxp~ \n")
                 ,(Just (4,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
                 ] 
-
+-}
 
 
 modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
@@ -93,29 +118,14 @@ mgrunsetup n =
        , mgrs_setnum  = 1
        }
 
--- |  
-{-
-getScriptSetup :: FilePath  -- ^ sandboxdir
-               -> FilePath  -- ^ mg5base 
-               -> FilePath  -- ^ mcrundir 
-               -> IO ScriptSetup
-getScriptSetup dir_sb dir_mg5 dir_mc = do 
-  mdldir <- (</> "template") <$> PModel.getDataDir
-  rundir <- (</> "template") <$> PMadGraph.getDataDir 
-  return $ 
-    SS { modeltmpldir = mdldir 
-       , runtmpldir = rundir 
-       , sandboxdir = dir_sb 
-       , mg5base    = dir_mg5
-       , mcrundir   = dir_mc 
-       }
--}
 
-worksets = [ (mgl,msq,50000,50000,10000) | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
+worksets = [ (mgl,msq,50000,50000, 100) {- 10000) -} | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
 main :: IO () 
 main = do 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
+  mapM_ scanwork worksets 
+
   -- args <- getArgs 
   -- when (length args /= 5) $ 
   --   fail "admproject_qld mgl msq msl mneut numofevent"
@@ -124,7 +134,6 @@ main = do
       msl :: Double = read (args !! 2)
       mneut :: Double = read (args !! 3) 
       n :: Int = read (args !! 4) -}
-  mapM_ scanwork worksets 
 
 
 scanwork :: (Double,Double,Double,Double,Int) -> IO () 
@@ -141,12 +150,12 @@ scanwork (mgl,msq,msl,mneut,n) = do
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130301","2sq_2l2j2x") 
+    ("Work20130301_sqsg","sqsg_2l3j2x") 
     param 
-    map_2sq_2l2j2x p_2sq_2l2j2x 
+    map_sqsg_2l3j2x p_sqsg_2l3j2x 
     mgrs 
 
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130301","2sq_2l2j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130301_sqsg","sqsg_2l3j2x")  mgrs 
   phase2work wsetup 
 
 
@@ -157,12 +166,7 @@ phase2work :: WorkSetup ADMXQLD111 -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
        WS ssetup psetup rsetup _ <- ask 
-       -- let wb = mcrundir ssetup 
-       --    wn = workname psetup  
-       -- b <- liftIO $ (doesDirectoryExist (wb </> wn))
-       -- when (not b) $ createWorkDir ssetup psetup
        cardPrepare                      
-       -- generateEvents   
        case (lhesanitizer rsetup,usercut rsetup,pythia rsetup) of
          (NoLHESanitize, NoUserCutDef,_) -> return ()
          (NoLHESanitize, UserCutDef _,_) -> do 
