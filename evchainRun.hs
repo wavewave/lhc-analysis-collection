@@ -12,6 +12,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.Traversable as T
 import qualified Data.HashMap.Lazy as HM
 import           Data.Maybe 
+import           System.Directory
 import           System.Environment
 import           System.FilePath ((</>))
 import           System.IO
@@ -110,35 +111,42 @@ getScriptSetup dir_sb dir_mg5 dir_mc = do
        }
 -}
 
+worksets = [ (mgl,msq,50000,50000,10000) | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
+
 main :: IO () 
 main = do 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  args <- getArgs 
-  when (length args /= 5) $ 
-    fail "admproject_qld mgl msq msl mneut numofevent"
-  ssetup <- getScriptSetup "/home/wavewave/repo/workspace/montecarlo/working"
-                           "/home/wavewave/repo/ext/MadGraph5_v1_4_8_4/"
-                           "/home/wavewave/repo/workspace/montecarlo/mc/" 
-
-
-  let mgl :: Double = read (args !! 0) 
+  -- args <- getArgs 
+  -- when (length args /= 5) $ 
+  --   fail "admproject_qld mgl msq msl mneut numofevent"
+  {- let mgl :: Double = read (args !! 0) 
       msq :: Double = read (args !! 1) 
       msl :: Double = read (args !! 2)
       mneut :: Double = read (args !! 3) 
-      n :: Int = read (args !! 4)
+      n :: Int = read (args !! 4) -}
+  mapM_ scanwork worksets 
+
+
+scanwork :: (Double,Double,Double,Double,Int) -> IO () 
+scanwork (mgl,msq,msl,mneut,n) = do
+  homedir <- getHomeDirectory 
+  ssetup <- getScriptSetup (homedir </> "repo/workspace/montecarlo/working")
+                           (homedir </> "repo/ext/MadGraph5_v1_4_8_4/")
+                           (homedir </> "repo/workspace/montecarlo/mc/")
+
+
 
   let param = modelparam mgl msq msl mneut
-      mgrs = mgrunsetup 100
+      mgrs = mgrunsetup n
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130228","2sq_2l2j2x") 
+    ("Work20130301","2sq_2l2j2x") 
     param 
     map_2sq_2l2j2x p_2sq_2l2j2x 
     mgrs 
 
-  let -- rsetup = mGRunSetup2RunSetup (modelparam mgl msq msl mneut) (mgrunsetup 100)
-      wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130228","2sq_2l2j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130301","2sq_2l2j2x")  mgrs 
   phase2work wsetup 
 
 

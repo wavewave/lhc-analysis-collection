@@ -12,11 +12,11 @@ import HEP.Util.Table
 
 -- testdir = "/Users/iankim/repo/workspace/montecarlo/mc/Test28_20130227_ADMXQLD111" 
 
-testdir = "/Users/iankim/repo/workspace/montecarlo/mc/Test29_20130227_ADMXQLD111" 
+testdir = "/Users/iankim/repo/workspace/montecarlo/mc/Test30_20130227_ADMXQLD111" 
 
 workname :: Double -> Double -> String 
-workname mg mq = "ADMXQLD111MG" ++ show mg ++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_supgluino_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1"
--- workname mg mq = "ADMXQLD111MG" ++ show mg ++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_suppair_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1"
+workname mg mq = "ADMXQLD111MG" ++ show mg ++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_gluinopair_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1"
+-- workname mg mq = "ADMXQLD111MG" ++ show mg ++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_gluinopair_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1"
 
 lhegzname :: Double -> Double -> String 
 lhegzname mg mq = workname mg mq ++ "_unweighted_events.lhe.gz"  
