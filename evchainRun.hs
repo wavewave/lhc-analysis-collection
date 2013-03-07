@@ -25,8 +25,9 @@ import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.UserCut
 -- 
+import HEP.Automation.EventChain.Driver 
+import HEP.Automation.EventChain.File
 import HEP.Automation.EventChain.LHEConn
-import HEP.Automation.EventChain.FileDriver
 import HEP.Automation.EventChain.Type.Skeleton
 import HEP.Automation.EventChain.Type.Spec
 import HEP.Automation.EventChain.Type.Process
@@ -34,7 +35,6 @@ import HEP.Automation.EventChain.SpecDSL
 import HEP.Automation.EventChain.Simulator 
 import HEP.Automation.EventChain.Process
 import HEP.Automation.EventChain.Process.Generator
-import HEP.Automation.EventChain.Main 
 -- 
 import qualified Paths_madgraph_auto as PMadGraph 
 import qualified Paths_madgraph_auto_model as PModel 
@@ -150,7 +150,7 @@ mgrunsetup n =
        }
 
 
-worksets = [ (mgl,msq,50000,50000, 100) {- 10000) -} | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
+worksets = take 1 $ [ (mgl,msq,50000,50000, 100) {- 10000) -} | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
 main :: IO () 
 main = do 
