@@ -18,7 +18,7 @@ import           System.FilePath ((</>))
 import           System.IO
 import           System.Log.Logger
 -- 
-import HEP.Parser.LHEParser.Type
+import HEP.Parser.LHE.Type
 import HEP.Automation.MadGraph.Model.ADMXQLD111
 import HEP.Automation.MadGraph.Machine
 import HEP.Automation.MadGraph.Run
@@ -48,15 +48,11 @@ adms = [9000201,-9000201,9000202,-9000202]
 
 sup = [1000002,-1000002] 
 
-{-
 p_2sq_2l2j2x :: DCross 
 p_2sq_2l2j2x = x (t proton, t proton, [p_sup, p_sup])
--}
 
-{-
 p_sqsg_2l3j2x :: DCross 
 p_sqsg_2l3j2x = x (t proton, t proton, [p_sup,p_gluino]) 
--}
 
 p_2sg_2l4j2x :: DCross
 p_2sg_2l4j2x = x (t proton, t proton, [p_gluino,p_gluino])
@@ -70,15 +66,14 @@ p_sup = d (sup, [t leptons, t jets, t adms])
 idx_2sg_2l4j2x :: CrossID ProcSmplIdx
 idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x) 
 
-{-
+
 idx_sqsg_2l3j2x :: CrossID ProcSmplIdx 
 idx_sqsg_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_2l3j2x)
--}
 
-{-
+
 idx_2sq_2l2j2x :: CrossID ProcSmplIdx
 idx_2sq_2l2j2x = mkCrossIDIdx (mkDICross p_2sq_2l2j2x)
--}
+
 
 map_2sg_2l4j2x :: ProcSpecMap
 map_2sg_2l4j2x = 
@@ -97,7 +92,7 @@ map_2sg_2l4j2x =
                 ] 
 
 
-{-
+
 map_sqsg_2l3j2x :: ProcSpecMap
 map_sqsg_2l3j2x = 
     HM.fromList [(Nothing             , "\n\
@@ -111,9 +106,9 @@ map_sqsg_2l3j2x =
                 ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
                 ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
                 ] 
--}
 
-{-
+
+
 map_2sq_2l2j2x :: ProcSpecMap
 map_2sq_2l2j2x = 
     HM.fromList [(Nothing            ,"\n\
@@ -125,7 +120,7 @@ map_2sq_2l2j2x =
                 ,(Just (4,1000002,[]), "\ngenerate ul > d e+ sxxp~ \n")
                 ,(Just (4,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
                 ] 
--}
+
 
 
 modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
@@ -139,7 +134,7 @@ mgrunsetup n =
        , mgrs_rgscale = 200.0
        , mgrs_match   = NoMatch
        , mgrs_cut     = NoCut 
-       , mgrs_pythia  = RunPYTHIA -- NoPYTHIA
+       , mgrs_pythia  = RunPYTHIA 
        , mgrs_usercut = NoUserCutDef 
        , mgrs_lhesanitizer = -- NoLHESanitize 
                              LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
@@ -157,14 +152,6 @@ main = do
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   mapM_ scanwork worksets 
 
-  -- args <- getArgs 
-  -- when (length args /= 5) $ 
-  --   fail "admproject_qld mgl msq msl mneut numofevent"
-  {- let mgl :: Double = read (args !! 0) 
-      msq :: Double = read (args !! 1) 
-      msl :: Double = read (args !! 2)
-      mneut :: Double = read (args !! 3) 
-      n :: Int = read (args !! 4) -}
 
 
 scanwork :: (Double,Double,Double,Double,Int) -> IO () 
@@ -181,12 +168,13 @@ scanwork (mgl,msq,msl,mneut,n) = do
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130301_2sg","2sg_2l4j2x") 
+    ("Work20130307_sqsg","sqsg_2l3j2x") 
     param 
-    map_2sg_2l4j2x p_2sg_2l4j2x 
+    -- map_2sg_2l4j2x p_2sg_2l4j2x 
+    map_sqsg_2l3j2x p_sqsg_2l3j2x 
     mgrs 
 
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130301_2sg","2sg_2l4j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130307_sqsg","sqsg_2l3j2x")  mgrs 
   phase2work wsetup 
 
 
@@ -234,16 +222,3 @@ phase2work wsetup = do
 
 
 
-{-
-p_multijet :: DCross  
-p_multijet = x (t proton,t proton, [p_go, p_go]) 
-
-p_go :: DDecay 
-p_go = d ([1000021], [ {- t [1000022] -} p_neut, t jets, t jets]) 
-
-p_neut :: DDecay 
-p_neut = d ([1000022], [t adms, t jets, t jets, t leptons])
-
-idx_multijet :: CrossID ProcSmplIdx
-idx_multijet = mkCrossIDIdx (mkDICross p_multijet )
--}
