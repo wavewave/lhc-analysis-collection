@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards, GADTs #-}
 
-module HEP.Physics.Analysis.ATLAS.SUSY where
+module HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton where
 
 import Codec.Compression.GZip
 import Control.Applicative

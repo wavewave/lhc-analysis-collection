@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards, GADTs #-}
 
-module HEP.Physics.Analysis.ATLAS.SUSY.Format where
+module HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint where
 
 import           Codec.Compression.GZip
 import           Control.Monad
@@ -14,25 +14,12 @@ import           Text.Hastache.Context
 -- 
 import           HEP.Parser.LHCOAnalysis.Parse
 -- 
-import           HEP.Physics.Analysis.ATLAS.SUSY
+import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
 import           HEP.Util.Format
 -- 
 import Debug.Trace
 
 
-{-
-filelist = 
-  [ ( 1000, 400, 3.67e-3
-    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ400.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
-  , ( 1000, 500, 3.67e-3
-    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ500.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
-  , ( 1000, 600, 3.67e-3
-    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ600.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
-  , ( 1000, 700, 3.67e-3
-    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ700.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz" )
-  , ( 1000, 800, 3.67e-3
-    , "data20130222/ADMXQLD211MST50000.0MG1000.0MSQ800.0_gluinopair_stopdecayfull_LHC7ATLAS_NoMatch_NoCut_Cone0.4_Set1_pgs_events.lhco.gz") ] 
--}
 
 header = 
  " \\begin{tabular}{cccccccc} \n \
@@ -55,20 +42,10 @@ normalize xsec totnum x =
   if x /= 0 then Just (xsec*4.7e3/(fromIntegral totnum)*(fromIntegral x)) else Nothing 
 
 
-{-  
-main = do 
-  h <- openFile "output.dat" WriteMode 
-  mapM_ (analysis h) filelist
-  hClose h 
--}
 
 analysis :: Handle -> (Double,Double,Double,FilePath) -> IO ()
 analysis h (mgluino,msquark,xsec,fn) = do 
   putStrLn "atlas counting"
-  -- args <- getArgs
-  -- when (length args /= 1) $ error "./parsertest filename"
-  -- let fn = args !! 0 
-  --     basename = takeBaseName fn 
  
   bstr <- LB.readFile fn 
   let unzipped = decompress bstr 

@@ -71,8 +71,8 @@ Library
                    
   Exposed-Modules: 
                    HEP.Parser.XSec
-                   HEP.Physics.Analysis.ATLAS.SUSY
-                   HEP.Physics.Analysis.ATLAS.SUSY.Format
+                   HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
+                   HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
                    HEP.Util.Format
                    HEP.Util.Table 
 
