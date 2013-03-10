@@ -15,6 +15,8 @@ import System.Environment
 import HEP.Parser.LHCOAnalysis.PhysObj
 import HEP.Parser.LHCOAnalysis.Parse
 -- 
+import HEP.Physics.Analysis.ATLAS.Common 
+-- 
 import Debug.Trace
 
 
@@ -23,26 +25,6 @@ data LeptonType = HardLepton | SoftLepton
                 deriving Show 
 
 
-tau2Jet :: PhyObj Tau -> PhyObj Jet
-tau2Jet (ObjTau x _ _) = ObjJet x 1.77 1
-
-bJet2Jet :: PhyObj BJet -> PhyObj Jet
-bJet2Jet (ObjBJet x m n) = ObjJet x m n
-
-taubjetMerge :: PhyEventClassified -> PhyEventClassified
-taubjetMerge PhyEventClassified {..} = 
-  PhyEventClassified { eventid = eventid 
-                     , photonlst = photonlst
-                     , electronlst = electronlst
-                     , muonlst = muonlst
-                     , taulst = [] 
-                     , jetlst = -- sortBy (compare `on`  trd3 . etaphiptjet . snd)
-                                ptordering
-                                ( jetlst 
-                                  ++ map ((,) <$> fst <*> tau2Jet.snd) taulst 
-                                  ++ map ((,) <$> fst <*> bJet2Jet.snd) bjetlst )
-                     , bjetlst = []
-                     , met = met }
 
 canBePreselected :: LeptonType -> PhyObj a -> Bool 
 canBePreselected _ (ObjPhoton _) = False
@@ -71,26 +53,6 @@ preselect typ PhyEventClassified {..} =
                      , met = met }
  
 
-
-mt :: (Double,Double) -> (Double,Double) -> Double
-mt (pt1x,pt1y) (pt2x,pt2y) = sqrt (2.0*pt1*pt2-2.0*pt1x*pt2x-2.0*pt1y*pt2y) 
-  where pt1 = sqrt (pt1x*pt1x+pt1y*pt1y)
-        pt2 = sqrt (pt2x*pt2x+pt2y*pt2y)
-        -- cosph = (pt1x*pt2x + pt1y*pt2y)/
-
-meffinc :: PhyEventClassified -> Double 
-meffinc PhyEventClassified {..} = 
-  (sum . map (trd3.etaphiptelectron.snd)) electronlst 
-  + (sum . map (trd3.etaphiptmuon.snd)) muonlst
-  + (sum . map (trd3.etaphipt.snd)) jetlst 
-  + (snd.phiptmet) met
-
-meff :: PhyEventClassified -> Double
-meff PhyEventClassified {..} = 
-  (sum . map (trd3.etaphiptelectron.snd)) electronlst 
-  + (sum . map (trd3.etaphiptmuon.snd)) muonlst
-  + (sum . map (trd3.etaphipt.snd)) (take 4 jetlst) 
-  + (snd.phiptmet) met
 
 
 data JetType = ThreeJets | FourJets
@@ -159,7 +121,7 @@ metcheck (SingleLeptonEvent (HardLeptonEvent ThreeJets)) l ev
          let lpxpy = (pxpyFromPhiPT  . ((,)<$>phi<*>pt)) l
              mpxpy = (pxpyFromPhiPT . phiptmet)  missing
              mtvalue = mt lpxpy mpxpy 
-             meffvalue = meff ev
+             meffvalue = meff4 ev
              meffincvalue = meffinc ev
          -- trace (show (eventid ev) ++ ":  " ++ show etmiss ++ "    " ++ show mtvalue ++ "    " ++ show meffvalue) $
          guard (etmiss > 250) 
@@ -173,7 +135,7 @@ metcheck (SingleLeptonEvent (HardLeptonEvent FourJets)) l ev
          let lpxpy = (pxpyFromPhiPT  . ((,)<$>phi<*>pt)) l
              mpxpy = (pxpyFromPhiPT . phiptmet)  missing
              mtvalue = mt lpxpy mpxpy 
-             meffvalue = meff ev
+             meffvalue = meff4 ev
              meffincvalue = meffinc ev
          guard (mtvalue > 100 ) 
          guard (etmiss / meffvalue > 0.2 )
@@ -190,7 +152,7 @@ metcheck (SingleLeptonEvent SoftLeptonEvent) l ev
          let lpxpy = (pxpyFromPhiPT  . ((,)<$>phi<*>pt)) l
              mpxpy = (pxpyFromPhiPT . phiptmet)  missing
              mtvalue = mt lpxpy mpxpy 
-             meffvalue = meff ev
+             meffvalue = meff4 ev
          guard (mtvalue > 100 ) 
          guard (etmiss / meffvalue > 0.3 )
 metcheck (MultiLeptonEvent M2Jet) l ev 
@@ -200,7 +162,7 @@ metcheck (MultiLeptonEvent M2Jet) l ev
 metcheck (MultiLeptonEvent M4Jet) l ev 
     = do let missing = met ev
              etmiss = (snd.phiptmet) missing
-             meffvalue = meff ev
+             meffvalue = meff4 ev
              meffincvalue = meffinc ev
          guard (etmiss > 100)
          guard (etmiss / meffvalue > 0.2 )

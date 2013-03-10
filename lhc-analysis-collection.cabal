@@ -51,9 +51,9 @@ Library
                    LHEParser >= 0.2.999,
                    HEPUtil, 
                    xml-types,
-                   conduit >= 0.5 && < 1,
-                   conduit-util >= 0.2.0.999,
-                   zlib-conduit >= 0.5,
+                   conduit > 1,
+                   conduit-util >= 0.2.999,
+                   zlib-conduit >= 1,
                    xml-conduit >= 1.0, 
                    vector, 
                    hmatrix, 
@@ -67,10 +67,14 @@ Library
                    unix,
                    containers >= 0.4, 
                    pureMD5 >= 2.1, 
-                   zlib >= 0.5
+                   zlib >= 0.5, 
+                   indexed-extras, 
+                   indexed 
                    
   Exposed-Modules: 
                    HEP.Parser.XSec
+                   HEP.Physics.Analysis.ATLAS.Common 
+                   HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
                    HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
                    HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
                    HEP.Util.Format

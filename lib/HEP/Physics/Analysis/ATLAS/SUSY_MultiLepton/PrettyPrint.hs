@@ -14,6 +14,7 @@ import           Text.Hastache.Context
 -- 
 import           HEP.Parser.LHCOAnalysis.Parse
 -- 
+import           HEP.Physics.Analysis.ATLAS.Common
 import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
 import           HEP.Util.Format
 -- 

@@ -145,7 +145,9 @@ mgrunsetup n =
        }
 
 
-worksets = take 1 $ [ (mgl,msq,50000,50000, 100) {- 10000) -} | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
+worksets = take 1 $ [ (mgl,msq,50000,50000, 100) {- 10000) -} | mgl <- [2000], msq <- [1500] ] 
+
+--  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
 main :: IO () 
 main = do 
@@ -168,13 +170,13 @@ scanwork (mgl,msq,msl,mneut,n) = do
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130307_sqsg","sqsg_2l3j2x") 
+    ("Work20130310_sqsg","sqsg_2l3j2x") 
     param 
     -- map_2sg_2l4j2x p_2sg_2l4j2x 
     map_sqsg_2l3j2x p_sqsg_2l3j2x 
     mgrs 
 
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130307_sqsg","sqsg_2l3j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130310_sqsg","sqsg_2l3j2x")  mgrs 
   phase2work wsetup 
 
 
