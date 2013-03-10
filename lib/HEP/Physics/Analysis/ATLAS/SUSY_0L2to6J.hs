@@ -307,7 +307,8 @@ signalRegion condt condm condl =
         medium = condm v 
         loose  = condl v 
         flag = (tight,medium,loose)
-    in iguard (flag /= (False,False,False) ) >>> ireturn flag
+    in ireturn flag 
+    -- iguard (flag /= (False,False,False) ) >>> ireturn flag
 
 
 
