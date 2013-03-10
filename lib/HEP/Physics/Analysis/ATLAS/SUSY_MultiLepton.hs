@@ -25,6 +25,25 @@ data LeptonType = HardLepton | SoftLepton
                 deriving Show 
 
 
+-- | inclusive effective mass 
+meffinc :: PhyEventClassified -> Double 
+meffinc PhyEventClassified {..} = 
+  (sum . map (trd3.etaphiptelectron.snd)) electronlst 
+  + (sum . map (trd3.etaphiptmuon.snd)) muonlst
+  + (sum . map (trd3.etaphipt.snd)) jetlst 
+  + (snd.phiptmet) met
+
+-- | effective mass up to 4 leading jets
+meff4 :: PhyEventClassified -> Double
+meff4 PhyEventClassified {..}  = 
+  (sum . map (trd3.etaphiptelectron.snd)) electronlst 
+  + (sum . map (trd3.etaphiptmuon.snd)) muonlst
+  + (sum . map (trd3.etaphipt.snd)) (take 4 jetlst) 
+  + (snd.phiptmet) met
+
+
+
+
 
 canBePreselected :: LeptonType -> PhyObj a -> Bool 
 canBePreselected _ (ObjPhoton _) = False
