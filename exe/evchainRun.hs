@@ -23,7 +23,6 @@ import HEP.Automation.MadGraph.Model.ADMXQLD111
 import HEP.Automation.MadGraph.Machine
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
-import HEP.Automation.MadGraph.UserCut
 -- 
 import HEP.Automation.EventChain.Driver 
 import HEP.Automation.EventChain.File
@@ -135,17 +134,17 @@ mgrunsetup n =
        , mgrs_match   = NoMatch
        , mgrs_cut     = NoCut 
        , mgrs_pythia  = RunPYTHIA 
-       , mgrs_usercut = NoUserCutDef 
+       -- , mgrs_usercut = NoUserCutDef 
        , mgrs_lhesanitizer = -- NoLHESanitize 
                              LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
        , mgrs_pgs     = RunPGS
-       , mgrs_jetalgo = Cone 0.4
+       , mgrs_jetalgo = (AntiKTJet 0.4,NoTau) 
        , mgrs_uploadhep = NoUploadHEP
        , mgrs_setnum  = 1
        }
 
 
-worksets = take 1 $ [ (mgl,msq,50000,50000, 10000) {- 100) -} | mgl <- [2000], msq <- [1500] ] 
+worksets = take 1 $ [ (mgl,msq,50000,50000, 100) {- 100) -} | mgl <- [2000], msq <- [1500] ] 
 
 --  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
@@ -153,6 +152,25 @@ main :: IO ()
 main = do 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   mapM_ scanwork worksets 
+
+
+ 
+-- |  
+getScriptSetup :: FilePath  -- ^ sandbox directory 
+               -> FilePath  -- ^ mg5base 
+               -> FilePath  -- ^ main montecarlo run 
+               -> IO ScriptSetup
+getScriptSetup dir_sb dir_mg5 dir_mc = do 
+  dir_mdl <- (</> "template") <$> PModel.getDataDir
+  dir_tmpl <- (</> "template") <$> PMadGraph.getDataDir 
+  return $ 
+    SS { modeltmpldir = dir_mdl
+       , runtmpldir = dir_tmpl 
+       , sandboxdir = dir_sb 
+       , mg5base    = dir_mg5
+       , mcrundir   = dir_mc 
+       }
+
 
 
 
@@ -170,13 +188,13 @@ scanwork (mgl,msq,msl,mneut,n) = do
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130310_sqsg","sqsg_2l3j2x") 
+    ("Work20130311_4_sqsg","sqsg_2l3j2x") 
     param 
     -- map_2sg_2l4j2x p_2sg_2l4j2x 
     map_sqsg_2l3j2x p_sqsg_2l3j2x 
     mgrs 
 
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130310_sqsg","sqsg_2l3j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130311_4_sqsg","sqsg_2l3j2x")  mgrs 
   phase2work wsetup 
 
 
@@ -188,35 +206,18 @@ phase2work wsetup = do
     r <- flip runReaderT wsetup . runErrorT $ do 
        WS ssetup psetup rsetup _ <- ask 
        cardPrepare                      
-       case (lhesanitizer rsetup,usercut rsetup,pythia rsetup) of
-         (NoLHESanitize, NoUserCutDef,_) -> return ()
-         (NoLHESanitize, UserCutDef _,_) -> do 
-           runHEP2LHE       
-           runHEPEVT2STDHEP 
-           runPGS           
-           runClean         
-           updateBanner   
-         (LHESanitize pid, NoUserCutDef, RunPYTHIA) -> do 
+       case (lhesanitizer rsetup,pythia rsetup) of
+         (NoLHESanitize,_) -> return ()
+         (LHESanitize pid, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA
            runHEP2LHE
            runPGS           
            runClean         
-           updateBanner   
-         (LHESanitize pid, NoUserCutDef, NoPYTHIA) -> do 
+           -- updateBanner   
+         (LHESanitize pid, NoPYTHIA) -> do 
            sanitizeLHE
-           updateBanner   
-         (LHESanitize pid, UserCutDef _,RunPYTHIA) -> do 
-           sanitizeLHE
-           runPYTHIA
-           runHEP2LHE       
-           runHEPEVT2STDHEP 
-           runPGS           
-           runClean         
-           updateBanner   
-         (LHESanitize pid, UserCutDef _,NoPYTHIA) -> do 
-           sanitizeLHE
-           updateBanner    
+           -- updateBanner   
        cleanHepFiles  
     print r  
     return ()
