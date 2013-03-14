@@ -11,10 +11,8 @@ import System.Directory
 import System.Log.Logger
 -- 
 import HEP.Automation.MadGraph.Model
--- import HEP.Automation.MadGraph.Model.SM
 import HEP.Automation.MadGraph.Model.ADMXQLD211
 import HEP.Automation.MadGraph.Machine
-import HEP.Automation.MadGraph.UserCut
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Run
 import HEP.Storage.WebDAV
@@ -50,7 +48,7 @@ processSetup = PS {
     -- "\ngenerate P P > t t~ \n" -- 
   , processBrief = "gluinopair_stopdecayfull" 
     -- "ttbar" -- 
-  , workname   = "Test22_20130221_ADMXQLD211"
+  , workname   = "Test22_20130314_ADMXQLD211"
   }
 
 -- | 
@@ -78,39 +76,27 @@ psets = [ ADMXQLD211Param { mstop = 50000, mgluino = x, msquark = y }
 
 -- [100,200..1600] ]
 
--- | 
-ucut :: UserCut 
-ucut = UserCut { 
-    uc_metcut = 15.0
-  , uc_etacutlep = 2.7
-  , uc_etcutlep = 18.0 
-  , uc_etacutjet = 2.7
-  , uc_etcutjet = 15.0 
-}
 
 -- | 
-rsetup p = RS { param = p
-            , numevent = 10000
+rsetup = RS { numevent = 10000
             , machine = LHC7 ATLAS
             , rgrun   = Auto -- Fixed
             , rgscale = 200.0
             , match   = NoMatch
             , cut     = NoCut 
             , pythia  = RunPYTHIA
-            , usercut = NoUserCutDef 
             , lhesanitizer = -- NoLHESanitize
                              LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
                              -- LHESanitize (Elim [9000201]) 
-            , pgs     = RunPGS
-            , jetalgo = Cone 0.4
+            , pgs     = RunPGS (Cone 0.4, WithTau)
             , uploadhep = NoUploadHEP
             , setnum  = 1
             }
 
 -- | 
 getWSetup :: [IO (WorkSetup ADMXQLD211)]
-getWSetup = [ WS <$> getScriptSetup <*> pure processSetup <*> pure (rsetup p) 
-                 <*> pure (CS NoParallel) 
+getWSetup = [ WS <$> getScriptSetup <*> pure processSetup <*> pure p 
+                 <*> pure rsetup  
                  <*> pure (WebDAVRemoteDir "") | p <- psets ]
 
 main = do 
@@ -122,44 +108,25 @@ main = do
 -- work p  -- :: IO ()
 work wsetup = do -- wsetup <- getWSetup 
             r <- flip runReaderT wsetup . runErrorT $ do 
-                 WS ssetup psetup rsetup _ _ <- ask 
-
-                 
+                 WS ssetup psetup param rsetup _ <- ask 
                  let wb = mcrundir ssetup 
                      wn = workname psetup  
                  b <- liftIO $ (doesDirectoryExist (wb </> wn))
                  when (not b) $ createWorkDir ssetup psetup
                  cardPrepare                      
                  generateEvents   
-                 case (lhesanitizer rsetup,usercut rsetup,pythia rsetup) of
-                   (NoLHESanitize, NoUserCutDef,_) -> return ()
-                   (NoLHESanitize, UserCutDef _,_) -> do 
-                     runHEP2LHE       
-                     runHEPEVT2STDHEP 
-                     runPGS           
-                     runClean         
-                     updateBanner   
-                   (LHESanitize pid, NoUserCutDef, RunPYTHIA) -> do 
+                 case (lhesanitizer rsetup,pythia rsetup) of
+                   (NoLHESanitize, _) -> return ()
+                   (LHESanitize pid, RunPYTHIA) -> do 
                      sanitizeLHE
                      runPYTHIA
                      runHEP2LHE
                      runPGS           
                      runClean         
-                     updateBanner   
-                   (LHESanitize pid, NoUserCutDef, NoPYTHIA) -> do 
+                     -- updateBanner   
+                   (LHESanitize pid, NoPYTHIA) -> do 
                      sanitizeLHE
-                     updateBanner   
-                   (LHESanitize pid, UserCutDef _,RunPYTHIA) -> do 
-                     sanitizeLHE
-                     runPYTHIA
-                     runHEP2LHE       
-                     runHEPEVT2STDHEP 
-                     runPGS           
-                     runClean         
-                     updateBanner   
-                   (LHESanitize pid, UserCutDef _,NoPYTHIA) -> do 
-                     sanitizeLHE
-                     updateBanner    
+                     -- updateBanner   
                  cleanHepFiles  
             print r  
             return ()
