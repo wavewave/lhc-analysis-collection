@@ -125,26 +125,24 @@ map_2sq_2l2j2x =
 modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
 
 -- | 
-mgrunsetup :: Int -> MGRunSetup
+mgrunsetup :: Int -> RunSetup
 mgrunsetup n = 
-  MGRS { mgrs_numevent = n
-       , mgrs_machine = LHC7 ATLAS
-       , mgrs_rgrun   = Auto
-       , mgrs_rgscale = 200.0
-       , mgrs_match   = NoMatch
-       , mgrs_cut     = NoCut 
-       , mgrs_pythia  = RunPYTHIA 
-       -- , mgrs_usercut = NoUserCutDef 
-       , mgrs_lhesanitizer = -- NoLHESanitize 
+  RS { numevent = n
+     , machine = LHC7 ATLAS
+     , rgrun   = Auto
+     , rgscale = 200.0
+     , match   = NoMatch
+     , cut     = NoCut 
+     , pythia  = RunPYTHIA 
+     , lhesanitizer = -- NoLHESanitize 
                              LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
-       , mgrs_pgs     = RunPGS
-       , mgrs_jetalgo = (AntiKTJet 0.4,NoTau) 
-       , mgrs_uploadhep = NoUploadHEP
-       , mgrs_setnum  = 1
-       }
+     , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
+     , uploadhep = NoUploadHEP
+     , setnum  = 1
+     }
 
 
-worksets = take 1 $ [ (mgl,msq,50000,50000, 100) {- 100) -} | mgl <- [2000], msq <- [1500] ] 
+worksets = take 1 [ (mgl,msq,50000,50000, 100) | mgl <- [2000], msq <- [1500] ] 
 
 --  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
@@ -204,7 +202,9 @@ scanwork (mgl,msq,msl,mneut,n) = do
 phase2work :: WorkSetup ADMXQLD111 -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
-       WS ssetup psetup rsetup _ <- ask 
+       ws <- ask 
+       let (ssetup,psetup,param,rsetup) = 
+             ((,,,) <$> ws_ssetup <*> ws_psetup <*> ws_param <*> ws_rsetup) ws 
        cardPrepare                      
        case (lhesanitizer rsetup,pythia rsetup) of
          (NoLHESanitize,_) -> return ()
