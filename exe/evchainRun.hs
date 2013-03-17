@@ -76,20 +76,17 @@ idx_2sq_2l2j2x = mkCrossIDIdx (mkDICross p_2sq_2l2j2x)
 
 map_2sg_2l4j2x :: ProcSpecMap
 map_2sg_2l4j2x = 
-    HM.fromList [(Nothing             , "\n\
-                                        \generate p p > go go QED=0\n")
-                ,(Just (3,1000021,[]) , "\n\
-                                        \generate go > ul u~ \n\
-                                        \add process go > ul~ u \n")
-                ,(Just (4,1000021,[]) , "\n\
-                                        \generate go > ul u~ \n\
-                                        \add process go > ul~ u \n" )
-                ,(Just (1,1000002,[3]), "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (1,-1000002,[3]),"\ngenerate ul~ > d~ e- sxxp \n")
-                ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
+    HM.fromList [(Nothing             , ["p p > go go QED=0"])
+                ,(Just (3,1000021,[]) , ["go > ul u~"
+                                        ,"go > ul~ u "])
+                ,(Just (4,1000021,[]) , ["go > ul u~ "
+                                        ,"go > ul~ u "])
+                ,(Just (1,1000002,[3]), ["ul > d e+ sxxp~ "])
+                ,(Just (1,-1000002,[3]),["ul~ > d~ e- sxxp "])
+                ,(Just (1,1000002,[4]), ["ul > d e+ sxxp~ "])
+                ,(Just (1,-1000002,[4]),["ul~ > d~ e- sxxp "])
                 ] 
-
+{-
 
 
 map_sqsg_2l3j2x :: ProcSpecMap
@@ -120,7 +117,7 @@ map_2sq_2l2j2x =
                 ,(Just (4,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
                 ] 
 
-
+-}
 
 modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
 
@@ -186,13 +183,13 @@ scanwork (mgl,msq,msl,mneut,n) = do
 
   evchainGen ADMXQLD111
     ssetup 
-    ("Work20130311_4_sqsg","sqsg_2l3j2x") 
+    ("Work20130317_4_2sg","2sg_2l4j2x") 
     param 
-    -- map_2sg_2l4j2x p_2sg_2l4j2x 
-    map_sqsg_2l3j2x p_sqsg_2l3j2x 
+    map_2sg_2l4j2x p_2sg_2l4j2x 
+    -- map_sqsg_2l3j2x p_sqsg_2l3j2x 
     mgrs 
 
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130311_4_sqsg","sqsg_2l3j2x")  mgrs 
+  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130317_4_2sg","2sg_2l4j2x")  mgrs 
   phase2work wsetup 
 
 
@@ -211,7 +208,7 @@ phase2work wsetup = do
          (LHESanitize pid, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA
-           runHEP2LHE
+           -- runHEP2LHE
            runPGS           
            runClean         
            -- updateBanner   
