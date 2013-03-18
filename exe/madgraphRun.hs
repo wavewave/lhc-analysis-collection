@@ -11,7 +11,7 @@ import System.Directory
 import System.Log.Logger
 -- 
 import HEP.Automation.MadGraph.Model
-import HEP.Automation.MadGraph.Model.ADMXQLD211
+import HEP.Automation.MadGraph.Model.SM
 import HEP.Automation.MadGraph.Machine
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Run
@@ -35,80 +35,54 @@ getScriptSetup = do
        }
 
 -- | 
-processSetup :: ProcessSetup ADMXQLD211
+processSetup :: ProcessSetup SM
 processSetup = PS {  
-    model = ADMXQLD211
-  , process = "\n\
- \generate p p > go go / ul dl sl cl ur dr sr cr QED=0, (go > c~ cl, cl > d e+ sxxp~) , (go > c~ cl, cl > d e+ sxxp~ ) \n\
- \add process p p > go go / ul dl sl cl ur dr sr cr QED=0, (go > c~ cl, cl > d e+ sxxp~) , (go > c cl~, cl~ > d~ e- sxxp ) \n\
- \add process p p > go go / ul dl sl cl ur dr sr cr QED=0, (go > c cl~, cl~ > d~ e- sxxp) , (go > c~ cl, cl > d e+ sxxp~ ) \n\
- \add process p p > go go / ul dl sl cl ur dr sr cr QED=0, (go > c cl~, cl~ > d~ e- sxxp) , (go > c cl~, cl~ > d~ e- sxxp ) \n"
+    model = SM
+  , process = [ "p p > a QCD=99 QED=2 @0 " 
+              , "p p > a j QCD=99 QED=2 @1 " ]
+  , processBrief = "ajet"
 
-    -- "\ngenerate P P > t1 t1~ QED=0, t1 > d e+ sxxp~ , t1~ > d~ e- sxxp \n"
-    -- "\ngenerate P P > t t~ \n" -- 
-  , processBrief = "gluinopair_stopdecayfull" 
-    -- "ttbar" -- 
-  , workname   = "Test22_20130314_ADMXQLD211"
+  , workname   = "ajet"
   }
 
 -- | 
-psets :: [ModelParam ADMXQLD211]
-psets = [ ADMXQLD211Param { mstop = 50000, mgluino = x, msquark = y }
-        | (x,y) 
-            <- [(300,100)
-               ,(400,100),(400,200)
-               ,(500,100),(500,200),(500,300)
-               ,(600,100),(600,200),(600,300),(600,400)
-               ,(700,100),(700,200),(700,300),(700,400),(700,500)
-               ,(800,100),(800,200),(800,300),(800,400),(800,500),(800,600)
-               ,(900,100),(900,200),(900,300),(900,400),(900,500),(900,600),(900,700)
-               ,(1000,100),(1000,200),(1000,300),(1000,400),(1000,500),(1000,600),(1000,700),(1000,800) ] ] 
-
-
--- [200,300,400] ] 
-
--- x <- [100,500,1000,1500] ]
-
--- [500,1000] ] 
--- [1500] ] 
--- [100] ] 
--- [600,700,800] ]
-
--- [100,200..1600] ]
-
+pset :: ModelParam SM
+pset = SMParam 
 
 -- | 
 rsetup = RS { numevent = 10000
             , machine = LHC7 ATLAS
             , rgrun   = Auto -- Fixed
             , rgscale = 200.0
-            , match   = NoMatch
-            , cut     = NoCut 
+            , match   = MLM -- NoMatch
+            , cut     = DefCut 
             , pythia  = RunPYTHIA
-            , lhesanitizer = -- NoLHESanitize
-                             LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
-                             -- LHESanitize (Elim [9000201]) 
-            , pgs     = RunPGS (Cone 0.4, WithTau)
+            , lhesanitizer = NoLHESanitize
+            , pgs     = NoPGS -- RunPGS (Cone 0.4, WithTau)
             , uploadhep = NoUploadHEP
             , setnum  = 1
             }
 
 -- | 
-getWSetup :: [IO (WorkSetup ADMXQLD211)]
-getWSetup = [ WS <$> getScriptSetup <*> pure processSetup <*> pure p 
-                 <*> pure rsetup  
-                 <*> pure (WebDAVRemoteDir "") | p <- psets ]
+getWSetup :: IO (WorkSetup SM)
+getWSetup = WS <$> getScriptSetup 
+               <*> pure processSetup 
+               <*> pure pset 
+               <*> pure rsetup  
+               <*> pure (WebDAVRemoteDir "") 
 
 main = do 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-
-  mapM_ work =<< sequence getWSetup 
+  wsetup <- getWSetup 
+  print wsetup
+  work wsetup 
 
 -- | 
 -- work p  -- :: IO ()
 work wsetup = do -- wsetup <- getWSetup 
             r <- flip runReaderT wsetup . runErrorT $ do 
                  WS ssetup psetup param rsetup _ <- ask 
+                 liftIO $ print ssetup 
                  let wb = mcrundir ssetup 
                      wn = workname psetup  
                  b <- liftIO $ (doesDirectoryExist (wb </> wn))
@@ -120,7 +94,7 @@ work wsetup = do -- wsetup <- getWSetup
                    (LHESanitize pid, RunPYTHIA) -> do 
                      sanitizeLHE
                      runPYTHIA
-                     runHEP2LHE
+                     -- runHEP2LHE
                      runPGS           
                      runClean         
                      -- updateBanner   
