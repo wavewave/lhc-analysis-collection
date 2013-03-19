@@ -19,7 +19,8 @@ import           System.IO
 import           System.Log.Logger
 -- 
 import HEP.Parser.LHE.Type
-import HEP.Automation.MadGraph.Model.ADMXQLD111
+import HEP.Automation.MadGraph.Model
+import HEP.Automation.MadGraph.Model.SimplifiedSUSY
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
@@ -43,83 +44,59 @@ jets = [1,2,3,4,-1,-2,-3,-4,21]
 
 leptons = [11,13,-11,-13] 
 
+neut = 1000022
+
 adms = [9000201,-9000201,9000202,-9000202]
 
-sup = [1000002,-1000002] 
-
-p_2sq_2l2j2x :: DCross 
-p_2sq_2l2j2x = x (t proton, t proton, [p_sup, p_sup])
-
-p_sqsg_2l3j2x :: DCross 
-p_sqsg_2l3j2x = x (t proton, t proton, [p_sup,p_gluino]) 
-
-p_2sg_2l4j2x :: DCross
-p_2sg_2l4j2x = x (t proton, t proton, [p_gluino,p_gluino])
-
-p_gluino :: DDecay 
-p_gluino = d ([1000021], [p_sup,t jets]) 
-
-p_sup :: DDecay 
-p_sup = d (sup, [t leptons, t jets, t adms])
-
-idx_2sg_2l4j2x :: CrossID ProcSmplIdx
-idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x) 
+squarks = [  1000001, -1000001  -- sdown_L
+          ,  1000002, -1000002  -- sup_L
+          ,  1000003, -1000003  -- sstrange_L
+          ,  1000004, -1000004  -- scharm_L 
+          ,  2000001, -2000001  -- sdown_R 
+          ,  2000002, -2000002  -- sup_R
+          ,  2000003, -2000003  -- sstrange_R
+          ,  2000004, -2000004  -- scharm_R 
+          ] 
+ 
 
 
-idx_sqsg_2l3j2x :: CrossID ProcSmplIdx 
-idx_sqsg_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_2l3j2x)
+p_2sq_2j2x :: DCross 
+p_2sq_2j2x = x (t proton, t proton, [p_squark, p_squark])
+
+p_squark :: DDecay 
+p_squark = d ( squarks, [t jets, neut ] )
+
+idx_2sq_2j2x :: CrossID ProcSmplIdx
+idx_2sq_2j2x = mkCrossIDIdx (mkDICross p_2sq_2j2x)
 
 
-idx_2sq_2l2j2x :: CrossID ProcSmplIdx
-idx_2sq_2l2j2x = mkCrossIDIdx (mkDICross p_2sq_2l2j2x)
-
-
-map_2sg_2l4j2x :: ProcSpecMap
-map_2sg_2l4j2x = 
-    HM.fromList [(Nothing             , MGProc [] ["p p > go go QED=0"])
-                ,(Just (3,1000021,[]) , MGProc [] ["go > ul u~"
-                                                  ,"go > ul~ u "])
-                ,(Just (4,1000021,[]) , MGProc [] ["go > ul u~ "
-                                                  ,"go > ul~ u "])
-                ,(Just (1,1000002,[3]), MGProc [] ["ul > d e+ sxxp~ "])
-                ,(Just (1,-1000002,[3]),MGProc [] ["ul~ > d~ e- sxxp "])
-                ,(Just (1,1000002,[4]), MGProc [] ["ul > d e+ sxxp~ "])
-                ,(Just (1,-1000002,[4]),MGProc [] ["ul~ > d~ e- sxxp "])
-                ] 
-{-
-
-
-map_sqsg_2l3j2x :: ProcSpecMap
-map_sqsg_2l3j2x = 
-    HM.fromList [(Nothing             , "\n\
-                                        \generate p p > ul go QED=0\n\
-                                        \add process p p > ul~ go QED=0 \n")
-                ,(Just (3,1000002,[]) , "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (3,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
-                ,(Just (4,1000021,[]) , "\n\
-                                        \generate go > ul u~ \n\
-                                        \add process go > ul~ u \n" )
-                ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
+map_2sq_2j2x :: ProcSpecMap
+map_2sq_2j2x = 
+    HM.fromList [ (Nothing             , MGProc ["define  sql = ul ul~ dl dl~ sl sl~ cl cl~"] 
+                                                ["p p > sql sql  QED=0"])
+                , (Just (3, 1000001,[]), MGProc [] ["dl  > d n1"])
+                , (Just (3,-1000001,[]), MGProc [] ["dl~ > d~ n1"])
+                , (Just (3, 1000002,[]), MGProc [] ["ul  > u n1"])
+                , (Just (3,-1000002,[]), MGProc [] ["ul~ > u~ n1"])
+                , (Just (3, 1000003,[]), MGProc [] ["sl  > s n1"])
+                , (Just (3,-1000003,[]), MGProc [] ["sl~ > s~ n1"])
+                , (Just (3, 1000004,[]), MGProc [] ["cl  > c n1"])
+                , (Just (3,-1000004,[]), MGProc [] ["cl~ > c~ n1"]) 
+                , (Just (4, 1000001,[]), MGProc [] ["dl  > d n1"])
+                , (Just (4,-1000001,[]), MGProc [] ["dl~ > d~ n1"])
+                , (Just (4, 1000002,[]), MGProc [] ["ul  > u n1"])
+                , (Just (4,-1000002,[]), MGProc [] ["ul~ > u~ n1"])
+                , (Just (4, 1000003,[]), MGProc [] ["sl  > s n1"])
+                , (Just (4,-1000003,[]), MGProc [] ["sl~ > s~ n1"])
+                , (Just (4, 1000004,[]), MGProc [] ["cl  > c n1"])
+                , (Just (4,-1000004,[]), MGProc [] ["cl~ > c~ n1"]) 
+                 
                 ] 
 
 
 
-map_2sq_2l2j2x :: ProcSpecMap
-map_2sq_2l2j2x = 
-    HM.fromList [(Nothing            ,"\n\
-                                      \generate p p > ul ul~ QED=0\n\
-                                      \add process p p > ul ul QED=0 \n\
-                                      \add process p p > ul~ ul~ QED=0 \n" )
-                ,(Just (3,1000002,[]), "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (3,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
-                ,(Just (4,1000002,[]), "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (4,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
-                ] 
-
--}
-
-modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
+modelparam :: Double -> Double -> Double -> ModelParam SimplifiedSUSY
+modelparam mneut mgl msq = SimplifiedSUSYParam mneut mgl msq 
 
 -- | 
 mgrunsetup :: Int -> RunSetup
@@ -132,14 +109,14 @@ mgrunsetup n =
      , cut     = NoCut 
      , pythia  = RunPYTHIA 
      , lhesanitizer = -- NoLHESanitize 
-                             LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
+                      LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
      , setnum  = 1
      }
 
 
-worksets = take 1 [ (mgl,msq,50000,50000, 100) | mgl <- [2000], msq <- [1500] ] 
+worksets = [ (mn,50000,mq,10000) | mn <- [100,200..1200], mq <- [mn,mn+100..1200] ] 
 
 --  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
@@ -147,6 +124,9 @@ main :: IO ()
 main = do 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   mapM_ scanwork worksets 
+
+
+-- (100,50000,2000,10000)
 
 
  
@@ -169,8 +149,8 @@ getScriptSetup dir_sb dir_mg5 dir_mc = do
 
 
 
-scanwork :: (Double,Double,Double,Double,Int) -> IO () 
-scanwork (mgl,msq,msl,mneut,n) = do
+scanwork :: (Double,Double,Double,Int) -> IO () 
+scanwork (mneut,mgl,msq,n) = do
   homedir <- getHomeDirectory 
   ssetup <- getScriptSetup "/tmp/pipeline/flux-login1/sandbox"
                            "/tmp/pipeline/flux-login1/MadGraph5_v1_5_8/"
@@ -179,28 +159,22 @@ scanwork (mgl,msq,msl,mneut,n) = do
                            -- (homedir </> "repo/workspace/montecarlo/working")
                            -- (homedir </> "repo/ext/MadGraph5_v1_4_8_4/")
                            -- (homedir </> "repo/workspace/montecarlo/mc/")
-
-
-
-  let param = modelparam mgl msq msl mneut
+  let param = modelparam mneut mgl msq 
       mgrs = mgrunsetup n
-
-  evchainGen ADMXQLD111
+  evchainGen SimplifiedSUSY
     ssetup 
-    ("Work20130317_4_2sg","2sg_2l4j2x") 
+    ("2sq_2j2x","2sq_2j2x") 
     param 
-    map_2sg_2l4j2x p_2sg_2l4j2x 
-    -- map_sqsg_2l3j2x p_sqsg_2l3j2x 
+    map_2sq_2j2x p_2sq_2j2x 
     mgrs 
-
-  let wsetup = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130317_4_2sg","2sg_2l4j2x")  mgrs 
+  let wsetup = getWorkSetupCombined SimplifiedSUSY ssetup param ("2sq_2j2x","2sq_2j2x")  mgrs 
   phase2work wsetup 
 
 
 
 
 
-phase2work :: WorkSetup ADMXQLD111 -> IO ()
+phase2work :: WorkSetup SimplifiedSUSY -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
        ws <- ask 
@@ -208,7 +182,7 @@ phase2work wsetup = do
              ((,,,) <$> ws_ssetup <*> ws_psetup <*> ws_param <*> ws_rsetup) ws 
        cardPrepare                      
        case (lhesanitizer rsetup,pythia rsetup) of
-         (NoLHESanitize,_) -> return ()
+         (NoLHESanitize, _) -> return ()
          (LHESanitize pid, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA
