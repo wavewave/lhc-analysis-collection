@@ -49,7 +49,8 @@ Library
                    pureMD5 >= 2.1, 
                    zlib >= 0.5, 
                    indexed-extras, 
-                   indexed 
+                   indexed, 
+                   lens 
                    
   Exposed-Modules: 
                    HEP.Parser.XSec

@@ -24,6 +24,11 @@ import Control.Monad.Indexed.Trans
 import HEP.Parser.LHCOAnalysis.PhysObj
 
 
+(#) :: a -> (a -> b) -> b 
+(#) = flip ($)
+
+infixr 9 # 
+
 -----------------------------
 -- indexed monad utilities --
 -----------------------------
@@ -38,6 +43,11 @@ iguard :: IxMonadPlus m => Bool -> m i i ()
 iguard True = ireturn () 
 iguard False = imzero 
 
+
+-- | similar to when
+iwhen :: IxMonad m => Bool ->  m i i () -> m i i () 
+iwhen True a = a
+iwhen False _ = ireturn () 
 
 ---------------------------------------
 -- merging taus and b-jets into jets --
