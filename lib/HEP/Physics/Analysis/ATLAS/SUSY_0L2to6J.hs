@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, GADTs, EmptyDataDecls #-}
+{-# LANGUAGE RecordWildCards, GADTs, EmptyDataDecls, NoMonomorphismRestriction #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -70,55 +70,12 @@ jes_correction j =
 
 
 
-data EventType = TypeA (Bool,Bool,Bool) 
-               | TypeA' (Bool,Bool,Bool) 
-               | TypeB (Bool,Bool,Bool) 
-               | TypeC (Bool,Bool,Bool) 
-               | TypeD (Bool,Bool,Bool) 
-               | TypeE (Bool,Bool,Bool) 
-                 deriving (Show, Eq, Ord) 
-
 
 
 data MoreThan2JEv = Ev2J { firstJet  :: (Int, PhyObj Jet)
                          , secondJet :: (Int, PhyObj Jet) 
                          , remainingEvent :: PhyEventClassified 
                          }
-
-data AEv = AEv { chAJ1 :: (Int, PhyObj Jet) 
-               , chAJ2 :: (Int, PhyObj Jet) 
-               , chARemEv :: PhyEventClassified } 
-
-data BEv = BEv { chBJ1 :: (Int, PhyObj Jet) 
-               , chBJ2 :: (Int, PhyObj Jet) 
-               , chBJ3 :: (Int, PhyObj Jet) 
-               , chBRemEv :: PhyEventClassified } 
-
-data CEv = CEv { chCJ1 :: (Int, PhyObj Jet) 
-               , chCJ2 :: (Int, PhyObj Jet) 
-               , chCJ3 :: (Int, PhyObj Jet) 
-               , chCJ4 :: (Int, PhyObj Jet) 
-               , chCRemEv :: PhyEventClassified } 
-
-data DEv = DEv { chDJ1 :: (Int, PhyObj Jet) 
-               , chDJ2 :: (Int, PhyObj Jet) 
-               , chDJ3 :: (Int, PhyObj Jet) 
-               , chDJ4 :: (Int, PhyObj Jet)
-               , chDJ5 :: (Int, PhyObj Jet)  
-               , chDRemEv :: PhyEventClassified } 
-
-data EEv = EEv { chEJ1 :: (Int, PhyObj Jet) 
-               , chEJ2 :: (Int, PhyObj Jet) 
-               , chEJ3 :: (Int, PhyObj Jet) 
-               , chEJ4 :: (Int, PhyObj Jet) 
-               , chEJ5 :: (Int, PhyObj Jet) 
-               , chEJ6 :: (Int, PhyObj Jet) 
-               , chERemEv :: PhyEventClassified } 
-         deriving (Show)
-
-data ChAEv = ChA AEv 
-
-data ChA'Ev = ChA' AEv 
 
 data SRFlag = SRFlag { sr_classA  :: Maybe (Bool,Bool,Bool) 
                      , sr_classA' :: Maybe (Bool,Bool,Bool) 
@@ -128,7 +85,6 @@ data SRFlag = SRFlag { sr_classA  :: Maybe (Bool,Bool,Bool)
                      , sr_classE  :: Maybe (Bool,Bool,Bool) 
                      } 
             deriving (Show,Eq,Ord)
--- (Bool,Bool,Bool) 
 
 classA :: Simple Lens SRFlag (Maybe (Bool,Bool,Bool))
 classA = lens sr_classA (\f a -> f { sr_classA = a } )
@@ -176,6 +132,7 @@ instance GetJetMerged MoreThan2JEv where
   getJetMerged (Ev2J j1 j2 rev@PhyEventClassified {..}) = 
     JetMerged rev {jetlst = j1:j2:jetlst}
 
+{- 
 instance GetJetMerged AEv where 
   getJetMerged (AEv j1 j2 ev@PhyEventClassified {..}) = 
     JetMerged ev {jetlst=j1:j2:jetlst}
@@ -202,7 +159,7 @@ instance GetJetMerged DEv where
 instance GetJetMerged EEv where
   getJetMerged (EEv j1 j2 j3 j4 j5 j6 ev@PhyEventClassified {..}) = 
     JetMerged ev {jetlst=j1:j2:j3:j4:j5:j6:jetlst}
-
+-}
 
 
 
@@ -243,6 +200,75 @@ metCut =
 mTauBJetMerge :: (MonadPlus m) => IxStateT m RawEv JetMergedEv ()
 mTauBJetMerge = imodify taubjetMergeIx 
 
+
+normalizeDphi :: Double -> Double -> Double 
+normalizeDphi phi1 phi2 = let v = abs (phi1 - phi2)
+                              nv | v > pi = 2*pi - v
+                                 | otherwise = v 
+                          in nv 
+
+
+
+deltaRdist :: (MomObj a, MomObj b) => a -> b -> Double 
+deltaRdist a b = let deta = eta a - eta b 
+                     dphi = normalizeDphi (phi a) (phi b)
+                 in sqrt (deta*deta + dphi*dphi)
+
+
+
+findJetNearElec :: PhyEventClassified -> ([(Int,PhyObj Jet)],[(Int,PhyObj Jet)])
+findJetNearElec PhyEventClassified {..} =
+    let js = jetlst 
+        es = electronlst 
+    in pass2 0.2 es js 
+ where 
+   pass1 v l js = foldr (findInside v l) ([],[]) js 
+     where findInside v l j (sel,rem) = 
+             if deltaRdist (snd l) (snd j) < v then ((j:sel),rem) else (sel,j:rem) 
+   pass2 v ls js = (,) <$> ptordering . fst <*> ptordering . snd $ foldr (pass1proc v) ([],js) ls 
+     where pass1proc v l (sel,rem) = 
+             let (sel',rem') = pass1 v l rem 
+             in (sel++sel',rem')
+
+
+findLeptonNearJet :: PhyEventClassified 
+                  -> (([(Int,PhyObj Electron)],[(Int,PhyObj Electron)])
+                     ,([(Int,PhyObj Muon)],[(Int,PhyObj Muon)]))
+findLeptonNearJet PhyEventClassified {..} =
+    let js = jetlst 
+        es = electronlst 
+        ms = muonlst 
+        (es1,es2) = pass2 0.4 js es
+        (ms1,ms2) = pass2 0.4 js ms 
+    in ((es1,es2),(ms1,ms2))
+  where 
+   pass1 v j ls = foldr (findInside v j) ([],[]) ls 
+     where findInside v j l (sel,rem) = 
+             if deltaRdist (snd j) (snd l) < v then ((l:sel),rem) else (sel,l:rem) 
+   pass2 v js ls = (,) <$> ptordering . fst <*> ptordering . snd $ foldr (pass1proc v) ([],ls) js 
+     where pass1proc v j (sel,rem) = 
+             let (sel',rem') = pass1 v j rem 
+             in (sel++sel',rem')
+
+
+
+
+mJetDiscardNearElec = 
+  iget >>>= \(JetMerged ev) -> 
+  let (sel,rem) = findJetNearElec ev 
+  in (iput. JetMerged) ev {jetlst = rem}
+
+mLeptonDiscardNearJet =
+  iget >>>= \(JetMerged ev) -> 
+  let ((es1,es2),(ms1,ms2)) = findLeptonNearJet ev
+  in (iput . JetMerged) ev {electronlst = es2, muonlst = ms2}
+
+
+{-
+if length ms1 /= 0 then trace ((show.length.muonlst) ev ++ "=" ++ (show.length) ms1 ++ "+" ++ (show.length) ms2) $ (iput . JetMerged) ev {electronlst = es2, muonlst = ms2}
+-}
+
+
 mJesCorrection :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv ()
 mJesCorrection = imodify jes_correctionIx
 
@@ -268,36 +294,49 @@ jetCut :: (MonadPlus m) => IxStateT m MoreThan2JEv MoreThan2JEv ()
 jetCut = iget >>>= \Ev2J {..} -> 
          iguard ((pt.snd) firstJet > 130 && (pt.snd) secondJet > 60)
          
-{-
 
-srcheckE :: (Monad m) => IxStateT m MoreThan2JEv MoreThan2JEv (Maybe (Bool,Bool,Bool))
-srcheckE = iget >>>= \e ->  
-           let r = signalRegion (>1400) (>1200) (>900) e
-           in r -- modify (set (_1 . classE) (Just r))
+srcheckE j1 j2 j3 j4 j5 j6 tev = do 
+    let c1 = dphiJMETCut1 tev
+        c2 = dphiJMETCut2 tev 
+        c3 = metMeffRatioCut 6 0.15 tev
+    guard ((pt.snd) j6 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3 ) 
+    (return . signalRegion (>1400) (>1200) (>900)) tev
 
-srcheckD :: (Monad m) => IxStateT m MoreThan2JEv MoreThan2JEv) ()
-srcheckD = iget >>>= \(_,e) ->  
-           let r = signalRegion (>1500) (const False) (const False) e
-           in imodify (set (_1 . classD) (Just r))
+srcheckD j1 j2 j3 j4 j5 tev = do 
+    let c1 = dphiJMETCut1 tev
+        c2 = dphiJMETCut2 tev 
+        c3 = metMeffRatioCut 5 0.2 tev 
+    guard ((pt.snd) j5 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3)
+    (return . signalRegion (>1500) (const False) (const False)) tev
 
-srcheckC :: (Monad m) => IxStateT m (SRFlag,MoreThan2JEv) (SRFlag,MoreThan2JEv) ()
-srcheckC = iget >>>= \(_,e) ->  
-           let r = signalRegion (>1500) (>1200) (>900) e
-           in imodify (set (_1 . classC) (Just r))
+srcheckC j1 j2 j3 j4 tev = do 
+    let c1 = dphiJMETCut1 tev 
+        c2 = dphiJMETCut2 tev
+        c3 = metMeffRatioCut 4 0.25 tev
+    guard ((pt.snd) j4 > 60 && c1 && c2 && c3)
+    (return . signalRegion (>1500) (>1200) (>900)) tev
+ 
+srcheckB j1 j2 j3 tev = do 
+    let c1 = dphiJMETCut1 tev
+        c3 = metMeffRatioCut 3 0.25 tev 
+    guard ((pt.snd) j3 > 60 && c1 && c3)
+    (return . signalRegion (>1900) (const False) (const False)) tev
 
-srcheckB :: (Monad m) => IxStateT m (SRFlag,MoreThan2JEv) (SRFlag,MoreThan2JEv) ()
-srcheckB = iget >>>= \(_,e) ->  
-           let r = signalRegion (>1900) (const False) (const False) e
-           in imodify (set (_1 . classB) (Just r))
-
--}
-
+srcheckAandA' j1 j2 tev = 
+    let v = metMeffRatioVal 2 tev 
+        c1 = dphiJMETCut1 tev 
+        a  = if v > 0.3 && c1
+               then Just (signalRegion (>1900) (>1400) (const False) tev)
+               else Nothing  
+        a' = if v > 0.4 && c1 
+               then Just (signalRegion (const False) (>1200) (const False) tev)
+               else Nothing
+    in (a,a') 
 
 
 classifyChannel :: (MonadPlus m) => IxStateT m MoreThan2JEv MoreThan2JEv SRFlag  
 classifyChannel = 
     iget >>>= \tev@Ev2J {..} -> 
-    -- iput (emptySRFlag,tev) >>>
     let rev = remainingEvent 
         js = jetlst rev
         j1 = firstJet
@@ -310,113 +349,25 @@ classifyChannel =
                               []              -> (Nothing,Nothing,Nothing,Nothing) 
 
     in ireturn $ set classE ( do 
-         (j3,j4,j5,j6) <- (,,,) <$> mj3 <*> mj4 <*> mj5 <*> mj6 
-         let c1 = dphiJMETCut1 tev
-             c2 = dphiJMETCut2 tev 
-             c3 = metMeffRatioCut 6 0.15 tev
-         guard ((pt.snd) j6 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3 ) 
-         (return . signalRegion (>1400) (>1200) (>900)) tev)
+           (j3,j4,j5,j6) <- (,,,) <$> mj3 <*> mj4 <*> mj5 <*> mj6 
+           srcheckE j1 j2 j3 j4 j5 j6 tev)
        ---------------------------------------------------------------------
        . set classD ( do 
-         (j3,j4,j5) <- (,,) <$> mj3 <*> mj4 <*> mj5 
-         let c1 = dphiJMETCut1 tev
-             c2 = dphiJMETCut2 tev 
-             c3 = metMeffRatioCut 5 0.2 tev 
-         guard ((pt.snd) j5 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3)
-         (return . signalRegion (>1500) (const False) (const False)) tev)
+           (j3,j4,j5) <- (,,) <$> mj3 <*> mj4 <*> mj5 
+           srcheckD j1 j2 j3 j4 j5 tev)
        ---------------------------------------------------------------------
        . set classC ( do 
-         (j3,j4) <- (,) <$> mj3 <*> mj4 
-         let c1 = dphiJMETCut1 tev 
-             c2 = dphiJMETCut2 tev
-             c3 = metMeffRatioCut 4 0.25 tev
-         guard ((pt.snd) j4 > 60 && c1 && c2 && c3)
-         (return . signalRegion (>1500) (>1200) (>900)) tev)
+           (j3,j4) <- (,) <$> mj3 <*> mj4 
+           srcheckC j1 j2 j3 j4 tev )
        ---------------------------------------------------------------------
        . set classB ( do 
-         j3 <- mj3        
-         let c1 = dphiJMETCut1 tev
-             c3 = metMeffRatioCut 3 0.25 tev 
-         guard ((pt.snd) j3 > 60 && c1 && c3)
-         (return . signalRegion (>1900) (const False) (const False)) tev)
+           j3 <- mj3        
+           srcheckB j1 j2 j3 tev )
        ---------------------------------------------------------------------
-       -- . set classA ( do 
-       --   let 
-       $ emptySRFlag
-
---        >>>= \bev -> 
---       ireturn (emptySRFlag { sr_classB = bev, sr_classC = cev, sr_classD =dev, sr_classE = eev } )
-
-{-
-do (case (,) <$> mj3 <*> mj4 of 
-          Just (j3,j4)       -> 
-          Nothing -> ireturn Nothing) -}
-
-                      
-{-              
+       $ let (a,a') = srcheckAandA' j1 j2 tev  
+         in (set classA a . set classA' a' ) emptySRFlag 
 
 
-metMeffRatioCut 3 0.25 >>>= \c3 -> 
-                                iwhen ((pt.snd) j3 > 60 && c1 && c2 && c3) 
-                                      srcheckB
-          
-
--}
-
-{-           let act | (pt.snd) j6 > 40 && (pt.snd) j4 > 60 = 
-                       iput (EEv j1 j2 j3 j4 j5 j6 rev {jetlst=j7s}) >>> me
-                   
-                   {-
-                   | (pt.snd) j6 <= 40 && (pt.snd) j5 > 40 && (pt.snd) j4 > 60 =
-                       iput (DEv j1 j2 j3 j4 j5 rev {jetlst=j6:j7s}) >>> md
-                   | (pt.snd) j5 <= 40 && (pt.snd) j4 > 60 = 
-                       iput (CEv j1 j2 j3 j4 rev {jetlst=j5:j6:j7s}) >>> mc
-                   | (pt.snd) j4 <= 60 && (pt.snd) j3 > 60 = 
-                       iput (BEv j1 j2 j3 rev {jetlst=j4:j5:j6:j7s}) >>> mb
-                   | otherwise = 
-                       iput (AEv j1 j2 rev) >>> ma  -}
-                   {- | (pt.snd) j3 > 60 && (pt.snd) j4 > 60 = 
-                       iput (CEv j1 j2 j3 j4 rev {jetlst=j5:j6:j7s}) >>> mc -}
-                   | otherwise = imzero
-           in act 
-         j3:j4:j5:[] -> 
-           let act {- | (pt.snd) j5 > 40 && (pt.snd) j4 > 60 = 
-                       iput (DEv j1 j2 j3 j4 j5 rev {jetlst=[]}) >>> md
-                    | (pt.snd) j5 <= 40 && (pt.snd) j4 > 60 = 
-                       iput (CEv j1 j2 j3 j4 rev {jetlst=[j5]}) >>> mc 
-                   | (pt.snd) j5 <= 40 && (pt.snd) j4 <= 60 = 
-                       iput (BEv j1 j2 j3 rev {jetlst=[j4,j5]}) >>> mb
-                   | otherwise =
-                       iput (AEv j1 j2 rev) >>> ma  -}
-                   {- | (pt.snd) j3 > 60 && (pt.snd) j4 > 60 = 
-                       iput (CEv j1 j2 j3 j4 rev {jetlst=j5:[]}) >>> mc  -}
-                   | otherwise = imzero
-           in act 
-         j3:j4:[] -> 
-           let act {- | (pt.snd) j4 > 60 =
-                       iput (CEv j1 j2 j3 j4 rev {jetlst=[]}) >>> mc
-                    
-                   | (pt.snd) j3 > 60 && (pt.snd) j4 <= 60 = 
-                       iput (BEv j1 j2 j3 rev {jetlst=[j4]}) >>> mb 
-                   | otherwise = 
-                       iput (AEv j1 j2 rev) >>> ma -}
-                   {- | (pt.snd) j3 > 60 && (pt.snd) j4 > 60 = 
-                       iput (CEv j1 j2 j3 j4 rev {jetlst=[]}) >>> mc -}
-                   | otherwise = imzero
-           in act 
-         _ -> imzero 
-
--}
-{-
-         j3:[] -> 
-           let act | (pt.snd) j3 > 60 =
-                       iput (BEv j1 j2 j3 rev {jetlst=[]}) >>> mb 
-                   | otherwise =
-                       iput (AEv j1 j2 rev) >>> ma 
-           in act 
-         [] -> iput (AEv j1 j2 rev) >>> ma 
--}
-                  
 
 metMeffRatioVal :: (GetJetMerged e) => 
                    Int    -- ^ num of jets in M_eff
@@ -438,35 +389,16 @@ metMeffRatioCut n cut = (>cut). metMeffRatioVal n
 
 dphiJMETCut1 :: (GetJetMerged e) => e -> Bool  
 dphiJMETCut1 e = let JetMerged ev@PhyEventClassified {..} = getJetMerged e 
-                     getdphi j = let v = abs ((fst.phiptmet) met - (phi.snd) j)
-                                     nv | v > pi = 2*pi - v
-                                        | otherwise = v 
-                                 in nv 
-                     cond1 = (minimum . map getdphi . take 3) jetlst > 0.4 
-               in cond1 
+                     dphi j = normalizeDphi ((fst.phiptmet) met) ((phi.snd) j)
+                 in (minimum . map dphi . take 3) jetlst > 0.4 
 
 dphiJMETCut2 :: (GetJetMerged e) => e -> Bool 
 dphiJMETCut2 e = let JetMerged ev@PhyEventClassified {..} = getJetMerged e 
-                     getdphi j = let v = abs ((fst.phiptmet) met - (phi.snd) j)
-                                     nv | v > pi = 2*pi - v
-                                        | otherwise = v 
-                                 in nv 
+                     dphi j = normalizeDphi ((fst.phiptmet) met)  ((phi.snd) j)
                      ptcut j = (pt.snd) j > 40 
-                     cond2 = (minimum . map getdphi . filter ptcut) jetlst > 0.2
-                 in cond2 
+                 in (minimum . map dphi . filter ptcut) jetlst > 0.2
 
-               
-splitAandA' :: (MonadPlus m) => 
-               IxStateT m ChAEv j b 
-            -> IxStateT m ChA'Ev j b
-            -> IxStateT m AEv j b 
-splitAandA' ma ma' = iget >>>= \e -> 
-                     let v = metMeffRatioVal 2 e 
-                         act | v > 0.4 = iput (ChA' e) >>> ma'
-                             | v <= 0.4 && v > 0.3 = iput (ChA e) >>> ma 
-                             | otherwise = imzero 
-                     in act 
-                        
+
 
 signalRegion :: (GetJetMerged e) => 
                 (Double -> Bool)   -- ^ Tight condition
@@ -482,13 +414,11 @@ signalRegion condt condm condl e =
         loose  = condl v 
     in (tight,medium,loose)
 
-    -- iguard (flag /= (False,False,False) ) >>> ireturn flag
-
-
-
 classify :: MonadPlus m => IxStateT m RawEv MoreThan2JEv SRFlag
 classify = 
-    mTauBJetMerge >>> 
+    mTauBJetMerge >>>
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
     mJesCorrection >>> 
     objrecon      >>> 
     trigger       >>> 
@@ -497,28 +427,6 @@ classify =
     mMoreThan2J   >>> 
     jetCut        >>>
     classifyChannel 
-{-      (dphiJMETCut1 >>>  
-       splitAandA' 
-         (signalRegion (>1900) (>1400) (const False)>>>= \r->iput (TypeA r))
-         (signalRegion (const False) (>1200) (const False)>>>= \r->iput (TypeA' r)))
-      (dphiJMETCut1 >>> 
-       metMeffRatioCut 3 0.25 >>> 
-       signalRegion (>1900) (const False) (const False)>>>= \r->iput (TypeB r)) 
-
-      (dphiJMETCut1 >>> 
-       dphiJMETCut2 >>>  
-       metMeffRatioCut 4 0.25 >>> 
-       signalRegion (>1500) (>1200) (>900) >>>= \r->iput (TypeC r)) 
-      (dphiJMETCut1 >>> 
-       dphiJMETCut2 >>> 
-       metMeffRatioCut 5 0.2  >>> 
-       signalRegion (>1500) (const False) (const False) >>>= \r->iput (TypeD r))
-      (dphiJMETCut1 >>> 
-       dphiJMETCut2 >>> 
-       metMeffRatioCut 6 0.15 >>> 
-       iget >>> -- \ev -> trace (show ev) $ 
-         signalRegion (>1400) (>1200) (>900) >>>= \r-> iput (TypeE r))
--}
 
 analysis ev = fst <$> runIxStateT classify (Raw ev)
 
