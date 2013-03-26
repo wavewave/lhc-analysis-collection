@@ -20,22 +20,35 @@ import Data.Attoparsec.Char8
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as LB
 
-p_xsec :: Parser Double 
-p_xsec = do 
+p_xsec_lhe :: Parser Double 
+p_xsec_lhe = do 
   manyTill anyChar (try (char '#'))
   (try (do string "  Integrated weight (pb)  :" 
            skipSpace
            str <- manyTill anyChar (char '\n')
            return (read ('0':str))
        )
+ 
+   <|> p_xsec_lhe )
 
-   <|> p_xsec )
+p_xsec_pythialog :: Parser Double 
+p_xsec_pythialog = do 
+    manyTill anyChar (try (string "Cross section (pb):"))
+    skipSpace 
+    str <- manyTill anyChar (try (char ' '))
+    return (read str)
+
 
 getXSecFromLHEGZ :: FilePath -> IO (Either String Double) 
 getXSecFromLHEGZ fp = do 
   bstr <- LB.readFile fp
   let bstr' = decompress bstr 
-  return $ (parseOnly p_xsec . B.concat . LB.toChunks) bstr' 
+  return $ (parseOnly p_xsec_lhe . B.concat . LB.toChunks) bstr' 
 
+
+getXSecFromPythiaLog :: FilePath -> IO (Either String Double) 
+getXSecFromPythiaLog fp = do 
+    bstr <- LB.readFile fp 
+    return $ (parseOnly p_xsec_pythialog . B.concat . LB.toChunks ) bstr
 
 
