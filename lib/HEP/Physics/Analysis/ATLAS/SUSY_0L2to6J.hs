@@ -1,4 +1,8 @@
-{-# LANGUAGE RecordWildCards, GADTs, EmptyDataDecls, NoMonomorphismRestriction #-}
+{-# LANGUAGE RecordWildCards #-}  
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -26,18 +30,30 @@ import Control.Monad.Indexed
 import Control.Monad.Indexed.State 
 import Control.Monad.Indexed.Trans
 import Control.Monad.Trans
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.Aeson.Generic as G
+import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy.Char8 as LB
+import Data.Data
 import Data.Function (on)
 import Data.List
 import Data.Maybe
+import qualified Data.Map.Strict as M
+import Data.Typeable 
+import System.Directory 
 import System.FilePath
 import System.Environment
 -- 
-import HEP.Parser.LHCOAnalysis.PhysObj
+import HEP.Parser.LHCOAnalysis.PhysObj hiding (FourMomentum)
 import HEP.Parser.LHCOAnalysis.Parse
+import HEP.Storage.WebDAV.CURL 
+import HEP.Storage.WebDAV.Type 
+import HEP.Util.Either
+import HEP.Util.Functions hiding (fst3,snd3,trd3)
 -- 
 import HEP.Physics.Analysis.ATLAS.Common
 -- 
+import Prelude hiding (subtract)
 import Debug.Trace
 
 
@@ -54,11 +70,13 @@ meffinc40 PhyEventClassified {..} =
   (sum . map (trd3.etaphipt.snd) . filter ((>40).trd3.etaphipt.snd)) jetlst 
   + (snd.phiptmet) met
 
-jes_correction :: PhyObj Jet -> PhyObj Jet 
-jes_correction j = 
+
+-- | jet energy scale correction ( our values from ttbar3 were (14.23,7.53) ) 
+jes_correction :: (Double,Double) -> PhyObj Jet -> PhyObj Jet 
+jes_correction (a,b) j = 
   let (j_eta,j_phi,j_pt) = etaphiptjet j 
       j_m = mjet j
-      s = (14.23 + 7.53 * j_eta * j_eta) 
+      s = (a + b * j_eta * j_eta) 
           / sqrt ( j_pt*j_pt * (cosh j_eta)^2 + j_m*j_m )  
       deltapt = j_pt * s
       deltam = j_m * s  
@@ -132,34 +150,6 @@ instance GetJetMerged MoreThan2JEv where
   getJetMerged (Ev2J j1 j2 rev@PhyEventClassified {..}) = 
     JetMerged rev {jetlst = j1:j2:jetlst}
 
-{- 
-instance GetJetMerged AEv where 
-  getJetMerged (AEv j1 j2 ev@PhyEventClassified {..}) = 
-    JetMerged ev {jetlst=j1:j2:jetlst}
-
-instance GetJetMerged ChAEv where
-  getJetMerged (ChA e) = getJetMerged e 
-
-instance GetJetMerged ChA'Ev where
-  getJetMerged (ChA' e) = getJetMerged e 
-
-
-instance GetJetMerged BEv where
-  getJetMerged (BEv j1 j2 j3 ev@PhyEventClassified {..}) = 
-    JetMerged ev {jetlst=j1:j2:j3:jetlst}
-
-instance GetJetMerged CEv where
-  getJetMerged (CEv j1 j2 j3 j4 ev@PhyEventClassified {..}) = 
-    JetMerged ev {jetlst=j1:j2:j3:j4:jetlst}
-
-instance GetJetMerged DEv where
-  getJetMerged (DEv j1 j2 j3 j4 j5 ev@PhyEventClassified {..}) = 
-    JetMerged ev {jetlst=j1:j2:j3:j4:j5:jetlst}
-
-instance GetJetMerged EEv where
-  getJetMerged (EEv j1 j2 j3 j4 j5 j6 ev@PhyEventClassified {..}) = 
-    JetMerged ev {jetlst=j1:j2:j3:j4:j5:j6:jetlst}
--}
 
 
 
@@ -269,13 +259,40 @@ if length ms1 /= 0 then trace ((show.length.muonlst) ev ++ "=" ++ (show.length) 
 -}
 
 
-mJesCorrection :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv ()
-mJesCorrection = imodify jes_correctionIx
+mJesCorrection :: (MonadPlus m) => (Double,Double) -> IxStateT m JetMergedEv JetMergedEv FourMomentum
+mJesCorrection (a,b) = 
+   iget >>>= \(JetMerged ev@PhyEventClassified {..}) -> 
+   let (phi',pt') = phiptmet met 
+       metmom = (0, pt'*cos phi', pt'*sin phi',0)
+       photonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) photonlst) 
+       electronmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) electronlst) 
+       muonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) muonlst) 
+       jetmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) jetlst)
+       momsum = photonmomsum `plus` electronmomsum `plus` muonmomsum `plus` jetmomsum 
+       remnant = metmom `plus` momsum
+   in  -- trace ("met = " ++ show (phiptmet met) ++ " | remnant = " ++ show remnant) $ 
+       imodify (jes_correctionIx (a,b)) >>> return remnant 
 
-jes_correctionIx :: JetMergedEv -> JetMergedEv 
-jes_correctionIx (JetMerged ev@PhyEventClassified {..}) = 
+mMETRecalculate :: (Monad m) => 
+                   FourMomentum   -- ^ remnant 4-momentum from met
+                -> IxStateT m JetMergedEv JetMergedEv () 
+mMETRecalculate remnant = 
+  iget >>>= \(JetMerged ev@PhyEventClassified {..}) -> 
+  let photonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) photonlst) 
+      electronmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) electronlst) 
+      muonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) muonlst) 
+      jetmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) jetlst)
+      momsum = photonmomsum `plus` electronmomsum `plus` muonmomsum `plus` jetmomsum 
+      missingphipt = (,) <$> trd3 <*> fst3 $ mom_2_pt_eta_phi (remnant `subtract` momsum) 
+      nev = ev { met = ObjMET missingphipt } 
+  in -- trace ("met = " ++ show (phiptmet met) ++ " | remnant = " ++ show remnant ++ " | missingphipt = " ++ show missingphipt) $
+     
+     iput (JetMerged nev) 
+
+jes_correctionIx :: (Double,Double) -> JetMergedEv -> JetMergedEv 
+jes_correctionIx (a,b) (JetMerged ev@PhyEventClassified {..}) = 
   let jetlst' = ptordering
-                . map ((,) <$> fst <*> jes_correction.snd) 
+                . map ((,) <$> fst <*> jes_correction (a,b) . snd) 
                 $ jetlst  
   in JetMerged (ev { jetlst = jetlst' })
 
@@ -414,12 +431,13 @@ signalRegion condt condm condl e =
         loose  = condl v 
     in (tight,medium,loose)
 
-classify :: MonadPlus m => IxStateT m RawEv MoreThan2JEv SRFlag
-classify = 
+classifyM :: MonadPlus m => (Double,Double) -> IxStateT m RawEv MoreThan2JEv SRFlag
+classifyM (a,b) = 
     mTauBJetMerge >>>
+    mJesCorrection (a,b) >>>= \e -> 
     mJetDiscardNearElec >>> 
     mLeptonDiscardNearJet >>> 
-    mJesCorrection >>> 
+    mMETRecalculate e >>>  
     objrecon      >>> 
     trigger       >>> 
     leptonVeto    >>> 
@@ -428,6 +446,86 @@ classify =
     jetCut        >>>
     classifyChannel 
 
-analysis ev = fst <$> runIxStateT classify (Raw ev)
+classify :: (Functor m, MonadPlus m) => (Double,Double) -> PhyEventClassified -> m SRFlag 
+classify (a,b) ev = fst <$> runIxStateT (classifyM (a,b)) (Raw ev)
 
 
+
+data EType = AT | AM | A'M | BT | CT | CM | CL | DT | ET | EM | EL 
+             deriving (Show,Eq,Ord,Data,Typeable)
+
+instance ToJSON EType where toJSON = G.toJSON 
+
+
+srFlag2Num :: SRFlag -> [EType] 
+srFlag2Num SRFlag {..} = maybe [] fE sr_classE 
+                         ++ maybe [] fD sr_classD 
+                         ++ maybe [] fC sr_classC 
+                         ++ maybe [] fB sr_classB 
+                         ++ maybe [] fA' sr_classA'
+                         ++ maybe [] fA sr_classA 
+
+fA x | isTightEv x = [AT,AM] 
+     | isMediumEv x  = [AM] 
+     | otherwise = []
+
+fA' x | isMediumEv x = [A'M]
+      | otherwise = [] 
+  
+fE x | isTightEv x = [ET,EM,EL] 
+     | isMediumEv x = [EM,EL] 
+     | isLooseEv x= [EL] 
+     | otherwise = [] 
+
+fD x | isTightEv x = [DT] 
+     | otherwise = [] 
+
+fC x | isTightEv x = [CT,CM,CL] 
+     | isMediumEv x = [CM,CL] 
+     | isLooseEv x= [CL] 
+     | otherwise = [] 
+
+fB x | isTightEv x = [BT] 
+     | otherwise = [] 
+
+showAsATLASPaper :: M.Map EType Double -> String
+showAsATLASPaper m = 
+  "CL :" ++ maybe "0" show (M.lookup CL m)      ++ "\n"
+  ++ "EL : " ++ maybe "0" show (M.lookup EL m) ++ "\n"
+  ++ "AM : " ++ maybe "0" show (M.lookup AM m) ++ "\n"
+  ++ "A'M : " ++ maybe "0" show (M.lookup A'M m) ++ "\n"
+  ++ "CM : " ++ maybe "0" show (M.lookup CM m) ++ "\n"
+  ++ "EM : " ++ maybe "0" show (M.lookup EM m) ++ "\n"
+  ++ "AT : " ++ maybe "0" show (M.lookup AT m) ++ "\n"
+  ++ "BT : " ++ maybe "0" show (M.lookup BT m)++ "\n"
+  ++ "CT : " ++ maybe "0" show (M.lookup CT m) ++ "\n" 
+  ++ "DT : " ++ maybe "0" show (M.lookup DT m) ++ "\n"
+  ++ "ET : " ++ maybe "0" show (M.lookup ET m) ++ "\n"
+
+
+atlas7TeV0L2to6JCount :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe [(EType,Int)])
+atlas7TeV0L2to6JCount wdavcfg wdavrdir bname = do 
+    print bname 
+    let fp = bname ++ "_pgs_events.lhco.gz"
+    boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp) $ do 
+      downloadFile wdavcfg wdavrdir fp 
+      bstr <- LB.readFile fp 
+      let unzipped =decompress bstr 
+          evts = parsestr unzipped 
+          passed = (catMaybes . map (classify (14.23,7.53) )) evts  
+      let lst = (map (\x->(x,1)) . concat . map srFlag2Num ) passed 
+          ascmap = foldr (\(k,v) m->M.insertWith (+) k v m) M.empty lst 
+          asclst = M.toAscList ascmap :: [ (EType,Int) ]  
+
+      removeFile fp 
+
+      return asclst 
+      {-
+      -- putStrLn "== result =="
+      let jsonfn = bname ++ "_ATLAS7TeV0L2to6JCount.json"
+      let bstr = encodePretty asclst
+      LB.writeFile jsonfn bstr 
+      uploadFile wdavcfg wdavrdir jsonfn 
+      -- removeFile jsonfn
+      return ()
+      -}

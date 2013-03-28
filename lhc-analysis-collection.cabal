@@ -18,6 +18,8 @@ Library
   Build-Depends: 
                    base>4, 
                    mtl>2, 
+                   transformers >= 0.3,
+                   either >= 3,
                    directory, 
                    filepath,
                    bytestring >= 0.9,
@@ -48,6 +50,8 @@ Library
                    containers >= 0.4, 
                    pureMD5 >= 2.1, 
                    zlib >= 0.5, 
+                   aeson >= 0.6, 
+                   aeson-pretty >= 0.7,
                    indexed-extras, 
                    indexed, 
                    lens 
@@ -58,6 +62,7 @@ Library
                    HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
                    HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
                    HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
+                   HEP.Physics.Analysis.Common.XSecNTotNum 
                    HEP.Util.Format
                    HEP.Util.Table 
 
