@@ -22,7 +22,7 @@ import HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
 
  -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
 main = do 
-  r <- work atlas7TeV0L2to6JCount
+  r <- work atlas_7TeV_0L2to6J_bkgtest
          "config1.txt" 
          -- "montecarlo/admproject/smbkg/tt012" 
          "./"
