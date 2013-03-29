@@ -53,7 +53,7 @@ getJSONFileAndUpload wdavcfg wdavrdir basename mr =
          fn = basename ++ "_total_count.json"
      LB.writeFile fn bstr 
      uploadFile wdavcfg wdavrdir fn 
-     -- removeFile fn 
+     removeFile fn 
      return ()
 
 getXSecNCount :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe CrossSectionAndCount)

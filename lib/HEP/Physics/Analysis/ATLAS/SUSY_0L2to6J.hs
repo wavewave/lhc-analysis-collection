@@ -532,7 +532,7 @@ atlas_7TeV_0L2to6J_bkgtest wdavcfg wdavrdir bname = do
           passed jes = (catMaybes . map (classify jes)) evts  
           asclst jes = mkHistogram (passed jes)
       
-          testlst = [ (jes, asclst jes) | a <- [0,5..20], b <- [0,5..10], let jes = JESParam a b ]
+          testlst = [ (trace (show jes) jes, asclst jes) | a <- [0,1..20], b <- [0,1..10], let jes = JESParam a b ]
 
       removeFile fp 
 
@@ -542,7 +542,7 @@ atlas_7TeV_0L2to6J_bkgtest wdavcfg wdavrdir bname = do
       let jsonfn = bname ++ "_ATLAS7TeV0L2to6JBkgTest.json"
       let bstr = encodePretty testlst 
       LB.writeFile jsonfn bstr 
-      -- uploadFile wdavcfg wdavrdir jsonfn 
-      -- removeFile jsonfn
+      uploadFile wdavcfg wdavrdir jsonfn 
+      removeFile jsonfn
       return ()
       
