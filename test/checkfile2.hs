@@ -9,7 +9,7 @@ import Control.Monad
 import           Control.Monad.Trans 
 import           Control.Monad.Trans.Either 
 import           Control.Monad.Trans.Maybe 
-import Data.Attoparsec.Char8
+import Data.Attoparsec.Char8 hiding (take)
 -- import Data.Attoparsec.Lazy
 import           Data.Aeson 
 import qualified Data.Aeson.Generic as G
@@ -20,6 +20,7 @@ import Data.List (lookup, sortBy)
 import Data.Maybe 
 import Data.String
 import Data.Typeable
+import System.Environment (getArgs)
 -- 
 import HEP.Automation.EventGeneration.Config
 import HEP.Storage.WebDAV.CURL
@@ -30,8 +31,6 @@ import HEP.Util.Either
 import HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
 import HEP.Physics.Analysis.Common.XSecNTotNum
 
- -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
--- atlas_7TeV_0L2to6J_bkgtest
 
 data TotalSR = TotalSR { numCL :: Double 
                        , numEL :: Double
@@ -61,12 +60,24 @@ chisquare TotalSR {..} = ((numCL - 74)^2) / (14^2)
                          + ((numET - 4.2)^2) / (4.7^2)  
 
 
+-- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
+-- atlas_7TeV_0L2to6J_bkgtest
+
+            -- testprint 
+            -- 
+
 main = do 
-  r <- work testprint -- atlas_7TeV_0L2to6J_bkgtest
+  args <- getArgs 
+  let n1 :: Int = read (args !! 0) 
+      n2 :: Int = read (args !! 1) 
+      nlst = (drop (n1-1) . take n2) [1..] 
+  r <- work atlas_7TeV_0L2to6J_bkgtest
          "config1.txt" 
-         "montecarlo/admproject/smbkg/tt012" 
-         "SM_tt012j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-         [1..100] 
+         "montecarlo/admproject/smbkg/z0123" 
+         "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
+         nlst 
+         -- [1000]
+         -- [1..100] 
          -- [1..100]
          -- [91..100]
          -- [81..90]
@@ -82,8 +93,8 @@ main = do
           -- [21..30]
   case r of 
     Left err -> putStrLn err 
-    Right vs -> do 
-      let vs' = catMaybes vs 
+    Right vs -> do return ()
+{-      let vs' = catMaybes vs 
       let totevts = (sum . map (numberOfEvent.fst)) vs'
           mul = (*) <$> crossSectionInPb <*> fromIntegral . numberOfEvent
           totcross = (/ (fromIntegral totevts)) . sum . map (mul . fst) $ vs'  
@@ -108,9 +119,7 @@ main = do
           lst' = sortBy (compare `on` (view _2)) lst 
       mapM_ print lst'
 
-      -- mapM_ print vs
--- addCL  = lookup CL 
-
+-}
 
 
 
@@ -139,8 +148,8 @@ work task cfgfile rdir bname sets =
 --     liftIO $ mapM (\nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm) bnames 
 
 
-testprint :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)]))
-testprint wdavcfg wdavrdir bname = do 
+fetchXSecNHist :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)]))
+fetchXSecNHist wdavcfg wdavrdir bname = do 
   let fp1 = bname ++ "_ATLAS7TeV0L2to6JBkgTest.json"
       fp2 = bname ++ "_total_count.json" 
   runMaybeT $ do  
