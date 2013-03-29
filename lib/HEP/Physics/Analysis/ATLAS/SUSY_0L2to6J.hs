@@ -512,7 +512,9 @@ showAsATLASPaper m =
   ++ "ET : " ++ maybe "0" show (M.lookup ET m) ++ "\n"
 
 
-mkHistogram :: [SRFlag] -> [ (EType,Int) ] 
+type HistEType = [ (EType,Int) ]
+
+mkHistogram :: [SRFlag] -> HistEType  
 mkHistogram passed = 
   let lst = (map (\x->(x,1)) . concat . map srFlag2Num ) passed 
       ascmap = foldr (\(k,v) m->M.insertWith (+) k v m) M.empty lst 
@@ -525,7 +527,7 @@ atlas_7TeV_0L2to6J_bkgtest wdavcfg wdavrdir bname = do
     print bname 
     let fp = bname ++ "_pgs_events.lhco.gz"
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp) $ do 
-      downloadFile wdavcfg wdavrdir fp 
+      downloadFile False wdavcfg wdavrdir fp 
       bstr <- LB.readFile fp 
       let unzipped =decompress bstr 
           evts = parsestr unzipped 

@@ -74,7 +74,7 @@ xsec wdavcfg wdavrdir bname = do
     b <- doesFileExistInDAV wdavcfg wdavrdir fp
     if b 
       then do 
-        downloadFile wdavcfg wdavrdir fp  
+        downloadFile False wdavcfg wdavrdir fp  
         eval <- getXSecFromPythiaLog fp
         case eval of
           Left _ -> return Nothing 
@@ -89,7 +89,7 @@ count :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe Int)
 count wdavcfg wdavrdir bname = do  
     let fp = bname ++ "_pgs_events.lhco.gz"
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp ) $ do 
-      downloadFile wdavcfg wdavrdir fp  
+      downloadFile False wdavcfg wdavrdir fp  
       bstr <- LB.readFile fp 
       let unzipped =decompress bstr 
           evts = parsestr unzipped 
