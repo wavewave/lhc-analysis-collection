@@ -12,9 +12,11 @@ import           Control.Monad.Trans.Maybe
 import Data.Attoparsec.Char8 hiding (take)
 -- import Data.Attoparsec.Lazy
 import           Data.Aeson 
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Char8 as B 
 import qualified Data.ByteString.Lazy.Char8 as LB
+import           Data.Data
 import Data.Function (on)
 import Data.List (lookup, sortBy) 
 import Data.Maybe 
@@ -43,21 +45,37 @@ data TotalSR = TotalSR { numCL :: Double
                        , numCT :: Double 
                        , numDT :: Double 
                        , numET :: Double } 
-               deriving (Show,Eq)
+               deriving (Show,Eq, Data, Typeable)
  
 
-chisquare :: TotalSR -> Double 
-chisquare TotalSR {..} = ((numCL - 74)^2) / (14^2)  
-                         + ((numEL - 73)^2) / (25^2) 
-                         + ((numAM - 6.8)^2) / (4.7^2) 
-                         + ((numA'M - 11)^2) / (4.0^2) 
-                         + ((numCM - 13)^2) / (5^2) 
-                         + ((numEM - 19)^2) / (6^2) 
-                         + ((numAT - 0.2)^2) / (0.2^2) 
-                         + ((numBT - 0.3)^2) / (0.3^2) 
-                         + ((numCT - 2.0)^2) / (1.5^2) 
-                         + ((numDT - 2.4)^2) / (1.7^2) 
-                         + ((numET - 4.2)^2) / (4.7^2)  
+instance ToJSON TotalSR where toJSON = G.toJSON
+
+chisquareTTBar  :: TotalSR -> Double 
+chisquareTTBar TotalSR {..} = ((numCL - 74)^2) / (14^2)  
+                            + ((numEL - 73)^2) / (25^2) 
+                            + ((numAM - 6.8)^2) / (4.7^2) 
+                            + ((numA'M - 11)^2) / (4.0^2) 
+                            + ((numCM - 13)^2) / (5^2) 
+                            + ((numEM - 19)^2) / (6^2) 
+                            + ((numAT - 0.2)^2) / (0.2^2) 
+                            + ((numBT - 0.3)^2) / (0.3^2) 
+                            + ((numCT - 2.0)^2) / (1.5^2) 
+                            + ((numDT - 2.4)^2) / (1.7^2) 
+                            + ((numET - 4.2)^2) / (4.7^2)  
+
+chisquareZJets  :: TotalSR -> Double 
+chisquareZJets TotalSR {..} = ((numCL - 71)^2) / (19^2)  
+                            + ((numEL - 21)^2) / (7^2) 
+                            + ((numAM - 32)^2) / (9^2) 
+                            + ((numA'M - 66)^2) / (18^2) 
+                            + ((numCM - 16)^2) / (5^2) 
+                            + ((numEM - 8.4)^2) / (3.2^2) 
+                            + ((numAT - 3.3)^2) / (1.5^2) 
+                            + ((numBT - 2.0)^2) / (1.3^2) 
+                            + ((numCT - 2.0)^2) / (1.0^2) 
+                            + ((numDT - 0.9)^2) / (0.6^2) 
+                            + ((numET - 3.4)^2) / (1.6^2)  
+
 
 
 -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
@@ -71,10 +89,13 @@ main = do
   let n1 :: Int = read (args !! 0) 
       n2 :: Int = read (args !! 1) 
       nlst = (drop (n1-1) . take n2) [1..] 
-  r <- work atlas_7TeV_0L2to6J_bkgtest
+      rdir = "montecarlo/admproject/smbkg/z0123" 
+      basename = "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
+
+  r <- work fetchXSecNHist -- atlas_7TeV_0L2to6J_bkgtest
          "config1.txt" 
-         "montecarlo/admproject/smbkg/z0123" 
-         "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
+         rdir 
+         basename 
          nlst 
          -- [1000]
          -- [1..100] 
@@ -93,13 +114,13 @@ main = do
           -- [21..30]
   case r of 
     Left err -> putStrLn err 
-    Right vs -> do return ()
-{-      let vs' = catMaybes vs 
+    Right vs -> do -- return ()
+      let vs' = catMaybes vs 
       let totevts = (sum . map (numberOfEvent.fst)) vs'
           mul = (*) <$> crossSectionInPb <*> fromIntegral . numberOfEvent
           totcross = (/ (fromIntegral totevts)) . sum . map (mul . fst) $ vs'  
           -- just for test yet 
-          weight = 165.0 * 4700 / fromIntegral totevts 
+          weight = {- 165.0 -} totcross * 4700 / fromIntegral totevts 
           test a b = let hists = mapMaybe (lookup (JESParam a b)) . map snd $ vs'
                          sumup k = ((*weight) . fromIntegral . sum . mapMaybe (lookup k)) hists
                          totsr = TotalSR { numCL = sumup CL 
@@ -115,11 +136,19 @@ main = do
                                          , numET = sumup ET } 
                      in (JESParam a b, totsr) 
       -- print weight -- totcross 
-      let lst = [ ((,,) <$> fst <*> chisquare. snd <*> snd) (test a b) | a <- [0,1..20], b <- [0,1..10] ]
+      let xsecn = CrossSectionAndCount totcross totevts
+          combined = (xsecn,[ test a b | a <- [0,1..20], b <- [0,1..10] ] )
+          fn = basename ++ show n1 ++ "to" ++ show n2 ++ "_ATLAS7TeV0L2to6JBkgTest.json" 
+          bstr = encodePretty combined 
+      --  print (encodePretty combined)
+      LB.writeFile fn bstr 
+      {- 
+      let lst = [ ((,,) <$> fst <*> chisquareZJets . snd <*> snd) (test a b) | a <- [0,1..20], b <- [0,1..10] ]
           lst' = sortBy (compare `on` (view _2)) lst 
       mapM_ print lst'
+      -}
 
--}
+-- -}
 
 
 
