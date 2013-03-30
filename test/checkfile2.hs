@@ -2,6 +2,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 import Control.Applicative ((<$>),(<*>),pure)
 import           Control.Lens 
@@ -34,22 +36,27 @@ import HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
 import HEP.Physics.Analysis.Common.XSecNTotNum
 
 
-data TotalSR = TotalSR { numCL :: Double 
-                       , numEL :: Double
-                       , numAM :: Double
-                       , numA'M :: Double 
-                       , numCM :: Double
-                       , numEM :: Double 
-                       , numAT :: Double 
-                       , numBT :: Double
-                       , numCT :: Double 
-                       , numDT :: Double 
-                       , numET :: Double } 
-               deriving (Show,Eq, Data, Typeable)
+data TotalSR a = TotalSR { numCL :: a
+                         , numEL :: a
+                         , numAM :: a
+                         , numA'M :: a 
+                         , numCM :: a
+                         , numEM :: a 
+                         , numAT :: a 
+                         , numBT :: a
+                         , numCT :: a 
+                         , numDT :: a 
+                         , numET :: a }
+
+deriving instance (Show a)     => Show (TotalSR a) 
+deriving instance (Eq a)       => Eq (TotalSR a)
+deriving instance (Data a)     => Data (TotalSR a)
+deriving instance Typeable1 TotalSR 
  
 
-instance ToJSON TotalSR where toJSON = G.toJSON
+instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
 
+{-
 chisquareTTBar  :: TotalSR -> Double 
 chisquareTTBar TotalSR {..} = ((numCL - 74)^2) / (14^2)  
                             + ((numEL - 73)^2) / (25^2) 
@@ -76,7 +83,7 @@ chisquareZJets TotalSR {..} = ((numCL - 71)^2) / (19^2)
                             + ((numDT - 0.9)^2) / (0.6^2) 
                             + ((numET - 3.4)^2) / (1.6^2)  
 
-
+-}
 
 -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
 -- atlas_7TeV_0L2to6J_bkgtest
@@ -89,10 +96,13 @@ main = do
   let n1 :: Int = read (args !! 0) 
       n2 :: Int = read (args !! 1) 
       nlst = (drop (n1-1) . take n2) [1..] 
-      rdir = "montecarlo/admproject/smbkg/z0123" 
-      basename = "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
+      rdir = "montecarlo/admproject/smbkg/tt012" 
+             -- "montecarlo/admproject/smbkg/z0123" 
+      basename = "SM_tt012j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
+                  -- "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
 
-  r <- work fetchXSecNHist -- atlas_7TeV_0L2to6J_bkgtest
+  r <- work fetchXSecNHist 
+            -- atlas_7TeV_0L2to6J_bkgtest
          "config1.txt" 
          rdir 
          basename 
@@ -114,7 +124,8 @@ main = do
           -- [21..30]
   case r of 
     Left err -> putStrLn err 
-    Right vs -> do -- return ()
+    Right vs -> do --  return ()
+
       let vs' = catMaybes vs 
       let totevts = (sum . map (numberOfEvent.fst)) vs'
           mul = (*) <$> crossSectionInPb <*> fromIntegral . numberOfEvent
@@ -122,7 +133,8 @@ main = do
           -- just for test yet 
           weight = {- 165.0 -} totcross * 4700 / fromIntegral totevts 
           test a b = let hists = mapMaybe (lookup (JESParam a b)) . map snd $ vs'
-                         sumup k = ((*weight) . fromIntegral . sum . mapMaybe (lookup k)) hists
+                         sumup k = (sum . mapMaybe (lookup k)) hists
+                         totsr :: TotalSR Int 
                          totsr = TotalSR { numCL = sumup CL 
                                          , numEL = sumup EL 
                                          , numAM = sumup AM
@@ -142,6 +154,10 @@ main = do
           bstr = encodePretty combined 
       --  print (encodePretty combined)
       LB.writeFile fn bstr 
+
+
+
+
       {- 
       let lst = [ ((,,) <$> fst <*> chisquareZJets . snd <*> snd) (test a b) | a <- [0,1..20], b <- [0,1..10] ]
           lst' = sortBy (compare `on` (view _2)) lst 
