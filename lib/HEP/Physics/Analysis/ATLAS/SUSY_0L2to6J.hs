@@ -534,7 +534,7 @@ atlas_7TeV_0L2to6J_bkgtest wdavcfg wdavrdir bname = do
           passed jes = (catMaybes . map (classify jes)) evts  
           asclst jes = mkHistogram (passed jes)
       
-          testlst = [ (trace (show jes) jes, asclst jes) | a <- [0,1..20], b <- [0,1..10], let jes = JESParam a b ]
+          testlst = [ (trace (show jes) jes, asclst jes) | a <- [-5,-4..20], b <- [-5,-4..10], let jes = JESParam a b ]
 
       removeFile fp 
 
