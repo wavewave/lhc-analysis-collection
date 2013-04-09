@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 
 import Control.Applicative ((<$>),(<*>),pure)
@@ -36,25 +35,7 @@ import HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
 import HEP.Physics.Analysis.Common.XSecNTotNum
 
 
-data TotalSR a = TotalSR { numCL :: a
-                         , numEL :: a
-                         , numAM :: a
-                         , numA'M :: a 
-                         , numCM :: a
-                         , numEM :: a 
-                         , numAT :: a 
-                         , numBT :: a
-                         , numCT :: a 
-                         , numDT :: a 
-                         , numET :: a }
 
-deriving instance (Show a)     => Show (TotalSR a) 
-deriving instance (Eq a)       => Eq (TotalSR a)
-deriving instance (Data a)     => Data (TotalSR a)
-deriving instance Typeable1 TotalSR 
- 
-
-instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
 
 {-
 chisquareTTBar  :: TotalSR -> Double 

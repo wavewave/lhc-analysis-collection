@@ -11,7 +11,7 @@ import System.Directory
 import System.Log.Logger
 -- 
 import HEP.Automation.MadGraph.Model
-import HEP.Automation.MadGraph.Model.SM
+import HEP.Automation.MadGraph.Model.SimplifiedSUSY
 import HEP.Automation.MadGraph.Card
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Run
@@ -36,26 +36,25 @@ getScriptSetup = do
        }
 
 -- | 
-processSetup :: ProcessSetup SM
+processSetup :: ProcessSetup SimplifiedSUSY
 processSetup = PS {  
-    model = SM
-  , process = MGProc [] [ "p p > a QCD=99 QED=2 @0 " 
-                        , "p p > a j QCD=99 QED=2 @1 " ]
-  , processBrief = "ajet"
-
-  , workname   = "ajet"
+    model = SimplifiedSUSY
+  , process = MGProc [] [ "p p > go go  @0 " 
+                        ]
+  , processBrief = "gogo"
+  , workname   = "gogo"
   }
 
 -- | 
-pset :: ModelParam SM
-pset = SMParam 
+pset :: ModelParam SimplifiedSUSY
+pset = SimplifiedSUSYParam { mneut = 100, mgluino = 2000, msquark = 1000 } 
 
 -- | 
-rsetup = RS { numevent = 10000
+rsetup = RS { numevent = 100
             , machine = LHC7 ATLAS
             , rgrun   = Auto -- Fixed
             , rgscale = 200.0
-            , match   = MLM -- NoMatch
+            , match   = NoMatch
             , cut     = DefCut 
             , pythia  = RunPYTHIA
             , lhesanitizer = NoLHESanitize
@@ -65,7 +64,7 @@ rsetup = RS { numevent = 10000
             }
 
 -- | 
-getWSetup :: IO (WorkSetup SM)
+getWSetup :: IO (WorkSetup SimplifiedSUSY)
 getWSetup = WS <$> getScriptSetup 
                <*> pure processSetup 
                <*> pure pset 
@@ -108,11 +107,3 @@ work wsetup = do -- wsetup <- getWSetup
 
 
 
-
-          {-
-          -- create working directory (only once for each process)
-          mapM_ (createWorkDir my_ssetup) psetuplist
-          sleep 2
-          mapM_ (runReaderT cmdSequence) totaltasklist 
-          -}
-          

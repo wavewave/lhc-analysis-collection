@@ -3,6 +3,8 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 
 -----------------------------------------------------------------------------
 -- |
@@ -512,7 +514,77 @@ showAsATLASPaper m =
   ++ "ET : " ++ maybe "0" show (M.lookup ET m) ++ "\n"
 
 
+--------------------------------------------------------
+--------------------------------------------------------
+--------------------------------------------------------
+
+
 type HistEType = [ (EType,Int) ]
+
+data TotalSR a = TotalSR { numCL :: a
+                         , numEL :: a
+                         , numAM :: a
+                         , numA'M :: a 
+                         , numCM :: a
+                         , numEM :: a 
+                         , numAT :: a 
+                         , numBT :: a
+                         , numCT :: a 
+                         , numDT :: a 
+                         , numET :: a }
+
+
+deriving instance (Show a)     => Show (TotalSR a) 
+deriving instance (Eq a)       => Eq (TotalSR a)
+deriving instance (Data a)     => Data (TotalSR a)
+deriving instance Typeable1 TotalSR 
+
+
+
+ 
+instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
+
+instance (Num a)  => Num (TotalSR a) where
+  a + b = TotalSR { numCL = numCL a + numCL b   
+                  , numEL = numEL a + numEL b 
+                  , numAM = numAM a + numAM b 
+                  , numA'M = numA'M a + numA'M b 
+                  , numCM = numCM a + numCM b 
+                  , numEM = numEM a + numEM b 
+                  , numAT = numAT a + numAT b 
+                  , numBT = numBT a + numBT b 
+                  , numCT = numCT a + numCT b 
+                  , numDT = numDT a + numDT b 
+                  , numET = numET a + numET b 
+                  } 
+  a * b = TotalSR { numCL = numCL a * numCL b   
+                  , numEL = numEL a * numEL b 
+                  , numAM = numAM a * numAM b 
+                  , numA'M = numA'M a * numA'M b 
+                  , numCM = numCM a * numCM b 
+                  , numEM = numEM a * numEM b 
+                  , numAT = numAT a * numAT b 
+                  , numBT = numBT a * numBT b 
+                  , numCT = numCT a * numCT b 
+                  , numDT = numDT a * numDT b 
+                  , numET = numET a * numET b 
+                  }
+  negate = id 
+  abs = id
+  fromInteger n = TotalSR { numCL = fromInteger n 
+                          , numEL = fromInteger n
+                          , numAM = fromInteger n
+                          , numA'M = fromInteger n
+                          , numCM = fromInteger n
+                          , numEM = fromInteger n
+                          , numAT = fromInteger n
+                          , numBT = fromInteger n
+                          , numCT = fromInteger n
+                          , numDT = fromInteger n
+                          , numET = fromInteger n
+                          }
+  signum _ = fromInteger 1
+
 
 mkHistogram :: [SRFlag] -> HistEType  
 mkHistogram passed = 
