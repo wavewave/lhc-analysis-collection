@@ -47,6 +47,9 @@ adms = [9000201,-9000201,9000202,-9000202]
 
 sup = [1000002,-1000002] 
 
+sdownR = [2000001,-2000001]
+
+
 p_2sq_2l2j2x :: DCross 
 p_2sq_2l2j2x = x (t proton, t proton, [p_sup, p_sup])
 
