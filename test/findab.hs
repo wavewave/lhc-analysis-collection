@@ -77,30 +77,36 @@ main = do
   let n1 :: Int = read (args !! 0) 
       n2 :: Int = read (args !! 1) 
       nlst = (drop (n1-1) . take n2) [1..] 
-      rdir = -- "montecarlo/admproject/smbkg/tt012" 
+      rdir = "montecarlo/admproject/smbkg/tt012" 
              -- "montecarlo/admproject/smbkg/z0123" 
-             -- "montecarlo/admproject/smbkg/wp0123"
-             -- "montecarlo/admproject/smbkg/wm0123"
-             -- "montecarlo/admproject/smbkg/tbbar0123"
-             "montecarlo/admproject/smbkg/tbarb0123"
-      basename = -- "SM_tt012j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-                 -- "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-                 -- "SM_wp0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-                 -- "SM_wm0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-                 -- "SM_tbbar0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-                 "SM_tbarb0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
-                
+      basename = "SM_tt012j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
+                  -- "SM_z0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set"
 
-  r <- work -- fetchXSecNHist 
-            atlas_7TeV_0L2to6J_bkgtest
+  r <- work fetchXSecNHist 
+            -- atlas_7TeV_0L2to6J_bkgtest
          "config1.txt" 
          rdir 
          basename 
          nlst 
+         -- [1000]
+         -- [1..100] 
+         -- [1..100]
+         -- [91..100]
+         -- [81..90]
+         -- [71..80] 
+         -- [61..70]
+         -- [51..60]
+         -- [41..50]
+         -- [31..40]
+         -- [24..30]
+         -- [11..100]
+         -- [1..10] 
+         -- [1..1000] 
+          -- [21..30]
   case r of 
     Left err -> putStrLn err 
-    Right vs -> return ()
-{-
+    Right vs -> do --  return ()
+
       let vs' = catMaybes vs 
       let totevts = (sum . map (numberOfEvent.fst)) vs'
           mul = (*) <$> crossSectionInPb <*> fromIntegral . numberOfEvent
@@ -129,7 +135,7 @@ main = do
           bstr = encodePretty combined 
       --  print (encodePretty combined)
       LB.writeFile fn bstr 
--}
+
 
 
 

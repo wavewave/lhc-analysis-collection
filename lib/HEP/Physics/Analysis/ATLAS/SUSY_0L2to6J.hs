@@ -593,9 +593,14 @@ mkHistogram passed =
   in M.toAscList ascmap
 
 
-atlas_7TeV_0L2to6J_bkgtest :: WebDAVConfig -> WebDAVRemoteDir -> String 
-                      -> IO (Maybe ()) -- IO (Maybe [((Double,Double), [(EType,Int)])])
-atlas_7TeV_0L2to6J_bkgtest wdavcfg wdavrdir bname = do 
+
+-- | as was [0..20], bs was [0..10]
+atlas_7TeV_0L2to6J_bkgtest :: ([Double],[Double]) 
+                           -> WebDAVConfig 
+                           -> WebDAVRemoteDir 
+                           -> String 
+                           -> IO (Maybe ()) -- IO (Maybe [((Double,Double), [(EType,Int)])])
+atlas_7TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do 
     print bname 
     let fp = bname ++ "_pgs_events.lhco.gz"
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp) $ do 
@@ -605,8 +610,7 @@ atlas_7TeV_0L2to6J_bkgtest wdavcfg wdavrdir bname = do
           evts = parsestr unzipped 
           passed jes = (catMaybes . map (classify jes)) evts  
           asclst jes = mkHistogram (passed jes)
-      
-          testlst = [ (trace (show jes) jes, asclst jes) | a <- [-5,-4..20], b <- [-5,-4..10], let jes = JESParam a b ]
+          testlst = [ (trace (show jes) jes, asclst jes) | a <- as, b <- bs, let jes = JESParam a b ]
 
       removeFile fp 
 

@@ -24,7 +24,6 @@ import HEP.Automation.MadGraph.Model.SimplifiedSUSY
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
--- 
 import HEP.Automation.EventChain.Driver 
 import HEP.Automation.EventChain.File
 import HEP.Automation.EventChain.LHEConn
@@ -35,6 +34,10 @@ import HEP.Automation.EventChain.SpecDSL
 import HEP.Automation.EventChain.Simulator 
 import HEP.Automation.EventChain.Process
 import HEP.Automation.EventChain.Process.Generator
+import HEP.Automation.EventGeneration.Config 
+import HEP.Automation.EventGeneration.Type 
+import HEP.Automation.EventGeneration.Work 
+import HEP.Storage.WebDAV
 -- 
 import qualified Paths_madgraph_auto as PMadGraph 
 import qualified Paths_madgraph_auto_model as PModel 
@@ -116,14 +119,15 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mn,50000,mq,10000) | mn <- [100,200..1200], mq <- [mn+100,mn+200..1200] ] 
+worksets = [ (mn,50000,mq,{- 10000 -} 100) | mn <- [100,200..1200], mq <- [mn+100,mn+200..1200] ] 
 
 --  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
 main :: IO () 
 main = do 
+  fp <- (!! 0) <$> getArgs 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  mapM_ scanwork worksets 
+  mapM_ (scanwork fp) worksets 
 
 
 -- (100,50000,2000,10000)
@@ -149,31 +153,48 @@ getScriptSetup dir_sb dir_mg5 dir_mc = do
 
 
 
-scanwork :: (Double,Double,Double,Int) -> IO () 
-scanwork (mneut,mgl,msq,n) = do
+scanwork :: FilePath -> (Double,Double,Double,Int) -> IO () 
+scanwork fp (mneut,mgl,msq,n) = do
   homedir <- getHomeDirectory 
-  ssetup <- getScriptSetup "/tmp/pipeline/flux-login1/sandbox"
-                           "/tmp/pipeline/flux-login1/MadGraph5_v1_5_8/"
-                           "/tmp/pipeline/flux-login1/mc"
-
-                           -- (homedir </> "repo/workspace/montecarlo/working")
-                           -- (homedir </> "repo/ext/MadGraph5_v1_4_8_4/")
-                           -- (homedir </> "repo/workspace/montecarlo/mc/")
-  let param = modelparam mneut mgl msq 
-      mgrs = mgrunsetup n
-  evchainGen SimplifiedSUSY
-    ssetup 
-    ("2sq_2j2x","2sq_2j2x") 
-    param 
-    map_2sq_2j2x p_2sq_2j2x 
-    mgrs 
-  let wsetup = getWorkSetupCombined SimplifiedSUSY ssetup param ("2sq_2j2x","2sq_2j2x")  mgrs 
-  phase2work wsetup 
 
 
+  getConfig fp >>= 
+    maybe (return ()) (\ec -> do 
+      let ssetup = evgen_scriptsetup ec 
+          whost = evgen_webdavroot ec 
+          pkey = evgen_privatekeyfile ec
+          pswd = evgen_passwordstore ec 
+      Just cr <- getCredential pkey pswd 
+      let wdavcfg = WebDAVConfig { webdav_credential = cr 
+                                 , webdav_baseurl = whost } 
+          
+      {- ssetup <- getScriptSetup "/tmp/pipeline/testtest/sandbox"
+                               "/tmp/pipeline/testtest/MadGraph5_v1_5_8/"
+                               "/tmp/pipeline/testtest/mc"
+
+                               -- (homedir </> "repo/workspace/montecarlo/working")
+                               -- (homedir </> "repo/ext/MadGraph5_v1_4_8_4/")
+                               -- (homedir </> "repo/workspace/montecarlo/mc/") -}
+      let param = modelparam mneut mgl msq 
+          mgrs = mgrunsetup n
+      evchainGen SimplifiedSUSY
+        ssetup 
+        ("2sq_2j2x","2sq_2j2x") 
+        param 
+        map_2sq_2j2x p_2sq_2j2x 
+        mgrs 
 
 
+      let wsetup' = getWorkSetupCombined SimplifiedSUSY ssetup param ("2sq_2j2x","2sq_2j2x")  mgrs
+          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/SimplifiedSUSY/scan" } 
+ 
+      putStrLn "phase2work start"              
+      phase2work wsetup 
+      putStrLn "phase3work start"
+      phase3work wdavcfg wsetup 
+      )
 
+-- | 
 phase2work :: WorkSetup SimplifiedSUSY -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
@@ -197,6 +218,10 @@ phase2work wsetup = do
     print r  
     return ()
 
-
-
+-- | 
+phase3work :: WebDAVConfig -> WorkSetup SimplifiedSUSY -> IO () 
+phase3work wdav wsetup = do 
+  uploadEventFull NoUploadHEP wdav wsetup 
+  return () 
+  
 
