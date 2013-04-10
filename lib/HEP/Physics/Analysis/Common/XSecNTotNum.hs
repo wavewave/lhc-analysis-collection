@@ -37,6 +37,8 @@ import HEP.Util.Either
 -- 
 import HEP.Parser.XSec
 
+data XSecType = XSecPYTHIA | XSecLHE
+
 data CrossSectionAndCount = CrossSectionAndCount { crossSectionInPb :: Double
                                                  , numberOfEvent :: Int } 
     deriving (Show,Eq,Data,Typeable)
@@ -56,11 +58,11 @@ getJSONFileAndUpload wdavcfg wdavrdir basename mr =
      removeFile fn 
      return ()
 
-getXSecNCount :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe CrossSectionAndCount)
-getXSecNCount wdavcfg wdavrdir bname = do 
+getXSecNCount :: XSecType -> WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe CrossSectionAndCount)
+getXSecNCount xsectyp wdavcfg wdavrdir bname = do 
     print bname 
     runMaybeT $ do 
-      x <- MaybeT $ xsec wdavcfg wdavrdir bname
+      x <- MaybeT $ xsec xsectyp wdavcfg wdavrdir bname
       c <- MaybeT $ count wdavcfg wdavrdir bname 
       return (CrossSectionAndCount x c)
 
@@ -68,8 +70,8 @@ getXSecNCount wdavcfg wdavrdir bname = do
 
 
 -- | get cross section in pb unit                           
-xsec :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe Double) 
-xsec wdavcfg wdavrdir bname = do  
+xsec :: XSecType -> WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe Double) 
+xsec XSecPYTHIA wdavcfg wdavrdir bname = do  
     let fp = bname ++ "_pythia.log"
     b <- doesFileExistInDAV wdavcfg wdavrdir fp
     if b 
@@ -82,7 +84,19 @@ xsec wdavcfg wdavrdir bname = do
             removeFile fp 
             return (Just val)
       else return Nothing
-
+xsec XSecLHE wdavcfg wdavrdir bname = do 
+    let fp = bname ++ "_unweighted_events.lhe.gz"
+    b <- doesFileExistInDAV wdavcfg wdavrdir fp
+    if b 
+      then do
+        downloadFile False wdavcfg wdavrdir fp  
+        eval <- getXSecFromLHEGZ fp
+        case eval of
+          Left _ -> return Nothing 
+          Right val -> do       
+            removeFile fp 
+            return (Just val)
+      else return Nothing 
 
 -- | get number of events
 count :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe Int)
