@@ -63,9 +63,9 @@ datalst = map (\x->("100.0",x)) datalst_squark
           ++ map (\x->("1100.0",x)) (drop 10 datalst_squark)
 
 main = do 
-  -- mapM_ print datalst 
   h <- openFile "simplifiedsquark.dat" WriteMode 
   forM_ datalst $ \(x,y) -> do  
+    getCount x y 
     [Just (_,_,_,r)] <- getLHCresult x y 
     hPutStrLn h $ x ++ ", " ++ y ++ ", " ++ (T.unpack . TB.toLazyText . TF.fixed 2) r  
 
@@ -87,10 +87,6 @@ getLHCresult n1 n2 = do
         
 
 getCount n1 n2 = do 
-  {- args <- getArgs 
-  let n1 :: String = (args !! 0) 
-      n2 :: String = (args !! 1) 
-  -}
   let nlst = [1]
       rdir = "montecarlo/admproject/SimplifiedSUSY/scan" 
       basename = "SimplifiedSUSYMN"++n1++ "MG50000.0MSQ" ++ n2 ++ "_2sq_2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
@@ -130,10 +126,6 @@ work task cfgfile rdir bname sets =
     liftIO $ mapM (task wdavcfg wdavrdir) bnames 
 
 
-{- "montecarlo/admproject/smbkg/wp0123" -}
--- ..100] -- [1..4500]
- {- "SM_wp0123j_LHC7ATLAS_MLM_DefCut_AntiKT0.4_NoTau_Set" -}
---     liftIO $ mapM (\nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm) bnames 
 
 
 -- atlasresult_4_7fb :: WebDAVConfig -> WebDAVRemoteDir -> String ->IO (Maybe ([ (EType,Double) ], Double))

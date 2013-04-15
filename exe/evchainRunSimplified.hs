@@ -75,8 +75,8 @@ idx_2sq_2j2x = mkCrossIDIdx (mkDICross p_2sq_2j2x)
 
 map_2sq_2j2x :: ProcSpecMap
 map_2sq_2j2x = 
-    HM.fromList [ (Nothing             , MGProc ["define  sql = ul ul~ dl dl~ sl sl~ cl cl~"] 
-                                                ["p p > sql sql  QED=0"])
+    HM.fromList [ (Nothing             , MGProc ["define  sq = ul ul~ dl dl~ sl sl~ cl cl~ ur ur~ dr dr~ sr sr~ cr cr~"] 
+                                                ["p p > sq sq  QED=0"])
                 , (Just (3, 1000001,[]), MGProc [] ["dl  > d n1"])
                 , (Just (3,-1000001,[]), MGProc [] ["dl~ > d~ n1"])
                 , (Just (3, 1000002,[]), MGProc [] ["ul  > u n1"])
@@ -85,6 +85,16 @@ map_2sq_2j2x =
                 , (Just (3,-1000003,[]), MGProc [] ["sl~ > s~ n1"])
                 , (Just (3, 1000004,[]), MGProc [] ["cl  > c n1"])
                 , (Just (3,-1000004,[]), MGProc [] ["cl~ > c~ n1"]) 
+                --
+                , (Just (3, 2000001,[]), MGProc [] ["dr  > d n1"])
+                , (Just (3,-2000001,[]), MGProc [] ["dr~ > d~ n1"])
+                , (Just (3, 2000002,[]), MGProc [] ["ur  > u n1"])
+                , (Just (3,-2000002,[]), MGProc [] ["ur~ > u~ n1"])
+                , (Just (3, 2000003,[]), MGProc [] ["sr  > s n1"])
+                , (Just (3,-2000003,[]), MGProc [] ["sr~ > s~ n1"])
+                , (Just (3, 2000004,[]), MGProc [] ["cr  > c n1"])
+                , (Just (3,-2000004,[]), MGProc [] ["cr~ > c~ n1"]) 
+                -- 
                 , (Just (4, 1000001,[]), MGProc [] ["dl  > d n1"])
                 , (Just (4,-1000001,[]), MGProc [] ["dl~ > d~ n1"])
                 , (Just (4, 1000002,[]), MGProc [] ["ul  > u n1"])
@@ -93,7 +103,15 @@ map_2sq_2j2x =
                 , (Just (4,-1000003,[]), MGProc [] ["sl~ > s~ n1"])
                 , (Just (4, 1000004,[]), MGProc [] ["cl  > c n1"])
                 , (Just (4,-1000004,[]), MGProc [] ["cl~ > c~ n1"]) 
-                 
+                --            
+                , (Just (4, 2000001,[]), MGProc [] ["dr  > d n1"])
+                , (Just (4,-2000001,[]), MGProc [] ["dr~ > d~ n1"])
+                , (Just (4, 2000002,[]), MGProc [] ["ur  > u n1"])
+                , (Just (4,-2000002,[]), MGProc [] ["ur~ > u~ n1"])
+                , (Just (4, 2000003,[]), MGProc [] ["sr  > s n1"])
+                , (Just (4,-2000003,[]), MGProc [] ["sr~ > s~ n1"])
+                , (Just (4, 2000004,[]), MGProc [] ["cr  > c n1"])
+                , (Just (4,-2000004,[]), MGProc [] ["cr~ > c~ n1"]) 
                 ] 
 
 
@@ -119,18 +137,16 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mn,50000,mq,{- 10000 -} 100) | mn <- [100,200..1200], mq <- [mn+100,mn+200..1200] ] 
-
---  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
+worksets = [ (mn,50000,mq,10000) | mn <- [100,200..1200], mq <- [mn+100,mn+200..1200] ] 
 
 main :: IO () 
 main = do 
-  fp <- (!! 0) <$> getArgs 
+  args <- getArgs 
+  let fp = args !! 0 
+      n1 = read (args !! 1) :: Int
+      n2 = read (args !! 2) :: Int
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  mapM_ (scanwork fp) worksets 
-
-
--- (100,50000,2000,10000)
+  mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
  
@@ -156,8 +172,6 @@ getScriptSetup dir_sb dir_mg5 dir_mc = do
 scanwork :: FilePath -> (Double,Double,Double,Int) -> IO () 
 scanwork fp (mneut,mgl,msq,n) = do
   homedir <- getHomeDirectory 
-
-
   getConfig fp >>= 
     maybe (return ()) (\ec -> do 
       let ssetup = evgen_scriptsetup ec 
@@ -168,13 +182,6 @@ scanwork fp (mneut,mgl,msq,n) = do
       let wdavcfg = WebDAVConfig { webdav_credential = cr 
                                  , webdav_baseurl = whost } 
           
-      {- ssetup <- getScriptSetup "/tmp/pipeline/testtest/sandbox"
-                               "/tmp/pipeline/testtest/MadGraph5_v1_5_8/"
-                               "/tmp/pipeline/testtest/mc"
-
-                               -- (homedir </> "repo/workspace/montecarlo/working")
-                               -- (homedir </> "repo/ext/MadGraph5_v1_4_8_4/")
-                               -- (homedir </> "repo/workspace/montecarlo/mc/") -}
       let param = modelparam mneut mgl msq 
           mgrs = mgrunsetup n
       evchainGen SimplifiedSUSY
