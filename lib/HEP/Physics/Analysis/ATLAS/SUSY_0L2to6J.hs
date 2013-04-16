@@ -61,12 +61,6 @@ import Debug.Trace
 
 -- meffNj 4 
 
-data JESParam = JESParam { jes_a :: Double 
-                         , jes_b :: Double } 
-               deriving (Show,Eq,Data,Typeable,Ord)
-
-instance ToJSON JESParam where toJSON = G.toJSON 
-
 
 -- | effective mass with N leading jets (used in PRL87,012008 (2008))
 meffNj :: Int -> PhyEventClassified -> Double 
@@ -79,20 +73,6 @@ meffinc40 PhyEventClassified {..} =
   (sum . map (trd3.etaphipt.snd) . filter ((>40).trd3.etaphipt.snd)) jetlst 
   + (snd.phiptmet) met
 
-
--- | jet energy scale correction ( our values from ttbar3 were (14.23,7.53) ) 
-jes_correction :: JESParam -> PhyObj Jet -> PhyObj Jet 
-jes_correction (JESParam a b) j = 
-  let (j_eta,j_phi,j_pt) = etaphiptjet j 
-      j_m = mjet j
-      s = (a + b * j_eta * j_eta) 
-          / sqrt ( j_pt*j_pt * (cosh j_eta)^2 + j_m*j_m )  
-      deltapt = j_pt * s
-      deltam = j_m * s  
-  in -- trace (" eta, pt, s = " ++ show j_eta ++ "," ++ show j_pt ++ "," ++ show s) $ 
-
-     j { etaphiptjet = (j_eta,j_phi,j_pt+deltapt) 
-       , mjet = j_m + deltam } 
 
 
 

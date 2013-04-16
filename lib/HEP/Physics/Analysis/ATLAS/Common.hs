@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, GADTs #-}
+{-# LANGUAGE RecordWildCards, GADTs, DeriveDataTypeable #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -20,6 +20,9 @@ import Control.Applicative ((<$>),(<*>))
 import Control.Monad.Indexed
 import Control.Monad.Indexed.State
 import Control.Monad.Indexed.Trans
+import qualified Data.Aeson.Generic as G
+import           Data.Aeson.Types
+import           Data.Data
 --
 import HEP.Parser.LHCOAnalysis.PhysObj
 
@@ -108,5 +111,27 @@ mt (pt1x,pt1y) (pt2x,pt2y) = sqrt (2.0*pt1*pt2-2.0*pt1x*pt2x-2.0*pt1y*pt2y)
         pt2 = sqrt (pt2x*pt2x+pt2y*pt2y)
         -- cosph = (pt1x*pt2x + pt1y*pt2y)/
 
+
+data JESParam = JESParam { jes_a :: Double 
+                         , jes_b :: Double } 
+               deriving (Show,Eq,Data,Typeable,Ord)
+
+instance ToJSON JESParam where toJSON = G.toJSON 
+
+
+
+-- | jet energy scale correction ( our values from ttbar3 were (14.23,7.53) ) 
+jes_correction :: JESParam -> PhyObj Jet -> PhyObj Jet 
+jes_correction (JESParam a b) j = 
+  let (j_eta,j_phi,j_pt) = etaphiptjet j 
+      j_m = mjet j
+      s = (a + b * j_eta * j_eta) 
+          / sqrt ( j_pt*j_pt * (cosh j_eta)^2 + j_m*j_m )  
+      deltapt = j_pt * s
+      deltam = j_m * s  
+  in -- trace (" eta, pt, s = " ++ show j_eta ++ "," ++ show j_pt ++ "," ++ show s) $ 
+
+     j { etaphiptjet = (j_eta,j_phi,j_pt+deltapt) 
+       , mjet = j_m + deltam } 
 
 

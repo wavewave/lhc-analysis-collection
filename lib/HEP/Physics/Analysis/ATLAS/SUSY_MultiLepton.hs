@@ -22,9 +22,11 @@ import HEP.Parser.LHCOAnalysis.Parse
 import HEP.Storage.WebDAV.CURL
 import HEP.Storage.WebDAV.Type 
 import HEP.Util.Either 
+import HEP.Util.Functions hiding (fst3,snd3,trd3)
 -- 
 import HEP.Physics.Analysis.ATLAS.Common 
 -- 
+import Prelude hiding (subtract)
 import Debug.Trace
 
 data EventTypeCode = SingleHardElec3J 
@@ -282,12 +284,29 @@ maybeMultiLep4 (MultiLeptonEvent M4Jet t) = Just t
 maybeMultiLep4 _ = Nothing 
 
 
+
+jesCorr jes ev@PhyEventClassified {..} = 
+  let jetlst' = ptordering . map ((,) <$> fst <*> jes_correction jes . snd) $ jetlst  
+      (phi',pt') = phiptmet met 
+      metmom = (0, pt'*cos phi', pt'*sin phi',0)
+      photonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) photonlst) 
+      electronmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) electronlst) 
+      muonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) muonlst) 
+      jetmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) jetlst')
+      momsum = photonmomsum `plus` electronmomsum `plus` muonmomsum `plus` jetmomsum 
+      -- remnant = metmom `plus` momsum
+      missingphipt = (,) <$> trd3 <*> fst3 $ mom_2_pt_eta_phi ((0,0,0,0) `subtract` momsum)
+
+  in  ev {jetlst = jetlst', met = ObjMET missingphipt }
+
+
 -- | as was [0..20], bs was [0..10]
-atlas_7TeV_MultiL2to4J :: WebDAVConfig 
+atlas_7TeV_MultiL2to4J :: JESParam  
+                      -> WebDAVConfig 
                       -> WebDAVRemoteDir 
                       -> String 
                       -> IO (Maybe ()) 
-atlas_7TeV_MultiL2to4J wdavcfg wdavrdir bname = do 
+atlas_7TeV_MultiL2to4J jes wdavcfg wdavrdir bname = do 
     print bname 
     let fp = bname ++ "_pgs_events.lhco.gz"
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp) $ do 
@@ -295,7 +314,7 @@ atlas_7TeV_MultiL2to4J wdavcfg wdavrdir bname = do
       bstr <- LB.readFile fp 
       let unzipped = decompress bstr 
           evts = parsestr unzipped
-          signalevts = map (preselect HardLepton . taubjetMerge) evts 
+          signalevts = map (preselect HardLepton . jesCorr jes . taubjetMerge) evts 
           classified = mapMaybe classifyEvent signalevts 
           -- 
           singlelep3 = mapMaybe maybeSingleLep3 classified
@@ -329,7 +348,7 @@ atlas_7TeV_MultiL2to4J wdavcfg wdavrdir bname = do
                    , (MultiMuonMuon4J , num_mlmm4) ]
 
       let jsonfn = bname ++ "_ATLAS7TeVMultiL2to4J.json"
-      let bstr = encodePretty result
+      let bstr = encodePretty [(jes,result)]
       -- LB.putStrLn bstr 
       LB.writeFile jsonfn bstr 
       uploadFile wdavcfg wdavrdir jsonfn 

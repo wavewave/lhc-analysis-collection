@@ -49,19 +49,12 @@ datalst = map (\x->("100.0",x)) datalst_squark
 main = do 
   h <- openFile "simplifiedsquark_multilep.dat" WriteMode
   forM_ datalst $ \(x,y) -> do  
-    -- getCount x y 
+    getCount x y 
     [(Just (_,_,_,r))] <- getLHCresult x y
     hPutStrLn h $ x ++ ", " ++ y ++ ", " ++ (T.unpack . TB.toLazyText . TF.fixed 2) r
     -- print r 
   hClose h
 
-  {-
-  -- h <- openFile "output.dat" WriteMode 
-  hPutStr stdout header
-  mapM_ (analysis stdout) scharm1000
-  hPutStr stdout footer 
-  -- hClose h 
-  -}
 
 getLHCresult n1 n2 = do 
   let nlst = [1]
@@ -82,7 +75,7 @@ atlasresult_4_7fb wdavcfg wdavrdir bname = do
     (_,mr1) <- MaybeT . boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp1) 
                       . downloadFile True wdavcfg wdavrdir $ fp1 
     r1 <- liftM LB.pack (MaybeT . return $ mr1) 
-    (result :: [(EventTypeCode,Int)]) <- MaybeT . return $ G.decode r1 
+    (result :: [(JESParam,[(EventTypeCode,Int)])]) <- MaybeT . return $ G.decode r1 
    
     (_,mr2) <- MaybeT . boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp2) 
                       . downloadFile True wdavcfg wdavrdir $ fp2
@@ -90,7 +83,7 @@ atlasresult_4_7fb wdavcfg wdavrdir bname = do
     (xsec :: CrossSectionAndCount) <- MaybeT . return $ G.decode  r2  
 
     let weight = crossSectionInPb xsec * 4700 / fromIntegral (numberOfEvent xsec)
-        hist = map (\(x,y) -> (x,fromIntegral y * weight)) result
+        hist = map (\(x,y) -> (x,fromIntegral y * weight)) ((snd.head) result)
 
     let getratio (x,y) = do y' <- lookup x nbsmlimit 
                             return (y/ y') 
@@ -98,7 +91,7 @@ atlasresult_4_7fb wdavcfg wdavrdir bname = do
                             return (max acc r)
     maxratio <- MaybeT . return $ foldrM maxf 0 hist 
 
-    return (xsec,result,hist,maxratio) -- (xsec,result)
+    return (xsec,result,hist,maxratio) 
 
 
 
@@ -115,7 +108,7 @@ getCount n1 n2 = do
          nlst 
   print r1
   r2 <- work 
-         atlas_7TeV_MultiL2to4J
+         (atlas_7TeV_MultiL2to4J (JESParam 5 2))
          "config1.txt"
          rdir
          basename
