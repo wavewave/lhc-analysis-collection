@@ -1,34 +1,26 @@
 {-# LANGUAGE RecordWildCards, GADTs, ScopedTypeVariables #-}
 
 import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.Either
 import Control.Monad.Trans.Maybe
-import           Codec.Compression.GZip
 import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Foldable (foldrM)
-import           Data.Maybe
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Format as TF
 import qualified Data.Text.Lazy.Builder as TB
-import           System.Directory
-import           System.FilePath
 import           System.IO 
 -- 
-import HEP.Automation.EventGeneration.Config
 import HEP.Storage.WebDAV.CURL
-import HEP.Storage.WebDAV.Type 
 -- import HEP.Storage.WebDAV.Util
 import HEP.Util.Either 
-import           HEP.Parser.LHCOAnalysis.Parse
 -- 
 import           HEP.Physics.Analysis.Common.XSecNTotNum
 import           HEP.Physics.Analysis.ATLAS.Common
 import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
 -- import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
+import           HEP.Util.Work 
 -- 
-import Debug.Trace
+
 
 datalst = map ((,) "50000.0") [ "100.0"
                               , "200.0"
@@ -51,21 +43,6 @@ datalst = map ((,) "50000.0") [ "100.0"
                               , "1900.0"
                               , "2000.0" ] 
 
-{-
-datalst_squark = [ "200.0", "300.0", "400.0", "500.0", "600.0"
-                 , "700.0", "800.0", "900.0", "1000.0", "1100.0", "1200.0" ] 
-datalst = map (\x->("100.0",x)) datalst_squark
-          ++ map (\x->("200.0",x)) (drop 1 datalst_squark)
-          ++ map (\x->("300.0",x)) (drop 2 datalst_squark)
-          ++ map (\x->("400.0",x)) (drop 3 datalst_squark)
-          ++ map (\x->("500.0",x)) (drop 4 datalst_squark)
-          ++ map (\x->("600.0",x)) (drop 5 datalst_squark)
-          ++ map (\x->("700.0",x)) (drop 6 datalst_squark)
-          ++ map (\x->("800.0",x)) (drop 7 datalst_squark)
-          ++ map (\x->("900.0",x)) (drop 8 datalst_squark)
-          ++ map (\x->("1000.0",x)) (drop 9 datalst_squark)
-          ++ map (\x->("1100.0",x)) (drop 10 datalst_squark)
--}
 
 main = do 
   h <- openFile "xqldsquark_multilep.dat" WriteMode
@@ -123,12 +100,12 @@ getCount n1 n2 = do
   let nlst = [1]
       rdir = "montecarlo/admproject/XQLD/scan" 
       basename = "ADMXQLD111MG"++n1++ "MQ" ++ n2 ++ "ML50000.0MN50000.0_2sd_2l2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
-  {-  r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
+  r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
          "config1.txt" 
          rdir 
          basename 
          nlst 
-  print r1 -}
+  print r1 
   r2 <- work 
          (atlas_7TeV_MultiL2to4J (JESParam 5 2))
          "config1.txt"
@@ -142,7 +119,7 @@ getCount n1 n2 = do
 
 
 
-
+{- 
 work :: (WebDAVConfig -> WebDAVRemoteDir -> String -> IO a) 
      -> FilePath 
      -> FilePath 
@@ -160,7 +137,8 @@ work task cfgfile rdir bname sets =
         wdavrdir = WebDAVRemoteDir rdir 
         bnames = map (\x -> bname ++ show x) sets
     liftIO $ mapM (task wdavcfg wdavrdir) bnames 
-  
+-}  
+
 nbsmlimit = [ (SingleHardElec3J, 4.4) 
             , (SingleHardMuon3J, 3.6)
             , (SingleHardElec4J, 5.8)

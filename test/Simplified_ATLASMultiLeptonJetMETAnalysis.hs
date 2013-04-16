@@ -1,34 +1,28 @@
 {-# LANGUAGE RecordWildCards, GADTs, ScopedTypeVariables #-}
 
 import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.Either
+
+
 import Control.Monad.Trans.Maybe
-import           Codec.Compression.GZip
 import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Foldable (foldrM)
-import           Data.Maybe
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Format as TF
 import qualified Data.Text.Lazy.Builder as TB
-import           System.Directory
-import           System.FilePath
 import           System.IO 
 -- 
-import HEP.Automation.EventGeneration.Config
+-- import HEP.Automation.EventGeneration.Config
 import HEP.Storage.WebDAV.CURL
-import HEP.Storage.WebDAV.Type 
 -- import HEP.Storage.WebDAV.Util
 import HEP.Util.Either 
-import           HEP.Parser.LHCOAnalysis.Parse
 -- 
 import           HEP.Physics.Analysis.Common.XSecNTotNum
 import           HEP.Physics.Analysis.ATLAS.Common
 import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
 -- import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
+import           HEP.Util.Work 
 -- 
-import Debug.Trace
 
 
 
@@ -121,23 +115,6 @@ getCount n1 n2 = do
 
 
 
-work :: (WebDAVConfig -> WebDAVRemoteDir -> String -> IO a) 
-     -> FilePath 
-     -> FilePath 
-     -> FilePath 
-     -> [Int] 
-     -> IO (Either String [a])
-work task cfgfile rdir bname sets = 
-  runEitherT $ do 
-    cfg <- (EitherT . liftM (maybeToEither "getConfig")) (getConfig cfgfile)
-    let priv = evgen_privatekeyfile cfg 
-        pass = evgen_passwordstore cfg 
-        wdavroot = evgen_webdavroot cfg 
-    cr <- (EitherT . liftM (maybeToEither "getCredential")) (getCredential priv pass)
-    let wdavcfg = WebDAVConfig cr wdavroot 
-        wdavrdir = WebDAVRemoteDir rdir 
-        bnames = map (\x -> bname ++ show x) sets
-    liftIO $ mapM (task wdavcfg wdavrdir) bnames 
   
 nbsmlimit = [ (SingleHardElec3J, 4.4) 
             , (SingleHardMuon3J, 3.6)

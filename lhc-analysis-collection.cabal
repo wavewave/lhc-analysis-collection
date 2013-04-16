@@ -45,6 +45,7 @@ Library
                    madgraph-auto >= 0.999,
                    madgraph-auto-model >= 0.999,
                    webdav-manager >= 0.999,
+                   pipeline-eventgen >= 0.999, 
                    process,
                    unix,
                    containers >= 0.4, 
@@ -65,6 +66,7 @@ Library
                    HEP.Physics.Analysis.Common.XSecNTotNum 
                    HEP.Util.Format
                    HEP.Util.Table 
+                   HEP.Util.Work
 
   Other-Modules: 
 

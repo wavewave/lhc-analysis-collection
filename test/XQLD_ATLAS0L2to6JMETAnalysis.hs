@@ -3,78 +3,65 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 
-
-import Control.Applicative ((<$>),(<*>),pure)
-import           Control.Lens 
 import Control.Monad 
-import           Control.Monad.Trans 
-import           Control.Monad.Trans.Either 
 import           Control.Monad.Trans.Maybe 
-import Data.Attoparsec.Char8 hiding (take)
 -- import Data.Attoparsec.Lazy
-import           Data.Aeson 
-import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Generic as G
-import qualified Data.ByteString.Char8 as B 
 import qualified Data.ByteString.Lazy.Char8 as LB
-import           Data.Data
 import           Data.Foldable (foldrM)
-import Data.Function (on)
-import Data.List (lookup, sortBy) 
-import Data.Maybe 
-import Data.String
-import qualified Data.Text.Lazy as T
-import qualified Data.Text.Format as TF
-import qualified Data.Text.Lazy.Builder as TB
-import Data.Typeable
-import System.Environment (getArgs)
 import System.IO
 -- 
-import HEP.Automation.EventGeneration.Config
 import HEP.Storage.WebDAV.CURL
-import HEP.Storage.WebDAV.Type 
 -- import HEP.Storage.WebDAV.Util
 import HEP.Util.Either 
 -- 
+import HEP.Physics.Analysis.ATLAS.Common
 import HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
 import HEP.Physics.Analysis.Common.XSecNTotNum
+import HEP.Util.Work 
 
+datalst = map ((,) "50000.0") [ "100.0"
+                              , "200.0"
+                              , "300.0"
+                              , "400.0"
+                              , "500.0" 
+                              , "600.0"
+                              , "700.0"
+                              , "800.0"
+                              , "900.0"
+                              , "1000.0"
+                              , "1100.0"
+                              , "1200.0"
+                              , "1300.0"
+                              , "1400.0"
+                              , "1500.0"
+                              , "1600.0" 
+                              , "1700.0"
+                              , "1800.0"
+                              , "1900.0"
+                              , "2000.0" ] 
 
-
-
-
--- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
--- atlas_7TeV_0L2to6J_bkgtest
-
-            -- testprint 
-            -- 
-datalst_squark = [ "200.0", "300.0", "400.0", "500.0", "600.0"
-                 , "700.0", "800.0", "900.0", "1000.0", "1100.0", "1200.0" ] 
-datalst = map (\x->("100.0",x)) datalst_squark
-          ++ map (\x->("200.0",x)) (drop 1 datalst_squark)
-          ++ map (\x->("300.0",x)) (drop 2 datalst_squark)
-          ++ map (\x->("400.0",x)) (drop 3 datalst_squark)
-          ++ map (\x->("500.0",x)) (drop 4 datalst_squark)
-          ++ map (\x->("600.0",x)) (drop 5 datalst_squark)
-          ++ map (\x->("700.0",x)) (drop 6 datalst_squark)
-          ++ map (\x->("800.0",x)) (drop 7 datalst_squark)
-          ++ map (\x->("900.0",x)) (drop 8 datalst_squark)
-          ++ map (\x->("1000.0",x)) (drop 9 datalst_squark)
-          ++ map (\x->("1100.0",x)) (drop 10 datalst_squark)
+takeR [Just (_,_,_,r)] = r 
 
 main = do 
-  h <- openFile "simplifiedsquark.dat" WriteMode 
+  forM_ datalst (uncurry getCount)
+  h <- openFile "xqlddata.dat" WriteMode 
+  mapM_ (\(a,b)-> hPutStrLn h (a ++ ", " ++ b))
+    =<< forM datalst (\(x,y) -> getLHCresult x y >>= \t -> return (y, show (takeR t)))
+  hClose h 
+
+  -- mapM_ print datalst 
+{-  h <- openFile "simplifiedsquark.dat" WriteMode 
   forM_ datalst $ \(x,y) -> do  
-    getCount x y 
     [Just (_,_,_,r)] <- getLHCresult x y 
     hPutStrLn h $ x ++ ", " ++ y ++ ", " ++ (T.unpack . TB.toLazyText . TF.fixed 2) r  
 
-  hClose h 
+  hClose h -}
 
-getLHCresult n1 n2 = do 
+getLHCresult mg mq = do 
   let nlst = [1]
-      rdir = "montecarlo/admproject/SimplifiedSUSY/scan" 
-      basename = "SimplifiedSUSYMN"++n1++ "MG50000.0MSQ" ++ n2 ++ "_2sq_2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      rdir = "montecarlo/admproject/XQLD/scan" 
+      basename = "ADMXQLD111MG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_2sd_2l2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   Right r1 <- work -- fetchXSecNHist 
                        atlasresult_4_7fb
                        "config1.txt" 
@@ -86,10 +73,14 @@ getLHCresult n1 n2 = do
 
         
 
-getCount n1 n2 = do 
+getCount mg mq = do 
+  {- args <- getArgs 
+  let n1 :: String = (args !! 0) 
+      n2 :: String = (args !! 1) 
+  -}
   let nlst = [1]
-      rdir = "montecarlo/admproject/SimplifiedSUSY/scan" 
-      basename = "SimplifiedSUSYMN"++n1++ "MG50000.0MSQ" ++ n2 ++ "_2sq_2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      rdir = "montecarlo/admproject/XQLD/scan" 
+      basename = "ADMXQLD111MG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_2sd_2l2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
 
   r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
          "config1.txt" 
@@ -106,7 +97,7 @@ getCount n1 n2 = do
          nlst
   print r2 
 
-
+{-
 work :: (WebDAVConfig -> WebDAVRemoteDir -> String -> IO a) 
      -> FilePath 
      -> FilePath 
@@ -124,8 +115,7 @@ work task cfgfile rdir bname sets =
         wdavrdir = WebDAVRemoteDir rdir 
         bnames = map (\x -> bname ++ show x) sets
     liftIO $ mapM (task wdavcfg wdavrdir) bnames 
-
-
+-}
 
 
 -- atlasresult_4_7fb :: WebDAVConfig -> WebDAVRemoteDir -> String ->IO (Maybe ([ (EType,Double) ], Double))
