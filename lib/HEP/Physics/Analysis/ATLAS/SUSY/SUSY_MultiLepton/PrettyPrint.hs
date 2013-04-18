@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards, GADTs #-}
 
-module HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint where
+module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton.PrettyPrint where
 
 import           Codec.Compression.GZip
 import           Control.Monad
@@ -15,7 +15,7 @@ import           Text.Hastache.Context
 import           HEP.Parser.LHCOAnalysis.Parse
 -- 
 import           HEP.Physics.Analysis.ATLAS.Common
-import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
+import           HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton
 import           HEP.Util.Format
 -- 
 import Debug.Trace

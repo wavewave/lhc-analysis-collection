@@ -8,7 +8,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
+-- Module      : HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
 -- Copyright   : (c) 2013 Ian-Woo Kim
 --
 -- License     : GPL-3
@@ -22,7 +22,7 @@
 -- 
 -----------------------------------------------------------------------------
 
-module HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J where
+module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J where
 
 import Codec.Compression.GZip
 import Control.Applicative
@@ -301,34 +301,34 @@ jetCut = iget >>>= \Ev2J {..} ->
          iguard ((pt.snd) firstJet > 130 && (pt.snd) secondJet > 60)
          
 
-srcheckE j1 j2 j3 j4 j5 j6 tev = do 
+srcheckE _j1 _j2 _j3 j4 _j5 j6 tev = do 
     let c1 = dphiJMETCut1 tev
         c2 = dphiJMETCut2 tev 
         c3 = metMeffRatioCut 6 0.15 tev
     guard ((pt.snd) j6 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3 ) 
     (return . signalRegion (>1400) (>1200) (>900)) tev
 
-srcheckD j1 j2 j3 j4 j5 tev = do 
+srcheckD _j1 _j2 _j3 j4 j5 tev = do 
     let c1 = dphiJMETCut1 tev
         c2 = dphiJMETCut2 tev 
         c3 = metMeffRatioCut 5 0.2 tev 
     guard ((pt.snd) j5 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3)
     (return . signalRegion (>1500) (const False) (const False)) tev
 
-srcheckC j1 j2 j3 j4 tev = do 
+srcheckC _j1 _j2 _j3 j4 tev = do 
     let c1 = dphiJMETCut1 tev 
         c2 = dphiJMETCut2 tev
         c3 = metMeffRatioCut 4 0.25 tev
     guard ((pt.snd) j4 > 60 && c1 && c2 && c3)
     (return . signalRegion (>1500) (>1200) (>900)) tev
  
-srcheckB j1 j2 j3 tev = do 
+srcheckB _j1 _j2 j3 tev = do 
     let c1 = dphiJMETCut1 tev
         c3 = metMeffRatioCut 3 0.25 tev 
     guard ((pt.snd) j3 > 60 && c1 && c3)
     (return . signalRegion (>1900) (const False) (const False)) tev
 
-srcheckAandA' j1 j2 tev = 
+srcheckAandA' _j1 _j2 tev = 
     let v = metMeffRatioVal 2 tev 
         c1 = dphiJMETCut1 tev 
         a  = if v > 0.3 && c1
@@ -348,7 +348,7 @@ classifyChannel =
         j1 = firstJet
         j2 = secondJet 
         (mj3,mj4,mj5,mj6) = case js of 
-                              j3:j4:j5:j6:j7s -> (Just j3,Just j4,Just j5,Just j6)
+                              j3:j4:j5:j6:_j7s -> (Just j3,Just j4,Just j5,Just j6)
                               j3:j4:j5:[]     -> (Just j3,Just j4,Just j5,Nothing)
                               j3:j4:[]        -> (Just j3,Just j4,Nothing,Nothing)
                               j3:[]           -> (Just j3,Nothing,Nothing,Nothing)
@@ -394,12 +394,12 @@ metMeffRatioCut n cut = (>cut). metMeffRatioVal n
 
 
 dphiJMETCut1 :: (GetJetMerged e) => e -> Bool  
-dphiJMETCut1 e = let JetMerged ev@PhyEventClassified {..} = getJetMerged e 
+dphiJMETCut1 e = let JetMerged PhyEventClassified {..} = getJetMerged e 
                      dphi j = normalizeDphi ((fst.phiptmet) met) ((phi.snd) j)
                  in (minimum . map dphi . take 3) jetlst > 0.4 
 
 dphiJMETCut2 :: (GetJetMerged e) => e -> Bool 
-dphiJMETCut2 e = let JetMerged ev@PhyEventClassified {..} = getJetMerged e 
+dphiJMETCut2 e = let JetMerged PhyEventClassified {..} = getJetMerged e 
                      dphi j = normalizeDphi ((fst.phiptmet) met)  ((phi.snd) j)
                      ptcut j = (pt.snd) j > 40 
                  in (minimum . map dphi . filter ptcut) jetlst > 0.2

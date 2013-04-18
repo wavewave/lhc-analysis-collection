@@ -16,7 +16,7 @@ import HEP.Util.Either
 -- 
 import           HEP.Physics.Analysis.Common.XSecNTotNum
 import           HEP.Physics.Analysis.ATLAS.Common
-import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
+import           HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton
 -- import           HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
 import           HEP.Util.Work 
 -- 

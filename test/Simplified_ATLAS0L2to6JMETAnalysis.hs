@@ -19,7 +19,7 @@ import HEP.Storage.WebDAV.CURL
 import HEP.Util.Either 
 -- 
 import HEP.Physics.Analysis.ATLAS.Common 
-import HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
+import HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
 import HEP.Physics.Analysis.Common.XSecNTotNum
 import HEP.Util.Work 
 

@@ -60,8 +60,9 @@ Library
   Exposed-Modules: 
                    HEP.Parser.XSec
                    HEP.Physics.Analysis.ATLAS.Common 
-                   HEP.Physics.Analysis.ATLAS.SUSY_0L2to6J
-                   HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton
+                   HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
+                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
+                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton
                    -- HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
                    HEP.Physics.Analysis.Common.XSecNTotNum 
                    HEP.Util.Format
