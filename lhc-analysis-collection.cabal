@@ -10,6 +10,25 @@ Build-Type: 	Simple
 Cabal-Version:  >= 1.9.2
 data-files:   
 
+Executable leptoquark
+  Main-is: leptoquark.hs
+  hs-source-dirs: exe
+  ghc-options: 	-Wall -threaded -funbox-strict-fields -fno-warn-unused-do-bind
+  ghc-prof-options: -caf-all -auto-all
+  Build-Depends: 
+                 base>4, 
+                 webdav-manager,
+                 HEPUtil, 
+                 bytestring, 
+                 LHCOAnalysis, 
+                 zlib,
+                 lhc-analysis-collection, 
+                 HROOT-core, 
+                 HROOT-hist, 
+                 HROOT-io, 
+                 HROOT-graf
+
+
 
 Library
   hs-source-dirs: lib

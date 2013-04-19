@@ -73,17 +73,13 @@ meffinc40 PhyEventClassified {..} =
   (sum . map (trd3.etaphipt.snd) . filter ((>40).trd3.etaphipt.snd)) jetlst 
   + (snd.phiptmet) met
 
-
-
-
-
-
-
+-- | 
 data MoreThan2JEv = Ev2J { firstJet  :: (Int, PhyObj Jet)
                          , secondJet :: (Int, PhyObj Jet) 
                          , remainingEvent :: PhyEventClassified 
                          }
 
+-- | 
 data SRFlag = SRFlag { sr_classA  :: Maybe (Bool,Bool,Bool) 
                      , sr_classA' :: Maybe (Bool,Bool,Bool) 
                      , sr_classB  :: Maybe (Bool,Bool,Bool) 
@@ -176,8 +172,8 @@ metCut =
 
 
 
-mTauBJetMerge :: (MonadPlus m) => IxStateT m RawEv JetMergedEv ()
-mTauBJetMerge = imodify taubjetMergeIx 
+-- mTauBJetMerge :: (MonadPlus m) => IxStateT m RawEv JetMergedEv ()
+-- mTauBJetMerge = imodify taubjetMergeIx 
 
 
 normalizeDphi :: Double -> Double -> Double 
@@ -422,7 +418,7 @@ signalRegion condt condm condl e =
 
 classifyM :: MonadPlus m => JESParam -> IxStateT m RawEv MoreThan2JEv SRFlag
 classifyM jes = 
-    mTauBJetMerge >>>
+    imodify taubjetMergeIx >>>
     mJesCorrection jes >>>= \e -> 
     mJetDiscardNearElec >>> 
     mLeptonDiscardNearJet >>> 
@@ -592,7 +588,6 @@ atlas_7TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do
           asclst jes = mkHistogram (passed jes)
           testlst = [ (trace (show jes) jes, asclst jes) | a <- as, b <- bs, let jes = JESParam a b ]
 
-      removeFile fp 
 
       -- return testlst
       
@@ -602,5 +597,7 @@ atlas_7TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do
       LB.writeFile jsonfn bstr 
       uploadFile wdavcfg wdavrdir jsonfn 
       removeFile jsonfn
+      removeFile fp 
+
       return ()
       
