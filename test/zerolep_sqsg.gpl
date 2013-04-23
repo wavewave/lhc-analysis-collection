@@ -1,0 +1,31 @@
+set terminal png 
+set output 'xqld_0lep_sqsg.png'
+
+#set view map 
+#unset surface 
+set xlabel "Gluino Mass (GeV)"
+set ylabel "Squark Mass (GeV)"
+set xrange [100:2000] 
+set yrange [100:2000]
+unset key 
+unset surface
+set contour base
+set cntrparam level incremental -10, 2, 2
+set pm3d 
+set view map 
+set palette rgbformulae 33,13,10
+unset clabel 
+splot 'xqld_sqsg_data.dat' using 1:2:(log ($3)) with lines lw 1.5 lc rgb "#202020"
+# with lines  lw 2 lc rgb "#202020"
+
+
+
+
+#set view map 
+#unset surface 
+#unset key 
+#unset surface
+#set contour base
+#set cntrparam level incremental -10, 2, 2
+#unset clabel 
+#splot 'xqld_sqsg_data.dat' using 1:2:(log ($3)) with lines  lw 2 lc rgb "#202020"
