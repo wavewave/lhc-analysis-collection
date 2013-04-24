@@ -18,7 +18,6 @@ import           System.FilePath ((</>))
 import           System.IO
 import           System.Log.Logger
 -- 
-import HEP.Parser.LHE.Type
 import HEP.Automation.MadGraph.Model.ADMXQLD111
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
@@ -37,6 +36,8 @@ import HEP.Automation.EventChain.Process.Generator
 import HEP.Automation.EventGeneration.Config
 import HEP.Automation.EventGeneration.Type
 import HEP.Automation.EventGeneration.Work 
+import HEP.Parser.LHE.Type
+import HEP.Parser.LHE.Sanitizer.Type
 import HEP.Storage.WebDAV
 -- 
 import qualified Paths_madgraph_auto as PMadGraph 

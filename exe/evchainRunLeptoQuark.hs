@@ -23,6 +23,7 @@ import HEP.Automation.MadGraph.Model.LeptoQuark1
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
+import HEP.Parser.LHE.Sanitizer.Type
 -- 
 import HEP.Automation.EventChain.Driver 
 import HEP.Automation.EventChain.File
