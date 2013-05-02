@@ -18,19 +18,22 @@ import HEP.Storage.WebDAV.CURL
 -- import HEP.Storage.WebDAV.Util
 import HEP.Util.Either 
 -- 
-import HEP.Physics.Analysis.ATLAS.Common 
-import HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
+import HEP.Physics.Analysis.ATLAS.Common
+import HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
+-- import HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
 import HEP.Physics.Analysis.Common.XSecNTotNum
 import HEP.Util.Work 
 
 
 
+datalst = [ "600.0" ] -- [ "400.0", "600.0" ] 
 
 -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
 -- atlas_7TeV_0L2to6J_bkgtest
 
             -- testprint 
             -- 
+{- 
 datalst_squark = [ "200.0", "300.0", "400.0", "500.0", "600.0"
                  , "700.0", "800.0", "900.0", "1000.0", "1100.0", "1200.0" ] 
 datalst = map (\x->("100.0",x)) datalst_squark
@@ -44,16 +47,53 @@ datalst = map (\x->("100.0",x)) datalst_squark
           ++ map (\x->("900.0",x)) (drop 8 datalst_squark)
           ++ map (\x->("1000.0",x)) (drop 9 datalst_squark)
           ++ map (\x->("1100.0",x)) (drop 10 datalst_squark)
+-}
 
 main = do 
-  h <- openFile "simplifiedsquark.dat" WriteMode 
-  forM_ datalst $ \(x,y) -> do  
-    getCount x y 
-    [Just (_,_,_,r)] <- getLHCresult x y 
-    hPutStrLn h $ x ++ ", " ++ y ++ ", " ++ (T.unpack . TB.toLazyText . TF.fixed 2) r  
+  -- h <- openFile "simplifiedsquark.dat" WriteMode 
+  let h = stdout 
+  forM_ datalst $ \x -> do  
+    getCount . createRdirBName    $ x  
+    -- [Just (_,_,_,r)] <- getLHCresult x  
+    -- hPutStrLn h $ x ++ ", " ++ y ++ ", " ++ (T.unpack . TB.toLazyText . TF.fixed 2) r  
 
   hClose h 
 
+doJob wk (rdir,basename) = do
+  let nlst = [1]
+  Right r1 <- work wk "config1.txt" rdir basename nlst 
+  return r1 
+        
+createRdirBName mlq = 
+  let rdir = "montecarlo/admproject/LeptoQuark/scan_2l2j" 
+      basename = "LeptoQuark1MLQ"++mlq++ "THLQ0.0_2lq_2l2j_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
+
+
+getCount (rdir,basename) = do 
+  let nlst = [1]
+  r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
+         "config1.txt" 
+         rdir 
+         basename 
+         nlst 
+  -- print r1
+
+
+  r2 <- work 
+         (atlas_7TeV_leptoquark ([5],[2]))
+         "config1.txt"
+         rdir
+         basename
+         nlst
+  -- print r2 
+  return () 
+
+
+
+
+
+{-
 getLHCresult n1 n2 = do 
   let nlst = [1]
       rdir = "montecarlo/admproject/SimplifiedSUSY/scan" 
@@ -66,31 +106,10 @@ getLHCresult n1 n2 = do
                        nlst 
   return r1 
   
-
-        
-
-getCount n1 n2 = do 
-  let nlst = [1]
-      rdir = "montecarlo/admproject/SimplifiedSUSY/scan" 
-      basename = "SimplifiedSUSYMN"++n1++ "MG50000.0MSQ" ++ n2 ++ "_2sq_2j2x_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
-
-  r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
-         "config1.txt" 
-         rdir 
-         basename 
-         nlst 
-  print r1
-
-  r2 <- work 
-         (atlas_7TeV_0L2to6J_bkgtest ([5],[2]))
-         "config1.txt"
-         rdir
-         basename
-         nlst
-  print r2 
+-}
 
 
-
+{-
 -- atlasresult_4_7fb :: WebDAVConfig -> WebDAVRemoteDir -> String ->IO (Maybe ([ (EType,Double) ], Double))
 --  -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)]))
 atlasresult_4_7fb wdavcfg wdavrdir bname = do 
@@ -129,4 +148,4 @@ nbsmlimit = [ (CL, 51)
             , (CT, 16)
             , (DT, 9.6) 
             , (ET, 12) ] 
-
+-}

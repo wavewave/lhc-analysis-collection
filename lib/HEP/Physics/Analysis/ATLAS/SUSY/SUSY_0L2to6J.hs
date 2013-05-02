@@ -73,11 +73,6 @@ meffinc40 PhyEventClassified {..} =
   (sum . map (trd3.etaphipt.snd) . filter ((>40).trd3.etaphipt.snd)) jetlst 
   + (snd.phiptmet) met
 
--- | 
-data MoreThan2JEv = Ev2J { firstJet  :: (Int, PhyObj Jet)
-                         , secondJet :: (Int, PhyObj Jet) 
-                         , remainingEvent :: PhyEventClassified 
-                         }
 
 -- | 
 data SRFlag = SRFlag { sr_classA  :: Maybe (Bool,Bool,Bool) 
@@ -131,11 +126,6 @@ isLooseEv :: (Bool,Bool,Bool) -> Bool
 isLooseEv = trd3 
 
 
-instance GetJetMerged MoreThan2JEv where 
-  getJetMerged (Ev2J j1 j2 rev@PhyEventClassified {..}) = 
-    JetMerged rev {jetlst = j1:j2:jetlst}
-
-
 
 
 -- |
@@ -174,13 +164,6 @@ metCut =
 
 -- mTauBJetMerge :: (MonadPlus m) => IxStateT m RawEv JetMergedEv ()
 -- mTauBJetMerge = imodify taubjetMergeIx 
-
-
-normalizeDphi :: Double -> Double -> Double 
-normalizeDphi phi1 phi2 = let v = abs (phi1 - phi2)
-                              nv | v > pi = 2*pi - v
-                                 | otherwise = v 
-                          in nv 
 
 
 
@@ -244,50 +227,7 @@ if length ms1 /= 0 then trace ((show.length.muonlst) ev ++ "=" ++ (show.length) 
 -}
 
 
-mJesCorrection :: (MonadPlus m) => JESParam -> IxStateT m JetMergedEv JetMergedEv FourMomentum
-mJesCorrection jes = 
-   iget >>>= \(JetMerged ev@PhyEventClassified {..}) -> 
-   let (phi',pt') = phiptmet met 
-       metmom = (0, pt'*cos phi', pt'*sin phi',0)
-       photonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) photonlst) 
-       electronmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) electronlst) 
-       muonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) muonlst) 
-       jetmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) jetlst)
-       momsum = photonmomsum `plus` electronmomsum `plus` muonmomsum `plus` jetmomsum 
-       remnant = metmom `plus` momsum
-   in  -- trace ("met = " ++ show (phiptmet met) ++ " | remnant = " ++ show remnant) $ 
-       imodify (jes_correctionIx jes) >>> return remnant 
 
-mMETRecalculate :: (Monad m) => 
-                   FourMomentum   -- ^ remnant 4-momentum from met
-                -> IxStateT m JetMergedEv JetMergedEv () 
-mMETRecalculate remnant = 
-  iget >>>= \(JetMerged ev@PhyEventClassified {..}) -> 
-  let photonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) photonlst) 
-      electronmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) electronlst) 
-      muonmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) muonlst) 
-      jetmomsum = foldr plus (0,0,0,0) (map (fourmom.snd) jetlst)
-      momsum = photonmomsum `plus` electronmomsum `plus` muonmomsum `plus` jetmomsum 
-      missingphipt = (,) <$> trd3 <*> fst3 $ mom_2_pt_eta_phi (remnant `subtract` momsum) 
-      nev = ev { met = ObjMET missingphipt } 
-  in -- trace ("met = " ++ show (phiptmet met) ++ " | remnant = " ++ show remnant ++ " | missingphipt = " ++ show missingphipt) $
-     
-     iput (JetMerged nev) 
-
-jes_correctionIx :: JESParam -> JetMergedEv -> JetMergedEv 
-jes_correctionIx jes (JetMerged ev@PhyEventClassified {..}) = 
-  let jetlst' = ptordering
-                . map ((,) <$> fst <*> jes_correction jes . snd) 
-                $ jetlst  
-  in JetMerged (ev { jetlst = jetlst' })
-
-
-
-mMoreThan2J :: (MonadPlus m) => IxStateT m JetMergedEv MoreThan2JEv () 
-mMoreThan2J = iget >>>= \(JetMerged ev@PhyEventClassified {..}) -> 
-              case jetlst of 
-                j1:j2:rem -> iput (Ev2J j1 j2 ev { jetlst = rem })
-                _ -> imzero 
 
 
 
