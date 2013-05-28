@@ -76,7 +76,7 @@ map_2lq_2l2j =
 
 
 
-modelparam mlq = LeptoQuark1Param mlq (pi/4) 
+modelparam mlq = LeptoQuark1Param mlq (pi/4) -- 0 -- (pi/4) 
 
 -- | 
 mgrunsetup :: Int -> RunSetup
@@ -89,22 +89,23 @@ mgrunsetup n =
      , cut     = NoCut 
      , pythia  = RunPYTHIA 
      , lhesanitizer = -- NoLHESanitize 
-                             LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
+                      LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
      , setnum  = 1
      }
 
 
--- worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [50000], msq <- [700,800..2000] ] 
 
---  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
+-- worksets = [ (mlq,10000) | mlq <- [100,200..2000] ]
+
+worksets = [ (mlq,10000) | mlq <- [600] ]
 
 main :: IO () 
 main = do 
   fp <- (!! 0) <$> getArgs 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  mapM_ (scanwork fp) [(500,100)] 
+  mapM_ (scanwork fp) worksets -- [(500,10000)] 
 
 
  
@@ -168,7 +169,11 @@ phase2work wsetup = do
              ((,,,) <$> ws_ssetup <*> ws_psetup <*> ws_param <*> ws_rsetup) ws 
        cardPrepare                      
        case (lhesanitizer rsetup,pythia rsetup) of
-         (NoLHESanitize,_) -> return ()
+         -- (NoLHESanitize,NoPYTHIA) -> return ()
+         -- (NoLHESanitize,RunPYTHIA) -> do 
+         --   runPYTHIA
+         --   runPGS           
+         --   runClean         
          (LHESanitize pid, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA

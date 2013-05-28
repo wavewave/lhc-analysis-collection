@@ -93,8 +93,7 @@ mgrunsetup n =
      , match   = NoMatch
      , cut     = NoCut 
      , pythia  = RunPYTHIA8
-     , lhesanitizer = LHESanitize (Elim [2000001,-2000001])
-          -- LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
+     , lhesanitizer = LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
      , setnum  = 1

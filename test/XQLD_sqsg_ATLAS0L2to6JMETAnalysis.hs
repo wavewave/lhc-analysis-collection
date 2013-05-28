@@ -44,18 +44,29 @@ masslst = [ "100.0"
 
 datalst = [ (x,y) | x <- masslst, y <- masslst ] 
 
+-- datalst = [ ("700.0","100.0") , ("700.0","200.0"), ("700.0","300.0"), ("700.0","400.0") ]
+
 takeR [Just (_,_,_,r)] = r 
 
 takeHist [Just (_,_,h,_)] = h
 
 takeResult [Just (_,r,_,_)] = r
 
-main = do 
-  {- 
-  rs <- forM datalst (\s -> (doJob check_file_exist . createRdirBName "2sq_2l2j2x") s 
+checkthefiles procname = do 
+  rs <- forM datalst (\s -> (doJob check_file_exist . createRdirBName procname) s 
                                 >>= return . maybe (show s) (const []) . head)
-  mapM_ print $ filter (not.null) rs  -}
-  -- forM_ datalst (getCount.createRdirBName "2sq_2l2j2x")
+  mapM_ print $ filter (not.null) rs  
+
+
+main = do 
+  checkthefiles "2sg_2l4j2x"
+  -- "sqsg_2l3j2x"
+  -- 
+
+  -- "2sq_2l2j2x"
+  -- forM_ datalst (getCount.createRdirBName "2sg_2l4j2x")
+  
+   
   h <- openFile "xqld_sqsg_data.dat" WriteMode 
    
   mapM_ (\(mg,msq,r)-> hPutStrLn h (mg ++ ", " ++ msq ++ ", " ++ r))
@@ -74,7 +85,7 @@ main = do
                  -- print h_2sg
                  return (x,y, show r_ratio))
   hClose h 
-
+  
 
 mkTotalSR hists = 
   let sumup k = (sum . mapMaybe (lookup k)) hists
@@ -134,12 +145,7 @@ createRdirBName procname (mg,mq) =
   in (rdir,basename)  
 
 getCount (rdir,basename) = do 
-  {- args <- getArgs 
-  let n1 :: String = (args !! 0) 
-      n2 :: String = (args !! 1) 
-  -}
   let nlst = [1]
-
   r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
          "config1.txt" 
          rdir 
