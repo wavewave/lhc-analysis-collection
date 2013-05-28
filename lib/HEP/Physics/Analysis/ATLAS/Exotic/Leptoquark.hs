@@ -28,8 +28,10 @@ import Control.Monad.Indexed.State (IxStateT(..),imodify,iget,iput)
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Data
 import           Data.Maybe (catMaybes)
+import HROOT.Core
+import HROOT.Hist
+import HROOT.Graf
 -- 
-
 import HEP.Util.Functions
 import HEP.Parser.LHCOAnalysis.PhysObj
 import HEP.Parser.LHCOAnalysis.Parse (parsestr)
@@ -252,4 +254,12 @@ atlas_7TeV_leptoquark (as,bs) wdavcfg wdavrdir bname = do
       print (length evjjevts, length eejjevts)
       print (take 4 evjjevts) 
       print (take 4 eejjevts) 
+      tcanvas <- newTCanvas "Test" "TEst" 640 480 
+      setLogy tcanvas 1
+      h1 <- newTH1D "t1" "T1" 50 0 1000
+      mapM_ (fill1 h1) . map discEvJJ_mT $ evjjevts 
+      draw h1 "" 
+      saveAs tcanvas "test4.pdf" "" 
+      delete h1
+      delete tcanvas 
       return () 

@@ -74,7 +74,11 @@ Library
                    aeson-pretty >= 0.7,
                    indexed-extras, 
                    indexed, 
-                   lens 
+                   lens, 
+                   HROOT-core,
+                   HROOT-graf, 
+                   HROOT-io,  
+                   HROOT-hist
                    
   Exposed-Modules: 
                    HEP.Parser.XSec

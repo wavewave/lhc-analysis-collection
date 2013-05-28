@@ -26,7 +26,7 @@ import HEP.Util.Work
 
 
 
-datalst = [ "600.0" ] -- [ "400.0", "600.0" ] 
+datalst = [ ("600.0","0.7853981633974483") ] -- [ "400.0", "600.0" ] 
 
 -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
 -- atlas_7TeV_0L2to6J_bkgtest
@@ -64,9 +64,9 @@ doJob wk (rdir,basename) = do
   Right r1 <- work wk "config1.txt" rdir basename nlst 
   return r1 
         
-createRdirBName mlq = 
+createRdirBName (mlq,thlq) = 
   let rdir = "montecarlo/admproject/LeptoQuark/scan_2l2j" 
-      basename = "LeptoQuark1MLQ"++mlq++ "THLQ0.0_2lq_2l2j_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "LeptoQuark1MLQ"++mlq++ "THLQ" ++ thlq ++ "_2lq_2l2j_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
