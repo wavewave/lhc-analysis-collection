@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
 import           Control.Applicative
+import           Control.Concurrent
 import           Control.Monad 
 import           Control.Monad.Error
 import           Control.Monad.Reader 
@@ -103,18 +104,22 @@ mgrunsetup n =
 data WorkSet = WorkSet { mgluino :: Double, msquark :: Double } 
              deriving (Show, Typeable, Data) 
 
+worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
   args <- getArgs 
   let fp = args !! 0 
-      job = args !! 1
-  lbstr <- LB.readFile job
-  let Just (WorkSet mgl msq) = G.decode' lbstr
-      fullwset = (mgl, msq, 50000, 50000, 10000) 
-  updateGlobalLogger "MadGraphAuto" (setLevel DEBUG) 
-  scanwork fp fullwset 
+      n1 = read (args !! 1) :: Int
+      n2 = read (args !! 2) :: Int
 
+  --     job = args !! 1
+  -- lbstr <- LB.readFile job
+  -- let Just (WorkSet mgl msq) = G.decode' lbstr
+  --     fullwset = (mgl, msq, 50000, 50000, 10000) 
+  updateGlobalLogger "MadGraphAuto" (setLevel DEBUG) 
+  -- scanwork fp fullwset 
+  mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets)
  
 
 scanwork :: FilePath -> (Double,Double,Double,Double,Int) -> IO () 
@@ -168,6 +173,7 @@ phase2work wsetup = do
          (LHESanitize pid, RunPYTHIA8) -> do 
            sanitizeLHE
            runPYTHIA8
+           liftIO $ threadDelay 10000000 
            runPGS           
            runClean         
            -- updateBanner   
