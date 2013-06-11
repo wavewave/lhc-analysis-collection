@@ -8,7 +8,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J_7TeV
+-- Module      : HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
 -- Copyright   : (c) 2013 Ian-Woo Kim
 --
 -- License     : GPL-3
@@ -18,11 +18,11 @@
 --
 -- LHC ATLAS SUSY search analysis code 
 -- 
--- Based on PRD87,012008 (2013) 
+-- based on ATLAS-CONF-2013-047
 -- 
 -----------------------------------------------------------------------------
 
-module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J_7TeV where
+module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV where
 
 import Codec.Compression.GZip
 import Control.Applicative
@@ -76,7 +76,6 @@ meffinc40 PhyEventClassified {..} =
 
 -- | 
 data SRFlag = SRFlag { sr_classA  :: Maybe (Bool,Bool,Bool) 
-                     , sr_classA' :: Maybe (Bool,Bool,Bool) 
                      , sr_classB  :: Maybe (Bool,Bool,Bool) 
                      , sr_classC  :: Maybe (Bool,Bool,Bool)
                      , sr_classD  :: Maybe (Bool,Bool,Bool) 
@@ -86,9 +85,6 @@ data SRFlag = SRFlag { sr_classA  :: Maybe (Bool,Bool,Bool)
 
 classA :: Simple Lens SRFlag (Maybe (Bool,Bool,Bool))
 classA = lens sr_classA (\f a -> f { sr_classA = a } )
-
-classA' :: Simple Lens SRFlag (Maybe (Bool,Bool,Bool))
-classA' = lens sr_classA' (\f a -> f { sr_classA' = a } )
 
 classB :: Simple Lens SRFlag (Maybe (Bool,Bool,Bool))
 classB = lens sr_classB (\f a -> f { sr_classB = a } )
@@ -103,13 +99,12 @@ classE :: Simple Lens SRFlag (Maybe (Bool,Bool,Bool))
 classE = lens sr_classE (\f a -> f { sr_classE = a } )
 
 
-emptySRFlag = SRFlag Nothing Nothing Nothing Nothing Nothing Nothing 
+emptySRFlag = SRFlag Nothing Nothing Nothing Nothing Nothing 
 
 
 showSR :: SRFlag -> String 
 showSR SRFlag {..} = 
   maybe "" (\x->"A:"++show x++":") sr_classA 
-  ++ maybe "" (\x->"A':"++show x++":") sr_classA'
   ++ maybe "" (\x->"B:"++show x++":") sr_classB
   ++ maybe "" (\x->"C:"++show x++":") sr_classC
   ++ maybe "" (\x->"D:"++show x++":") sr_classD
@@ -132,7 +127,7 @@ isLooseEv = trd3
 objrecon :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv ()
 objrecon = 
   iget >>>= \(JetMerged ev@PhyEventClassified {..}) -> 
-  let elst' = filter (\(_,e)->pt e > 20 && abs (eta e) < 2.47) electronlst 
+  let elst' = filter (\(_,e)->pt e > 10 && abs (eta e) < 2.47) electronlst 
       mlst' = filter (\(_,m)->pt m > 10 && abs (eta m) < 2.4) muonlst 
       jlst' = filter (\(_,j)->pt j > 20 && abs (eta j) < 2.8) jetlst  
   in iput (JetMerged ev { electronlst = elst', muonlst = mlst', jetlst = jlst' })
@@ -150,7 +145,7 @@ trigger =
 leptonVeto :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv () 
 leptonVeto = 
   iget >>>= \(JetMerged PhyEventClassified {..}) -> 
-  let elst = filter ((>20) <$> pt.snd) electronlst 
+  let elst = filter ((>10) <$> pt.snd) electronlst 
       llst = filter ((>10) <$> pt.snd) muonlst
   in iguard ((null elst) && (null llst))
 
@@ -222,14 +217,6 @@ mLeptonDiscardNearJet =
   in (iput . JetMerged) ev {electronlst = es2, muonlst = ms2}
 
 
-{-
-if length ms1 /= 0 then trace ((show.length.muonlst) ev ++ "=" ++ (show.length) ms1 ++ "+" ++ (show.length) ms2) $ (iput . JetMerged) ev {electronlst = es2, muonlst = ms2}
--}
-
-
-
-
-
 
 -- | First Jet > 130 GeV, second jet > 60 GeV
 jetCut :: (MonadPlus m) => IxStateT m MoreThan2JEv MoreThan2JEv () 
@@ -241,39 +228,40 @@ srcheckE _j1 _j2 _j3 j4 _j5 j6 tev = do
     let c1 = dphiJMETCut1 tev
         c2 = dphiJMETCut2 tev 
         c3 = metMeffRatioCut 6 0.15 tev
-    guard ((pt.snd) j6 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3 ) 
-    (return . signalRegion (>1400) (>1200) (>900)) tev
+    guard ((pt.snd) j6 > 60 && c1 && c2 && c3 ) 
+    (return . signalRegion 6 (0.25,(>1500)) (0.2,(>1200)) (0.15,(>1000))) tev
 
 srcheckD _j1 _j2 _j3 j4 j5 tev = do 
     let c1 = dphiJMETCut1 tev
         c2 = dphiJMETCut2 tev 
         c3 = metMeffRatioCut 5 0.2 tev 
-    guard ((pt.snd) j5 > 40 && (pt.snd) j4 > 60 && c1 && c2 && c3)
-    (return . signalRegion (>1500) (const False) (const False)) tev
+    guard ((pt.snd) j5 > 60 && c1 && c2 && c3)
+    (return . signalRegion 5 (0.2,(>1600)) (0.2,(const False)) (0.2,(const False))) tev
 
 srcheckC _j1 _j2 _j3 j4 tev = do 
     let c1 = dphiJMETCut1 tev 
         c2 = dphiJMETCut2 tev
         c3 = metMeffRatioCut 4 0.25 tev
     guard ((pt.snd) j4 > 60 && c1 && c2 && c3)
-    (return . signalRegion (>1500) (>1200) (>900)) tev
+    (return . signalRegion 4 (0.25,(>2200)) (0.25,(>1200)) (0.25,(const False))) tev
  
 srcheckB _j1 _j2 j3 tev = do 
     let c1 = dphiJMETCut1 tev
         c3 = metMeffRatioCut 3 0.25 tev 
     guard ((pt.snd) j3 > 60 && c1 && c3)
-    (return . signalRegion (>1900) (const False) (const False)) tev
+    (return . signalRegion 3 (0.4,(>2200)) (0.3,(>1800)) (0.3,(const False))) tev
 
-srcheckAandA' _j1 _j2 tev = 
-    let v = metMeffRatioVal 2 tev 
+srcheckA _j1 _j2 tev = 
+    let JetMerged e = getJetMerged tev
+        metval  = (snd . phiptmet . met) e  
+        ptcut j = (pt.snd) j > 40 
+        ht = (sum . map (pt.snd) . filter ptcut . jetlst) e 
+        v = metMeffRatioVal 2 tev 
         c1 = dphiJMETCut1 tev 
-        a  = if v > 0.3 && c1
-               then Just (signalRegion (>1900) (>1400) (const False) tev)
-               else Nothing  
-        a' = if v > 0.4 && c1 
-               then Just (signalRegion (const False) (>1200) (const False) tev)
-               else Nothing
-    in (a,a') 
+        meffincval = meffinc40 e
+        bl = if v > 0.3 && c1 && meffincval > 1000 then True else False 
+        bm = if metval / sqrt ht  > 15 && c1 && meffincval > 1600 then True else False 
+    in if bl || bm then Just (False,bm,bl) else Nothing 
 
 
 classifyChannel :: (MonadPlus m) => IxStateT m MoreThan2JEv MoreThan2JEv SRFlag  
@@ -306,8 +294,7 @@ classifyChannel =
            j3 <- mj3        
            srcheckB j1 j2 j3 tev )
        ---------------------------------------------------------------------
-       $ let (a,a') = srcheckAandA' j1 j2 tev  
-         in (set classA a . set classA' a' ) emptySRFlag 
+       $ set classA (srcheckA j1 j2 tev) emptySRFlag 
 
 
 
@@ -332,7 +319,8 @@ metMeffRatioCut n cut = (>cut). metMeffRatioVal n
 dphiJMETCut1 :: (GetJetMerged e) => e -> Bool  
 dphiJMETCut1 e = let JetMerged PhyEventClassified {..} = getJetMerged e 
                      dphi j = normalizeDphi ((fst.phiptmet) met) ((phi.snd) j)
-                 in (minimum . map dphi . take 3) jetlst > 0.4 
+                     ptcut j = (pt.snd) j > 40 
+                 in (minimum . map dphi . take 3 . filter ptcut ) jetlst > 0.4 
 
 dphiJMETCut2 :: (GetJetMerged e) => e -> Bool 
 dphiJMETCut2 e = let JetMerged PhyEventClassified {..} = getJetMerged e 
@@ -343,17 +331,18 @@ dphiJMETCut2 e = let JetMerged PhyEventClassified {..} = getJetMerged e
 
 
 signalRegion :: (GetJetMerged e) => 
-                (Double -> Bool)   -- ^ Tight condition
-             -> (Double -> Bool)   -- ^ Medium condition
-             -> (Double -> Bool)   -- ^ Loose condition
+                Int -- ^ num of jets 
+             -> (Double,(Double -> Bool))   -- ^ Tight condition
+             -> (Double,(Double -> Bool))   -- ^ Medium condition
+             -> (Double,(Double -> Bool))   -- ^ Loose condition
              -> e 
              -> (Bool,Bool,Bool)
-signalRegion condt condm condl e = 
+signalRegion n (cutt,condt) (cutm,condm) (cutl,condl) e = 
     let JetMerged ev = getJetMerged e 
         v = meffinc40 ev
-        tight  = condt v
-        medium = condm v 
-        loose  = condl v 
+        tight  = metMeffRatioCut n cutt e && condt v
+        medium = metMeffRatioCut n cutm e && condm v 
+        loose  = metMeffRatioCut n cutl e && condl v 
     in (tight,medium,loose)
 
 classifyM :: MonadPlus m => JESParam -> IxStateT m RawEv MoreThan2JEv SRFlag
@@ -364,7 +353,7 @@ classifyM jes =
     mLeptonDiscardNearJet >>> 
     mMETRecalculate e >>>  
     objrecon      >>> 
-    trigger       >>> 
+    -- trigger       >>> 
     leptonVeto    >>> 
     metCut        >>> 
     mMoreThan2J   >>> 
@@ -376,7 +365,7 @@ classify jes ev = fst <$> runIxStateT (classifyM jes) (Raw ev)
 
 
 
-data EType = AT | AM | A'M | BT | CT | CM | CL | DT | ET | EM | EL 
+data EType = AL | AM | BM | BT | CM | CT  | DT | EL | EM | ET 
              deriving (Show,Eq,Ord,Data,Typeable)
 
 instance ToJSON EType where toJSON = G.toJSON 
@@ -385,48 +374,35 @@ instance ToJSON EType where toJSON = G.toJSON
 
 
 srFlag2Num :: SRFlag -> [EType] 
-srFlag2Num SRFlag {..} = maybe [] fE sr_classE 
-                         ++ maybe [] fD sr_classD 
-                         ++ maybe [] fC sr_classC 
-                         ++ maybe [] fB sr_classB 
-                         ++ maybe [] fA' sr_classA'
-                         ++ maybe [] fA sr_classA 
-
-fA x | isTightEv x = [AT,AM] 
-     | isMediumEv x  = [AM] 
-     | otherwise = []
-
-fA' x | isMediumEv x = [A'M]
-      | otherwise = [] 
+srFlag2Num SRFlag {..} = maybe id fE sr_classE 
+                         . maybe id fD sr_classD 
+                         . maybe id fC sr_classC 
+                         . maybe id fB sr_classB 
+                         . maybe id fA sr_classA 
+                         $ [] 
   
-fE x | isTightEv x = [ET,EM,EL] 
-     | isMediumEv x = [EM,EL] 
-     | isLooseEv x= [EL] 
-     | otherwise = [] 
+fE x = (if isTightEv x then (ET :) else id) . (if isMediumEv x then (EM :) else id) . (if isLooseEv x then (EL :) else id)
 
-fD x | isTightEv x = [DT] 
-     | otherwise = [] 
+fD x = (if isTightEv x then (DT :) else id) 
 
-fC x | isTightEv x = [CT,CM,CL] 
-     | isMediumEv x = [CM,CL] 
-     | isLooseEv x= [CL] 
-     | otherwise = [] 
+fC x = (if isTightEv x then (CT :) else id) . (if isMediumEv x then (CM :) else id)
 
-fB x | isTightEv x = [BT] 
-     | otherwise = [] 
+fB x = (if isTightEv x then (BT :) else id) . (if isMediumEv x then (BM :) else id) 
+
+fA x = (if isLooseEv x then (AL :) else id) . (if isMediumEv x then (AM :) else id)  
+
 
 showAsATLASPaper :: M.Map EType Double -> String
 showAsATLASPaper m = 
-  "CL :" ++ maybe "0" show (M.lookup CL m)      ++ "\n"
-  ++ "EL : " ++ maybe "0" show (M.lookup EL m) ++ "\n"
+  "AL :" ++ maybe "0" show (M.lookup AL m)      ++ "\n"
   ++ "AM : " ++ maybe "0" show (M.lookup AM m) ++ "\n"
-  ++ "A'M : " ++ maybe "0" show (M.lookup A'M m) ++ "\n"
+  ++ "BM : " ++ maybe "0" show (M.lookup BM m) ++ "\n"
+  ++ "BT : " ++ maybe "0" show (M.lookup BT m) ++ "\n"
   ++ "CM : " ++ maybe "0" show (M.lookup CM m) ++ "\n"
-  ++ "EM : " ++ maybe "0" show (M.lookup EM m) ++ "\n"
-  ++ "AT : " ++ maybe "0" show (M.lookup AT m) ++ "\n"
-  ++ "BT : " ++ maybe "0" show (M.lookup BT m)++ "\n"
   ++ "CT : " ++ maybe "0" show (M.lookup CT m) ++ "\n" 
   ++ "DT : " ++ maybe "0" show (M.lookup DT m) ++ "\n"
+  ++ "EL : " ++ maybe "0" show (M.lookup EL m) ++ "\n"
+  ++ "EM : " ++ maybe "0" show (M.lookup EM m) ++ "\n"
   ++ "ET : " ++ maybe "0" show (M.lookup ET m) ++ "\n"
 
 

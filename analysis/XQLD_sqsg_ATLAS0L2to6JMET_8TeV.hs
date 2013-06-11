@@ -17,7 +17,7 @@ import HEP.Storage.WebDAV.CURL
 import HEP.Util.Either 
 -- 
 import HEP.Physics.Analysis.ATLAS.Common
-import HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
+import HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
 import HEP.Physics.Analysis.Common.XSecNTotNum
 import HEP.Util.Work 
 
@@ -44,7 +44,6 @@ masslst = [ "100.0"
 
 datalst = [ (x,y) | x <- masslst, y <- masslst ] 
 
--- datalst = [ ("700.0","100.0") , ("700.0","200.0"), ("700.0","300.0"), ("700.0","400.0") ]
 
 takeR [Just (_,_,_,r)] = r 
 
@@ -59,14 +58,12 @@ checkthefiles procname = do
 
 
 main = do 
-  checkthefiles "2sg_2l4j2x"
-  -- "sqsg_2l3j2x"
-  -- 
-
-  -- "2sq_2l2j2x"
+  checkthefiles -- "2sg_2l4j2x"
+   --  "sqsg_2l3j2x"
+   "2sq_2l2j2x"
   -- forM_ datalst (getCount.createRdirBName "2sg_2l4j2x")
   
-   
+{-   
   h <- openFile "xqld_sqsg_data.dat" WriteMode 
    
   mapM_ (\(mg,msq,r)-> hPutStrLn h (mg ++ ", " ++ msq ++ ", " ++ r))
@@ -85,7 +82,7 @@ main = do
                  -- print h_2sg
                  return (x,y, show r_ratio))
   hClose h 
-  
+-}  
 
 mkTotalSR hists = 
   let sumup k = (sum . mapMaybe (lookup k)) hists
@@ -140,8 +137,8 @@ getLHCresult (rdir,basename) = do
 
         
 createRdirBName procname (mg,mq) = 
-  let rdir = "montecarlo/admproject/XQLD/scan_" ++ procname 
-      basename = "ADMXQLD111MG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC7ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  let rdir = "montecarlo/admproject/XQLD/8TeV/scan_" ++ procname 
+      basename = "ADMXQLD111MG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 getCount (rdir,basename) = do 
@@ -164,7 +161,8 @@ getCount (rdir,basename) = do
 check_file_exist wdavcfg wdavrdir bname = do 
   let fp1 = bname ++ "_ATLAS7TeV0L2to6JBkgTest.json"
       fp2 = bname ++ "_total_count.json" 
-  b <- doesFileExistInDAV wdavcfg wdavrdir fp1 
+      fp3 = bname ++ "_pgs_events.lhco.gz"
+  b <- doesFileExistInDAV wdavcfg wdavrdir fp3 
   if b then return (Just (Just ()))  else return Nothing 
 
 
