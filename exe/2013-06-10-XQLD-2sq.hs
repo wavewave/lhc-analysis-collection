@@ -91,14 +91,13 @@ modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut
 mgrunsetup :: Int -> RunSetup
 mgrunsetup n = 
   RS { numevent = n
-     , machine = LHC7 ATLAS
+     , machine = LHC8 ATLAS
      , rgrun   = Auto
      , rgscale = 200.0
      , match   = NoMatch
      , cut     = NoCut 
      , pythia  = RunPYTHIA 
-     , lhesanitizer = -- NoLHESanitize 
-                             LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
+     , lhesanitizer = LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
      , setnum  = 1
@@ -107,11 +106,6 @@ mgrunsetup n =
 
 worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
--- mgl <- [ 500 ] , msq <- [ 1700, 1800, 1900, 2000 ] ] 
-
-
-
---  | mgl <- [200,300..2000], msq <- [100,200..mgl-100] ] 
 
 main :: IO () 
 main = do 
@@ -122,7 +116,7 @@ main = do
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
- 
+{- 
 -- |  
 getScriptSetup :: FilePath  -- ^ sandbox directory 
                -> FilePath  -- ^ mg5base 
@@ -138,7 +132,7 @@ getScriptSetup dir_sb dir_mg5 dir_mc = do
        , mg5base    = dir_mg5
        , mcrundir   = dir_mc 
        }
-
+-}
 
 
 
@@ -160,13 +154,13 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
 
       evchainGen ADMXQLD111
         ssetup 
-        ("Work20130421_2sq","2sq_2l2j2x") 
+        ("Work20130610_2sq","2sq_2l2j2x") 
         param 
         map_2sd_2l2j2x p_2sd_2l2j2x 
         mgrs 
 
-      let wsetup' = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130421_2sq","2sq_2l2j2x")  mgrs 
-          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/scan_2sq_2l2j2x" } 
+      let wsetup' = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130610_2sq","2sq_2l2j2x")  mgrs 
+          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/8TeV/scan_2sq_2l2j2x" } 
 
       putStrLn "phase2work start"              
       phase2work wsetup
@@ -187,13 +181,10 @@ phase2work wsetup = do
          (LHESanitize pid, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA
-           -- runHEP2LHE
            runPGS           
            runClean         
-           -- updateBanner   
          (LHESanitize pid, NoPYTHIA) -> do 
            sanitizeLHE
-           -- updateBanner   
        cleanHepFiles  
     print r  
     return ()
@@ -204,75 +195,6 @@ phase3work wdav wsetup = do
   uploadEventFull NoUploadHEP wdav wsetup 
   return () 
 
-
-
-{-
-p_sqsg_2l3j2x :: DCross 
-p_sqsg_2l3j2x = x (t proton, t proton, [p_sup,p_gluino]) 
-
-p_2sg_2l4j2x :: DCross
-p_2sg_2l4j2x = x (t proton, t proton, [p_gluino,p_gluino])
-
-
-p_gluino :: DDecay 
-p_gluino = d ([1000021], [p_sup,t jets]) 
-
--}
-
-{-
-p_sup :: DDecay 
-p_sup = d (sup, [t leptons, t jets, t adms])
--}
-
-
-{-
-idx_2sg_2l4j2x :: CrossID ProcSmplIdx
-idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x) 
-
-
-idx_sqsg_2l3j2x :: CrossID ProcSmplIdx 
-idx_sqsg_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_2l3j2x)
-
--}
-
-
-
-{-
-map_2sg_2l4j2x :: ProcSpecMap
-map_2sg_2l4j2x = 
-    HM.fromList [(Nothing             , MGProc [] ["p p > go go QED=0"])
-                ,(Just (3,1000021,[]) , MGProc [] ["go > ul u~"
-                                                  ,"go > ul~ u "])
-                ,(Just (4,1000021,[]) , MGProc [] ["go > ul u~ "
-                                                  ,"go > ul~ u "])
-                ,(Just (1,1000002,[3]), MGProc [] ["ul > d e+ sxxp~ "])
-                ,(Just (1,-1000002,[3]),MGProc [] ["ul~ > d~ e- sxxp "])
-                ,(Just (1,1000002,[4]), MGProc [] ["ul > d e+ sxxp~ "])
-                ,(Just (1,-1000002,[4]),MGProc [] ["ul~ > d~ e- sxxp "])
-                ] 
--}
-
-{-
-
-
-map_sqsg_2l3j2x :: ProcSpecMap
-map_sqsg_2l3j2x = 
-    HM.fromList [(Nothing             , "\n\
-                                        \generate p p > ul go QED=0\n\
-                                        \add process p p > ul~ go QED=0 \n")
-                ,(Just (3,1000002,[]) , "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (3,-1000002,[]), "\ngenerate ul~ > d~ e- sxxp \n")
-                ,(Just (4,1000021,[]) , "\n\
-                                        \generate go > ul u~ \n\
-                                        \add process go > ul~ u \n" )
-                ,(Just (1,1000002,[4]), "\ngenerate ul > d e+ sxxp~ \n")
-                ,(Just (1,-1000002,[4]),"\ngenerate ul~ > d~ e- sxxp \n")
-                ] 
-
-
-
-
--}
 
 
 

@@ -10,25 +10,6 @@ Build-Type: 	Simple
 Cabal-Version:  >= 1.9.2
 data-files:   
 
--- Executable leptoquark
---  Main-is: leptoquark.hs
---  hs-source-dirs: exe
---  ghc-options: 	-Wall -threaded -funbox-strict-fields -fno-warn-unused-do-bind
---  ghc-prof-options: -caf-all -auto-all
---  Build-Depends: 
---                 base>4, 
---                 webdav-manager,
---                 HEPUtil, 
---                 bytestring, 
---                 LHCOAnalysis, 
---                 zlib,
---                 lhc-analysis-collection, 
---                 HROOT-core, 
---                 HROOT-hist, 
---                 HROOT-io, 
---                 HROOT-graf
-
-
 
 Library
   hs-source-dirs: lib
@@ -74,19 +55,20 @@ Library
                    aeson-pretty >= 0.7,
                    indexed-extras, 
                    indexed, 
-                   lens, 
-                   HROOT-core,
-                   HROOT-graf, 
-                   HROOT-io,  
-                   HROOT-hist
+                   lens 
+                   -- HROOT-core,
+                   -- HROOT-graf, 
+                   -- HROOT-io,  
+                   -- HROOT-hist
                    
   Exposed-Modules: 
                    HEP.Parser.XSec
                    HEP.Physics.Analysis.ATLAS.Common 
-                   HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
-                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
-                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton
-                   -- HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton.PrettyPrint
+                   -- HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
+                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J_7TeV
+                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J_8TeV
+                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton_7TeV
+                   -- HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton_7TeV.PrettyPrint
                    HEP.Physics.Analysis.Common.XSecNTotNum 
                    HEP.Util.Format
                    HEP.Util.Table 

@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards, GADTs #-}
 
-module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton.PrettyPrint where
+module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton_7TeV.PrettyPrint where
 
 import           Codec.Compression.GZip
 import           Control.Monad

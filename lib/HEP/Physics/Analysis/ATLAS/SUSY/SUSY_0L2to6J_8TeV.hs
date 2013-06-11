@@ -8,7 +8,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J
+-- Module      : HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J_8TeV
 -- Copyright   : (c) 2013 Ian-Woo Kim
 --
 -- License     : GPL-3
@@ -22,7 +22,7 @@
 -- 
 -----------------------------------------------------------------------------
 
-module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J where
+module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6J_8TeV where
 
 import Codec.Compression.GZip
 import Control.Applicative
