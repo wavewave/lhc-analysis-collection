@@ -227,28 +227,24 @@ jetCut = iget >>>= \Ev2J {..} ->
 srcheckE _j1 _j2 _j3 j4 _j5 j6 tev = do 
     let c1 = dphiJMETCut1 tev
         c2 = dphiJMETCut2 tev 
-        c3 = metMeffRatioCut 6 0.15 tev
-    guard ((pt.snd) j6 > 60 && c1 && c2 && c3 ) 
+    guard ((pt.snd) j6 > 60 && c1 && c2 ) 
     (return . signalRegion 6 (0.25,(>1500)) (0.2,(>1200)) (0.15,(>1000))) tev
 
 srcheckD _j1 _j2 _j3 j4 j5 tev = do 
     let c1 = dphiJMETCut1 tev
         c2 = dphiJMETCut2 tev 
-        c3 = metMeffRatioCut 5 0.2 tev 
-    guard ((pt.snd) j5 > 60 && c1 && c2 && c3)
+    guard ((pt.snd) j5 > 60 && c1 && c2 )
     (return . signalRegion 5 (0.2,(>1600)) (0.2,(const False)) (0.2,(const False))) tev
 
 srcheckC _j1 _j2 _j3 j4 tev = do 
     let c1 = dphiJMETCut1 tev 
         c2 = dphiJMETCut2 tev
-        c3 = metMeffRatioCut 4 0.25 tev
-    guard ((pt.snd) j4 > 60 && c1 && c2 && c3)
+    guard ((pt.snd) j4 > 60 && c1 && c2 )
     (return . signalRegion 4 (0.25,(>2200)) (0.25,(>1200)) (0.25,(const False))) tev
  
 srcheckB _j1 _j2 j3 tev = do 
     let c1 = dphiJMETCut1 tev
-        c3 = metMeffRatioCut 3 0.25 tev 
-    guard ((pt.snd) j3 > 60 && c1 && c3)
+    guard ((pt.snd) j3 > 60 && c1 )
     (return . signalRegion 3 (0.4,(>2200)) (0.3,(>1800)) (0.3,(const False))) tev
 
 srcheckA _j1 _j2 tev = 
@@ -259,7 +255,7 @@ srcheckA _j1 _j2 tev =
         v = metMeffRatioVal 2 tev 
         c1 = dphiJMETCut1 tev 
         meffincval = meffinc40 e
-        bl = if v > 0.3 && c1 && meffincval > 1000 then True else False 
+        bl = if v > 0.2 && c1 && meffincval > 1000 then True else False 
         bm = if metval / sqrt ht  > 15 && c1 && meffincval > 1600 then True else False 
     in if bl || bm then Just (False,bm,bl) else Nothing 
 
@@ -413,16 +409,15 @@ showAsATLASPaper m =
 
 type HistEType = [ (EType,Int) ]
 
-data TotalSR a = TotalSR { numCL :: a
-                         , numEL :: a
+data TotalSR a = TotalSR { numAL :: a
                          , numAM :: a
-                         , numA'M :: a 
+                         , numBM :: a
+                         , numBT :: a 
                          , numCM :: a
-                         , numEM :: a 
-                         , numAT :: a 
-                         , numBT :: a
                          , numCT :: a 
                          , numDT :: a 
+                         , numEL :: a
+                         , numEM :: a 
                          , numET :: a }
 
 
@@ -437,46 +432,57 @@ deriving instance Typeable1 TotalSR
 instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
 
 instance (Num a)  => Num (TotalSR a) where
-  a + b = TotalSR { numCL = numCL a + numCL b   
-                  , numEL = numEL a + numEL b 
+  a + b = TotalSR { numAL = numAL a + numAL b   
                   , numAM = numAM a + numAM b 
-                  , numA'M = numA'M a + numA'M b 
-                  , numCM = numCM a + numCM b 
-                  , numEM = numEM a + numEM b 
-                  , numAT = numAT a + numAT b 
+                  , numBM = numBM a + numBM b 
                   , numBT = numBT a + numBT b 
+                  , numCM = numCM a + numCM b 
                   , numCT = numCT a + numCT b 
                   , numDT = numDT a + numDT b 
+                  , numEL = numEL a + numEL b 
+                  , numEM = numEM a + numEM b 
                   , numET = numET a + numET b 
                   } 
-  a * b = TotalSR { numCL = numCL a * numCL b   
-                  , numEL = numEL a * numEL b 
+  a * b = TotalSR { numAL = numAL a * numAL b   
                   , numAM = numAM a * numAM b 
-                  , numA'M = numA'M a * numA'M b 
-                  , numCM = numCM a * numCM b 
-                  , numEM = numEM a * numEM b 
-                  , numAT = numAT a * numAT b 
+                  , numBM = numBM a * numBM b 
                   , numBT = numBT a * numBT b 
+                  , numCM = numCM a * numCM b 
                   , numCT = numCT a * numCT b 
                   , numDT = numDT a * numDT b 
+                  , numEL = numEL a * numEL b 
+                  , numEM = numEM a * numEM b 
                   , numET = numET a * numET b 
-                  }
+                  } 
+
   negate = id 
   abs = id
-  fromInteger n = TotalSR { numCL = fromInteger n 
-                          , numEL = fromInteger n
+  fromInteger n = TotalSR { numAL = fromInteger n 
                           , numAM = fromInteger n
-                          , numA'M = fromInteger n
-                          , numCM = fromInteger n
-                          , numEM = fromInteger n
-                          , numAT = fromInteger n
+                          , numBM = fromInteger n
                           , numBT = fromInteger n
+                          , numCM = fromInteger n
                           , numCT = fromInteger n
                           , numDT = fromInteger n
+                          , numEL = fromInteger n
+                          , numEM = fromInteger n
                           , numET = fromInteger n
                           }
   signum _ = fromInteger 1
 
+
+multiplyScalar c a =  
+  TotalSR { numAL = c * numAL a 
+          , numAM = c * numAM a 
+          , numBM = c * numBM a 
+          , numBT = c * numBT a 
+          , numCM = c * numCM a 
+          , numCT = c * numCT a 
+          , numDT = c * numDT a 
+          , numEL = c * numEL a 
+          , numEM = c * numEM a 
+          , numET = c * numET a 
+          }
 
 mkHistogram :: [SRFlag] -> HistEType  
 mkHistogram passed = 
@@ -487,12 +493,12 @@ mkHistogram passed =
 
 
 -- | as was [0..20], bs was [0..10]
-atlas_7TeV_0L2to6J_bkgtest :: ([Double],[Double]) 
+atlas_8TeV_0L2to6J_bkgtest :: ([Double],[Double]) 
                            -> WebDAVConfig 
                            -> WebDAVRemoteDir 
                            -> String 
-                           -> IO (Maybe ()) -- IO (Maybe [((Double,Double), [(EType,Int)])])
-atlas_7TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do 
+                           -> IO (Maybe ()) 
+atlas_8TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do 
     print bname 
     let fp = bname ++ "_pgs_events.lhco.gz"
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp) $ do 
@@ -503,12 +509,8 @@ atlas_7TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do
           passed jes = (catMaybes . map (classify jes)) evts  
           asclst jes = mkHistogram (passed jes)
           testlst = [ (trace (show jes) jes, asclst jes) | a <- as, b <- bs, let jes = JESParam a b ]
-
-
-      -- return testlst
-      
       -- putStrLn "== result =="
-      let jsonfn = bname ++ "_ATLAS7TeV0L2to6JBkgTest.json"
+      let jsonfn = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
       let bstr = encodePretty testlst 
       LB.writeFile jsonfn bstr 
       uploadFile wdavcfg wdavrdir jsonfn 
