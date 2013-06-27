@@ -18,7 +18,7 @@ import           System.FilePath ((</>))
 import           System.IO
 import           System.Log.Logger
 -- 
-import HEP.Automation.MadGraph.Model.ADMXQLD111
+import HEP.Automation.MadGraph.Model.ADMXQLD111degen
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
@@ -79,7 +79,7 @@ map_2sg_2l4j2x =
 
 
 
-modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
+modelparam mgl msq msl mneut = ADMXQLD111degenParam mgl msq msl mneut 
 
 -- | 
 mgrunsetup :: Int -> RunSetup
@@ -128,14 +128,14 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
           param = modelparam mgl msq msl mneut
           mgrs = mgrunsetup n
 
-      evchainGen ADMXQLD111
+      evchainGen ADMXQLD111degen
         ssetup 
         ("Work20130610_2sg","2sg_2l4j2x") 
         param 
         map_2sg_2l4j2x p_2sg_2l4j2x 
         mgrs 
 
-      let wsetup' = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130610_2sg","2sg_2l4j2x")  mgrs 
+      let wsetup' = getWorkSetupCombined ADMXQLD111degen ssetup param ("Work20130610_2sg","2sg_2l4j2x")  mgrs 
           wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/8TeV/scan_2sg_2l4j2x" } 
 
       putStrLn "phase2work start"              
@@ -145,7 +145,7 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
     )
 
 
-phase2work :: WorkSetup ADMXQLD111 -> IO ()
+phase2work :: WorkSetup ADMXQLD111degen -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
        ws <- ask 
@@ -166,7 +166,7 @@ phase2work wsetup = do
     return ()
 
 -- | 
-phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111 -> IO () 
+phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111degen -> IO () 
 phase3work wdav wsetup = do 
   uploadEventFull NoUploadHEP wdav wsetup 
   return () 
