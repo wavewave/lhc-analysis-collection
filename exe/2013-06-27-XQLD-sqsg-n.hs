@@ -55,12 +55,15 @@ sup = [1000002,-1000002]
 
 sdownR = [2000001,-2000001]
 
-{- 
+ 
+
 othersq = [ 1000001, -1000001, 1000002, -1000002, 1000003, -1000003, 1000004, -1000004
                              , 2000002, -2000002, 2000003, -2000003, 2000004, -2000004 ] 
--}
 
-othersq = [ 1000001, -1000001 ] 
+
+-- othersq = [ 1000001, -1000001 ] 
+-- othersq = [ 2000003, -2000003 ] 
+
 
 p_gluino = d ([1000021], [t lepplusneut, t jets, t jets, t adms])
 
@@ -81,7 +84,7 @@ idx_sqsg_n_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_n_2l3j2x)
 
 map_sqsg_n_2l3j2x :: ProcSpecMap
 map_sqsg_n_2l3j2x = 
-    HM.fromList [ (Nothing            , MGProc [ "define osq = dl dl~ "]  -- "define osq = ul ul~ cl cl~ ur ur~ cr cr~ dl dl~ sl sl~ sr sr~"]  
+    HM.fromList [ (Nothing            , MGProc [ "define osq = ul ul~ cl cl~ ur ur~ cr cr~ dl dl~ sl sl~ sr sr~"]  
                                                [ "p p > go osq QED=0" ])
                 , (Just (3,1000021,[]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ " 
                                                , "define sxx = sxxp sxxp~ "]
@@ -90,7 +93,7 @@ map_sqsg_n_2l3j2x =
                                                 [ "dl~ > j j drs QED=0" ] )
                 , (Just (4, 1000001,[]), MGProc [ "define drs = dr dr~" ] 
                                                 [ "dl > j j drs QED=0" ] )
-         {-       , (Just (4,-1000002,[]), MGProc [ "define drs = dr dr~" ] 
+                , (Just (4,-1000002,[]), MGProc [ "define drs = dr dr~" ] 
                                                 [ "ul~ > j j drs QED=0" ] )
                 , (Just (4, 1000002,[]), MGProc [ "define drs = dr dr~" ] 
                                                 [ "ul > j j drs QED=0" ] )
@@ -105,7 +108,7 @@ map_sqsg_n_2l3j2x =
                 , (Just (4,-2000002,[]), MGProc [ "define drs = dr dr~" ] 
                                                 [ "ur~ > j j drs QED=0" ] )
                 , (Just (4, 2000002,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "ur  > j j drs QED=0" ])
+                                                [ "ur  > j j drs QED=0" ]) 
                 , (Just (4,-2000003,[]), MGProc [ "define drs = dr dr~" ] 
                                                 [ "sr~ > j j drs QED=0" ] )
                 , (Just (4, 2000003,[]), MGProc [ "define drs = dr dr~" ] 
@@ -113,7 +116,7 @@ map_sqsg_n_2l3j2x =
                 , (Just (4,-2000004,[]), MGProc [ "define drs = dr dr~" ] 
                                                 [ "cr~ > j j drs QED=0" ] )
                 , (Just (4, 2000004,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "cr  > j j drs QED=0" ]) -}
+                                                [ "cr  > j j drs QED=0" ]) 
                 , (Just (1,-2000001,[4]), MGProc [] [ "dr~ > u~ e+ sxxp~" 
                                                     , "dr~ > d~ ve~ sxxp~" ] ) 
                 , (Just (1, 2000001,[4]), MGProc [] [ "dr > u e- sxxp "
@@ -133,7 +136,7 @@ mgrunsetup n =
      , rgscale = 200.0
      , match   = NoMatch
      , cut     = NoCut 
-     , pythia  = NoPYTHIA -- RunPYTHIA 
+     , pythia  = RunPYTHIA 
      , lhesanitizer = LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
@@ -141,10 +144,7 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mgl,msq,50000,50000, 100) | (mgl,msq) <- [ (500,900),(500,1000),(500,1100),(500,1200) ] ]
-
-
---  mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
@@ -184,12 +184,12 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
         mgrs 
 
       let wsetup' = getWorkSetupCombined ADMXQLD111degen ssetup param ("Work20130627_sqsg_n","sqsg_n_2l3j2x")  mgrs 
-          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/test/scan_sqsg_2l3j2x"} 
+          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLDdegen/8TeV/scan_sqsg_n_2l3j2x"} 
 
       putStrLn "phase2work start"              
       phase2work wsetup
       putStrLn "phase3work start"
-      -- phase3work wdavcfg wsetup 
+      phase3work wdavcfg wsetup 
     )
 
 
