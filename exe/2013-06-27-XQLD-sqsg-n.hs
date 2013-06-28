@@ -55,9 +55,12 @@ sup = [1000002,-1000002]
 
 sdownR = [2000001,-2000001]
 
+{- 
 othersq = [ 1000001, -1000001, 1000002, -1000002, 1000003, -1000003, 1000004, -1000004
                              , 2000002, -2000002, 2000003, -2000003, 2000004, -2000004 ] 
+-}
 
+othersq = [ 1000001, -1000001 ] 
 
 p_gluino = d ([1000021], [t lepplusneut, t jets, t jets, t adms])
 
@@ -78,39 +81,39 @@ idx_sqsg_n_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_n_2l3j2x)
 
 map_sqsg_n_2l3j2x :: ProcSpecMap
 map_sqsg_n_2l3j2x = 
-    HM.fromList [ (Nothing            , MGProc [ "define osq = ul ul~ cl cl~ ur ur~ cr cr~ dl dl~ sl sl~ sr sr~"]  
+    HM.fromList [ (Nothing            , MGProc [ "define osq = dl dl~ "]  -- "define osq = ul ul~ cl cl~ ur ur~ cr cr~ dl dl~ sl sl~ sr sr~"]  
                                                [ "p p > go osq QED=0" ])
                 , (Just (3,1000021,[]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ " 
                                                , "define sxx = sxxp sxxp~ "]
                                                [ "go > lep j j sxx " ] ) 
                 , (Just (4,-1000001,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "dl~ > j j drs" ] )
+                                                [ "dl~ > j j drs QED=0" ] )
                 , (Just (4, 1000001,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "dl > j j drs" ] )
-                , (Just (4,-1000002,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "ul~ > j j drs" ] )
+                                                [ "dl > j j drs QED=0" ] )
+         {-       , (Just (4,-1000002,[]), MGProc [ "define drs = dr dr~" ] 
+                                                [ "ul~ > j j drs QED=0" ] )
                 , (Just (4, 1000002,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "ul > j j drs" ] )
+                                                [ "ul > j j drs QED=0" ] )
                 , (Just (4,-1000003,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "sl~ > j j drs" ] )
+                                                [ "sl~ > j j drs QED=0" ] )
                 , (Just (4, 1000003,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "sl  > j j drs" ] )
+                                                [ "sl  > j j drs QED=0" ] )
                 , (Just (4,-1000004,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "cl~ > j j drs" ] )
+                                                [ "cl~ > j j drs QED=0" ] )
                 , (Just (4, 1000004,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "cl  > j j drs" ] )
+                                                [ "cl  > j j drs QED=0" ] )
                 , (Just (4,-2000002,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "ur~ > j j drs" ] )
+                                                [ "ur~ > j j drs QED=0" ] )
                 , (Just (4, 2000002,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "ur  > j j drs" ])
+                                                [ "ur  > j j drs QED=0" ])
                 , (Just (4,-2000003,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "sr~ > j j drs" ] )
+                                                [ "sr~ > j j drs QED=0" ] )
                 , (Just (4, 2000003,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "sr  > j j drs" ] )
+                                                [ "sr  > j j drs QED=0" ] )
                 , (Just (4,-2000004,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "cr~ > j j drs" ] )
+                                                [ "cr~ > j j drs QED=0" ] )
                 , (Just (4, 2000004,[]), MGProc [ "define drs = dr dr~" ] 
-                                                [ "cr  > j j drs" ])
+                                                [ "cr  > j j drs QED=0" ]) -}
                 , (Just (1,-2000001,[4]), MGProc [] [ "dr~ > u~ e+ sxxp~" 
                                                     , "dr~ > d~ ve~ sxxp~" ] ) 
                 , (Just (1, 2000001,[4]), MGProc [] [ "dr > u e- sxxp "
@@ -130,7 +133,7 @@ mgrunsetup n =
      , rgscale = 200.0
      , match   = NoMatch
      , cut     = NoCut 
-     , pythia  = RunPYTHIA 
+     , pythia  = NoPYTHIA -- RunPYTHIA 
      , lhesanitizer = LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
