@@ -18,11 +18,6 @@ import           System.FilePath ((</>))
 import           System.IO
 import           System.Log.Logger
 -- 
-import HEP.Automation.MadGraph.Model.ADMXQLD111degen
-import HEP.Automation.MadGraph.Run
-import HEP.Automation.MadGraph.SetupType
-import HEP.Automation.MadGraph.Type
--- 
 import HEP.Automation.EventChain.Driver 
 import HEP.Automation.EventChain.File
 import HEP.Automation.EventChain.LHEConn
@@ -36,6 +31,10 @@ import HEP.Automation.EventChain.Process.Generator
 import HEP.Automation.EventGeneration.Config
 import HEP.Automation.EventGeneration.Type
 import HEP.Automation.EventGeneration.Work 
+import HEP.Automation.MadGraph.Model.ADMXQLD111degen
+import HEP.Automation.MadGraph.Run
+import HEP.Automation.MadGraph.SetupType
+import HEP.Automation.MadGraph.Type
 import HEP.Parser.LHE.Type
 import HEP.Parser.LHE.Sanitizer.Type
 import HEP.Storage.WebDAV
@@ -56,6 +55,16 @@ sup = [1000002,-1000002]
 
 sdownR = [2000001,-2000001]
 
+ 
+
+othersq = [ 1000001, -1000001, 1000002, -1000002, 1000003, -1000003, 1000004, -1000004
+                             , 2000002, -2000002, 2000003, -2000003, 2000004, -2000004 ] 
+
+
+-- othersq = [ 1000001, -1000001 ] 
+-- othersq = [ 2000003, -2000003 ] 
+
+
 p_gluino = d ([1000021], [t lepplusneut, t jets, t jets, t adms])
 
 
@@ -68,7 +77,8 @@ idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x)
 
 map_2sg_2l4j2x :: ProcSpecMap
 map_2sg_2l4j2x = 
-    HM.fromList [(Nothing             , MGProc [] [ "p p > go go QED=0" ])
+    HM.fromList [ (Nothing            , MGProc [ ]  
+                                               [ "p p > go go QED=0" ])
                 ,(Just (3,1000021,[]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ " 
                                               , "define sxx = sxxp sxxp~ "]
                                               [ "go > lep j j sxx " ] ) 
@@ -98,9 +108,7 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mgl,msq,50000,50000, 100) | mgl <- [800], msq <- [500,600,700,800, 1300,1400,1500,1600] ] 
--- mgl <- [100,200..2000], msq <- [100,200..2000] ] 
-
+worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
@@ -108,8 +116,12 @@ main = do
   let fp = args !! 0 
       n1 = read (args !! 1) :: Int
       n2 = read (args !! 2) :: Int
+  --  fp <- (!! 0) <$> getArgs 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
+  -- print (length worksets) 
   mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
+
+
 
 
 scanwork :: FilePath -> (Double,Double,Double,Double,Int) -> IO () 
@@ -117,7 +129,7 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
   homedir <- getHomeDirectory 
 
   getConfig fp >>= 
-    maybe (putStrLn "cannot read" >> return ()) (\ec -> do 
+    maybe (return ()) (\ec -> do 
       let ssetup = evgen_scriptsetup ec
           whost = evgen_webdavroot ec
           pkey = evgen_privatekeyfile ec
@@ -130,18 +142,18 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
 
       evchainGen ADMXQLD111degen
         ssetup 
-        ("Work20130610_2sg","2sg_2l4j2x") 
+        ("Work20130627_2sg","2sg_2l4j2x") 
         param 
         map_2sg_2l4j2x p_2sg_2l4j2x 
         mgrs 
 
-      let wsetup' = getWorkSetupCombined ADMXQLD111degen ssetup param ("Work20130610_2sg","2sg_2l4j2x")  mgrs 
-          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/8TeV/scan_2sg_2l4j2x" } 
+      let wsetup' = getWorkSetupCombined ADMXQLD111degen ssetup param ("Work20130627_2sg","2sg_2l4j2x")  mgrs 
+          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLDdegen/8TeV/scan_2sg_2l4j2x"} 
 
       putStrLn "phase2work start"              
       phase2work wsetup
       putStrLn "phase3work start"
-      -- phase3work wdavcfg wsetup 
+      phase3work wdavcfg wsetup 
     )
 
 
@@ -170,6 +182,5 @@ phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111degen -> IO ()
 phase3work wdav wsetup = do 
   uploadEventFull NoUploadHEP wdav wsetup 
   return () 
-
 
 

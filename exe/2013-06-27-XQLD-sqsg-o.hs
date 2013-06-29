@@ -31,7 +31,7 @@ import HEP.Automation.EventChain.Process.Generator
 import HEP.Automation.EventGeneration.Config
 import HEP.Automation.EventGeneration.Type
 import HEP.Automation.EventGeneration.Work 
-import HEP.Automation.MadGraph.Model.ADMXQLD111
+import HEP.Automation.MadGraph.Model.ADMXQLD111degen
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
@@ -55,6 +55,7 @@ sup = [1000002,-1000002]
 
 sdownR = [2000001,-2000001]
 
+ 
 p_gluino = d ([1000021], [t lepplusneut, t jets, t jets, t adms])
 
 
@@ -62,29 +63,29 @@ p_sdownR :: DDecay
 p_sdownR = d (sdownR, [t lepplusneut, t jets, t adms])
 
 
-p_sqsg_2l3j2x :: DCross 
-p_sqsg_2l3j2x = x (t proton, t proton, [p_gluino, p_sdownR])
+p_sqsg_o_2l3j2x :: DCross 
+p_sqsg_o_2l3j2x = x (t proton, t proton, [p_gluino, p_sdownR])
 
 
-idx_sqsg_2l3j2x :: CrossID ProcSmplIdx
-idx_sqsg_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_2l3j2x)
+idx_sqsg_o_2l3j2x :: CrossID ProcSmplIdx
+idx_sqsg_o_2l3j2x = mkCrossIDIdx (mkDICross p_sqsg_o_2l3j2x)
 
-map_sqsg_2l3j2x :: ProcSpecMap
-map_sqsg_2l3j2x = 
-    HM.fromList [(Nothing             , MGProc [] [ "p p > go dr QED=0" 
-                                                  , "p p > go dr~ QED=0" ])
-                ,(Just (3,1000021,[]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ " 
-                                              , "define sxx = sxxp sxxp~ "]
-                                              [ "go > lep j j sxx " ] ) 
-                ,(Just (4,-2000001,[]), MGProc [] [ "dr~ > u~ e+ sxxp~ "
-                                                  , "dr~ > d~ ve~ sxxp~ " ])
-                ,(Just (4,2000001,[]) , MGProc [] [ "dr > u e- sxxp "
-                                                  , "dr > d ve sxxp " ])
+map_sqsg_o_2l3j2x :: ProcSpecMap
+map_sqsg_o_2l3j2x = 
+    HM.fromList [ (Nothing            , MGProc [ "define drs = dr dr~ "]  
+                                               [ "p p > go drs QED=0" ])
+                , (Just (3,1000021,[]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ " 
+                                               , "define sxx = sxxp sxxp~ "]
+                                               [ "go > lep j j sxx " ] ) 
+                , (Just (4,-2000001,[]), MGProc [] [ "dr~ > u~ e+ sxxp~" 
+                                                   , "dr~ > d~ ve~ sxxp~" ] ) 
+                , (Just (4, 2000001,[]), MGProc [] [ "dr > u e- sxxp "
+                                                   , "dr > d ve sxxp " ])
                 ] 
 
 
 
-modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
+modelparam mgl msq msl mneut = ADMXQLD111degenParam mgl msq msl mneut 
 
 -- | 
 mgrunsetup :: Int -> RunSetup
@@ -103,10 +104,7 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mgl,msq,50000,50000, 10000) | (mgl,msq) <- [ (500,900),(500,1000),(500,1100),(500,1200) ] ]
-
-
---  mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
@@ -119,23 +117,6 @@ main = do
   -- print (length worksets) 
   mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
-{- 
--- |  
-getScriptSetup :: FilePath  -- ^ sandbox directory 
-               -> FilePath  -- ^ mg5base 
-               -> FilePath  -- ^ main montecarlo run 
-               -> IO ScriptSetup
-getScriptSetup dir_sb dir_mg5 dir_mc = do 
-  dir_mdl <- (</> "template") <$> PModel.getDataDir
-  dir_tmpl <- (</> "template") <$> PMadGraph.getDataDir 
-  return $ 
-    SS { modeltmpldir = dir_mdl
-       , runtmpldir = dir_tmpl 
-       , sandboxdir = dir_sb 
-       , mg5base    = dir_mg5
-       , mcrundir   = dir_mc 
-       }
--}
 
 
 
@@ -155,15 +136,15 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
           param = modelparam mgl msq msl mneut
           mgrs = mgrunsetup n
 
-      evchainGen ADMXQLD111
+      evchainGen ADMXQLD111degen
         ssetup 
-        ("Work20130610_sqsg","sqsg_2l3j2x") 
+        ("Work20130627_sqsg_o","sqsg_o_2l3j2x") 
         param 
-        map_sqsg_2l3j2x p_sqsg_2l3j2x 
+        map_sqsg_o_2l3j2x p_sqsg_o_2l3j2x 
         mgrs 
 
-      let wsetup' = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130610_sqsg","sqsg_2l3j2x")  mgrs 
-          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/8TeV/scan_sqsg_2l3j2x"} 
+      let wsetup' = getWorkSetupCombined ADMXQLD111degen ssetup param ("Work20130627_sqsg_o","sqsg_o_2l3j2x")  mgrs 
+          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLDdegen/8TeV/scan_sqsg_o_2l3j2x"} 
 
       putStrLn "phase2work start"              
       phase2work wsetup
@@ -172,7 +153,7 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
     )
 
 
-phase2work :: WorkSetup ADMXQLD111 -> IO ()
+phase2work :: WorkSetup ADMXQLD111degen -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
        ws <- ask 
@@ -193,7 +174,7 @@ phase2work wsetup = do
     return ()
 
 -- | 
-phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111 -> IO () 
+phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111degen -> IO () 
 phase3work wdav wsetup = do 
   uploadEventFull NoUploadHEP wdav wsetup 
   return () 
