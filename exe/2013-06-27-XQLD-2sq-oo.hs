@@ -18,11 +18,6 @@ import           System.FilePath ((</>))
 import           System.IO
 import           System.Log.Logger
 -- 
-import HEP.Automation.MadGraph.Model.ADMXQLD111
-import HEP.Automation.MadGraph.Run
-import HEP.Automation.MadGraph.SetupType
-import HEP.Automation.MadGraph.Type
--- 
 import HEP.Automation.EventChain.Driver 
 import HEP.Automation.EventChain.File
 import HEP.Automation.EventChain.LHEConn
@@ -36,6 +31,10 @@ import HEP.Automation.EventChain.Process.Generator
 import HEP.Automation.EventGeneration.Config
 import HEP.Automation.EventGeneration.Type
 import HEP.Automation.EventGeneration.Work 
+import HEP.Automation.MadGraph.Model.ADMXQLD111degen
+import HEP.Automation.MadGraph.Run
+import HEP.Automation.MadGraph.SetupType
+import HEP.Automation.MadGraph.Type
 import HEP.Parser.LHE.Type
 import HEP.Parser.LHE.Sanitizer.Type
 import HEP.Storage.WebDAV
@@ -56,20 +55,18 @@ sup = [1000002,-1000002]
 
 sdownR = [2000001,-2000001]
 
-
 p_sdownR :: DDecay
 p_sdownR = d (sdownR, [t lepplusneut, t jets, t adms])
 
+p_2sq_oo_2l2j2x :: DCross 
+p_2sq_oo_2l2j2x = x (t proton, t proton, [p_sdownR, p_sdownR])
 
-p_2sd_2l2j2x :: DCross 
-p_2sd_2l2j2x = x (t proton, t proton, [p_sdownR, p_sdownR])
 
+idx_2sq_oo_2l2j2x :: CrossID ProcSmplIdx
+idx_2sq_oo_2l2j2x = mkCrossIDIdx (mkDICross p_2sq_oo_2l2j2x)
 
-idx_2sd_2l2j2x :: CrossID ProcSmplIdx
-idx_2sd_2l2j2x = mkCrossIDIdx (mkDICross p_2sd_2l2j2x)
-
-map_2sd_2l2j2x :: ProcSpecMap
-map_2sd_2l2j2x = 
+map_2sq_oo_2l2j2x :: ProcSpecMap
+map_2sq_oo_2l2j2x = 
     HM.fromList [(Nothing             , MGProc [] [ "p p > dr dr~ QED=0"
                                                   , "p p > dr dr QED=0"
                                                   , "p p > dr~ dr~ QED=0"])
@@ -85,7 +82,7 @@ map_2sd_2l2j2x =
 
 
 
-modelparam mgl msq msl mneut = ADMXQLD111Param mgl msq msl mneut 
+modelparam mgl msq msl mneut = ADMXQLD111degenParam mgl msq msl mneut 
 
 -- | 
 mgrunsetup :: Int -> RunSetup
@@ -104,10 +101,7 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mgl,msq,50000,50000, 10000) | (mgl,msq) <- [(1000,700),(1000,800),(1000,1200),(1000,1500),(1000,1600),(1100,1500),(1100,1600),(1100,1900),(1100,2000),(1200,300),(1200,400)] ]
-
--- mgl <- [100,200..2000], msq <- [100,200..2000] ] 
-
+worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
@@ -115,26 +109,11 @@ main = do
   let fp = args !! 0 
       n1 = read (args !! 1) :: Int
       n2 = read (args !! 2) :: Int
+  --  fp <- (!! 0) <$> getArgs 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
+  -- print (length worksets) 
   mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
-{- 
--- |  
-getScriptSetup :: FilePath  -- ^ sandbox directory 
-               -> FilePath  -- ^ mg5base 
-               -> FilePath  -- ^ main montecarlo run 
-               -> IO ScriptSetup
-getScriptSetup dir_sb dir_mg5 dir_mc = do 
-  dir_mdl <- (</> "template") <$> PModel.getDataDir
-  dir_tmpl <- (</> "template") <$> PMadGraph.getDataDir 
-  return $ 
-    SS { modeltmpldir = dir_mdl
-       , runtmpldir = dir_tmpl 
-       , sandboxdir = dir_sb 
-       , mg5base    = dir_mg5
-       , mcrundir   = dir_mc 
-       }
--}
 
 
 
@@ -154,15 +133,15 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
           param = modelparam mgl msq msl mneut
           mgrs = mgrunsetup n
 
-      evchainGen ADMXQLD111
+      evchainGen ADMXQLD111degen
         ssetup 
-        ("Work20130610_2sq","2sq_2l2j2x") 
+        ("Work20130627_2sq_oo","2sq_oo_2l2j2x") 
         param 
-        map_2sd_2l2j2x p_2sd_2l2j2x 
+        map_2sq_oo_2l2j2x p_2sq_oo_2l2j2x 
         mgrs 
 
-      let wsetup' = getWorkSetupCombined ADMXQLD111 ssetup param ("Work20130610_2sq","2sq_2l2j2x")  mgrs 
-          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLD/8TeV/scan_2sq_2l2j2x" } 
+      let wsetup' = getWorkSetupCombined ADMXQLD111degen ssetup param ("Work20130627_2sq_oo","2sq_oo_2l2j2x")  mgrs 
+          wsetup = wsetup' { ws_storage = WebDAVRemoteDir "montecarlo/admproject/XQLDdegen/8TeV/scan_2sq_oo_2l2j2x"} 
 
       putStrLn "phase2work start"              
       phase2work wsetup
@@ -171,7 +150,7 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
     )
 
 
-phase2work :: WorkSetup ADMXQLD111 -> IO ()
+phase2work :: WorkSetup ADMXQLD111degen -> IO ()
 phase2work wsetup = do 
     r <- flip runReaderT wsetup . runErrorT $ do 
        ws <- ask 
@@ -192,11 +171,9 @@ phase2work wsetup = do
     return ()
 
 -- | 
-phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111 -> IO () 
+phase3work :: WebDAVConfig -> WorkSetup ADMXQLD111degen -> IO () 
 phase3work wdav wsetup = do 
   uploadEventFull NoUploadHEP wdav wsetup 
   return () 
-
-
 
 
