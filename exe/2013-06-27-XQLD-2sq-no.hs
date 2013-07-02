@@ -141,7 +141,14 @@ mgrunsetup n =
      }
 
 
-worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+-- worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+
+notgood = [ ("1600.0", "900.0") 
+          , ("1600.0", "1000.0")
+          , ("1600.0", "1100.0")
+          , ("1600.0", "1200.0") ]
+
+worksets = [ (mgl,msq,50000,50000, 10000) | (mglstr,msqstr) <- notgood, let mgl = read mglstr, let msq = read msqstr] 
 
 main :: IO () 
 main = do 

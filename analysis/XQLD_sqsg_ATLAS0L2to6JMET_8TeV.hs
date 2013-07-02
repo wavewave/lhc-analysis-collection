@@ -4,6 +4,8 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import Control.Monad 
+import           Control.Monad.Trans (liftIO)
+import           Control.Monad.Trans.Either (EitherT(..))
 import           Control.Monad.Trans.Maybe 
 -- import Data.Attoparsec.Lazy
 import qualified Data.Aeson.Generic as G
@@ -12,7 +14,9 @@ import           Data.Foldable (foldrM)
 import           Data.Maybe 
 import System.IO
 -- 
+
 import HEP.Storage.WebDAV.CURL
+import HEP.Storage.WebDAV.Type
 -- import HEP.Storage.WebDAV.Util
 import HEP.Util.Either 
 -- 
@@ -51,17 +55,73 @@ takeHist [Just (_,_,h,_)] = h
 
 takeResult [Just (_,r,_,_)] = r
 
-checkthefiles procname = do 
-  rs <- forM datalst (\s -> (doJob check_file_exist . createRdirBName procname) s 
+data DataFileClass = RawData | TotalCount | ChanCount 
+
+checkFileExistInDAV :: DataFileClass -> WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe (Maybe ()))
+checkFileExistInDAV datcls wdavcfg wdavrdir bname = do 
+  let fp1 = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
+      fp2 = bname ++ "_total_count.json" 
+      fp3 = bname ++ "_pgs_events.lhco.gz"
+      fp = case datcls of 
+             RawData -> fp3
+             TotalCount -> fp2
+             ChanCount -> fp1 
+  b <- doesFileExistInDAV wdavcfg wdavrdir fp 
+  if b then return (Just (Just ()))  else return Nothing 
+
+
+doJob wk (rdir,basename) = do
+  let nlst = [1]
+  Right r1 <- work wk "config1.txt" rdir basename nlst 
+  return r1 
+
+
+checkFiles :: DataFileClass -> String -> IO (Either String ())
+checkFiles c procname = do 
+  rs <- forM datalst (\s -> (doJob (checkFileExistInDAV c)  . createRdirBName procname) s 
                                 >>= return . maybe (show s) (const []) . head)
-  mapM_ print $ filter (not.null) rs  
+  let missinglst = filter (not.null) rs
+      nmiss = length missinglst
+  mapM_ (\x -> putStrLn ("  , " ++ x)) missinglst
+  if null missinglst then return (Right ()) else return (Left (show nmiss ++ " files are missing"))
+
+createRdirBName procname (mg,mq) = 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/scan_" ++ procname 
+      basename = "ADMXQLD111degenMG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
 
 
+mainCount :: String -> EitherT String IO ()
+mainCount str = do 
+  EitherT (checkFiles RawData str)
+  liftIO $ forM_ datalst (getCount.createRdirBName str)
+
+   
 main = do 
-  checkthefiles -- "2sg_2l4j2x"
-   --  "sqsg_2l3j2x"
-   "2sq_2l2j2x"
-  -- forM_ datalst (getCount.createRdirBName "2sg_2l4j2x")
+  let str = "2sq_nn_2l2j2x"
+
+  r <- runEitherT (mainCount str) 
+  case r of 
+    Left err -> putStrLn err
+    Right _ -> return ()
+ 
+  -- checkFiles RawData 
+
+  -- wait
+
+  -- done
+  -- "2sg_2l4j2x"
+  -- "sqsg_o_2l3j2x"
+  -- "2sq_no_2l2j2x"
+  -- "2sq_oo_2l2j2x"
+
+  -- not done
+  -- "sqsg_n_2l3j2x"
+  
+  -- being done 
+  -- "2sq_nn_2l2j2x"
+
+
   
 {-   
   h <- openFile "xqld_sqsg_data.dat" WriteMode 
@@ -84,46 +144,8 @@ main = do
   hClose h 
 -}  
 
-mkTotalSR hists = 
-  let sumup k = (sum . mapMaybe (lookup k)) hists
-      totsr = TotalSR { numCL = sumup CL 
-                      , numEL = sumup EL 
-                      , numAM = sumup AM
-                      , numA'M = sumup A'M 
-                      , numCM = sumup CM 
-                      , numEM = sumup EM
-                      , numAT = sumup AT 
-                      , numBT = sumup BT 
-                      , numCT = sumup CT 
-                      , numDT = sumup DT 
-                      , numET = sumup ET } 
-  in totsr 
 
-
-getRFromSR sr = 
-    let r = TotalSR { numCL = g numCL 
-                    , numEL = g numEL 
-                    , numAM = g numAM 
-                    , numA'M = g numA'M
-                    , numCM = g numCM 
-                    , numEM = g numEM
-                    , numAT = g numAT
-                    , numBT = g numBT 
-                    , numCT = g numCT 
-                    , numDT = g numDT 
-                    , numET = g numET } 
-    in maximumInSR r 
-  where getratio f x y = f x / f y 
-        g f = getratio f sr nbsmlimit_SR
-
-maximumInSR TotalSR{..} = maximum [numCL,numEL,numAM,numA'M,numCM,numEM,numAT,numBT,numCT,numDT,numET] 
-
-doJob wk (rdir,basename) = do
-  let nlst = [1]
-  Right r1 <- work wk "config1.txt" rdir basename nlst 
-  return r1 
-
-
+{-
 getLHCresult (rdir,basename) = do 
   let nlst = [1]
   Right r1 <- work -- fetchXSecNHist 
@@ -133,13 +155,9 @@ getLHCresult (rdir,basename) = do
                        basename 
                        nlst 
   return r1 
-  
+-}  
 
         
-createRdirBName procname (mg,mq) = 
-  let rdir = "montecarlo/admproject/XQLD/8TeV/scan_" ++ procname 
-      basename = "ADMXQLD111MG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
-  in (rdir,basename)  
 
 getCount (rdir,basename) = do 
   let nlst = [1]
@@ -151,24 +169,15 @@ getCount (rdir,basename) = do
   print r1
 
   r2 <- work 
-         (atlas_7TeV_0L2to6J_bkgtest ([5],[2]))
+         (atlas_8TeV_0L2to6J_bkgtest ([0],[0]))
          "config1.txt"
          rdir
          basename
          nlst
   print r2 
 
-check_file_exist wdavcfg wdavrdir bname = do 
-  let fp1 = bname ++ "_ATLAS7TeV0L2to6JBkgTest.json"
-      fp2 = bname ++ "_total_count.json" 
-      fp3 = bname ++ "_pgs_events.lhco.gz"
-  b <- doesFileExistInDAV wdavcfg wdavrdir fp3 
-  if b then return (Just (Just ()))  else return Nothing 
 
-
-
-
-
+{-
 -- atlasresult_4_7fb :: WebDAVConfig -> WebDAVRemoteDir -> String ->IO (Maybe ([ (EType,Double) ], Double))
 --  -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)]))
 atlasresult_4_7fb wdavcfg wdavrdir bname = do 
@@ -194,19 +203,4 @@ atlasresult_4_7fb wdavcfg wdavrdir bname = do
     maxratio <- MaybeT . return $ foldrM maxf 0 hist 
 
     return (xsec,result,hist,maxratio) -- (xsec,result)
-
-
-nbsmlimit = [ (CL, 51) 
-            , (EL, 77) 
-            , (AM, 24) 
-            , (A'M, 28) 
-            , (CM, 17)
-            , (EM, 11) 
-            , (AT, 3.1) 
-            , (BT, 3.0)
-            , (CT, 16)
-            , (DT, 9.6) 
-            , (ET, 12) ] 
-
-
-nbsmlimit_SR = mkTotalSR [nbsmlimit] 
+-}
