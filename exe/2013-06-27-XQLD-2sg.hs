@@ -21,6 +21,7 @@ import           System.Log.Logger
 import HEP.Automation.EventChain.Driver 
 import HEP.Automation.EventChain.File
 import HEP.Automation.EventChain.LHEConn
+import HEP.Automation.EventChain.Type.MultiProcess
 import HEP.Automation.EventChain.Type.Skeleton
 import HEP.Automation.EventChain.Type.Spec
 import HEP.Automation.EventChain.Type.Process
@@ -72,8 +73,8 @@ p_2sg_2l4j2x :: DCross
 p_2sg_2l4j2x = x (t proton, t proton, [p_gluino, p_gluino])
 
 
-idx_2sg_2l4j2x :: CrossID ProcSmplIdx
-idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x)
+-- idx_2sg_2l4j2x :: CrossID ProcSmplIdx
+-- idx_2sg_2l4j2x = mkCrossIDIdx (mkDICross p_2sg_2l4j2x)
 
 map_2sg_2l4j2x :: ProcSpecMap
 map_2sg_2l4j2x = 
@@ -92,20 +93,25 @@ map_2sg_2l4j2x =
 modelparam mgl msq msl mneut = ADMXQLD111degenParam mgl msq msl mneut 
 
 -- | 
-mgrunsetup :: Int -> RunSetup
-mgrunsetup n = 
-  RS { numevent = n
+mgrunsetup :: NumOfEv -> SetNum -> RunSetup
+mgrunsetup (NumOfEv nev) (SetNum sn) = 
+  RS { numevent = nev
      , machine = LHC8 ATLAS
      , rgrun   = Auto
      , rgscale = 200.0
      , match   = NoMatch
      , cut     = NoCut 
      , pythia  = RunPYTHIA 
-     , lhesanitizer = LHESanitize (Replace [(9000201,1000022),(-9000201,1000022)]) 
+     , lhesanitizer = [Replace [(9000201,1000022),(-9000201,1000022)]] 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
-     , setnum  = 1
+     , setnum  = sn
      }
+
+proc = SingleProc "2sg_2l4j2x" p_2sg_2l4j2x map_2sg_2l4j2x mgrunsetup
+
+pdir = ProcDir "Work20130702" "montecarlo/admproject/XQLDdegen/8TeV" "scan"
+
 
 
 worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
@@ -138,8 +144,13 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
       let wdavcfg = WebDAVConfig { webdav_credential = cr 
                                  , webdav_baseurl = whost } 
           param = modelparam mgl msq msl mneut
-          mgrs = mgrunsetup n
-
+          -- mgrs = mgrunsetup n
+ 
+      genPhase1 ADMXQLD111degen ssetup pdir proc param (NumOfEv 10000, SetNum 1)
+      genPhase2 ADMXQLD111degen ssetup pdir proc param (NumOfEv 10000, SetNum 1)
+      genPhase3 ADMXQLD111degen ssetup pdir proc param (NumOfEv 10000, SetNum 1) wdavcfg
+      return ()
+      {-
       evchainGen ADMXQLD111degen
         ssetup 
         ("Work20130627_2sg","2sg_2l4j2x") 
@@ -154,8 +165,9 @@ scanwork fp (mgl,msq,msl,mneut,n) = do
       phase2work wsetup
       putStrLn "phase3work start"
       phase3work wdavcfg wsetup 
+      -}
     )
-
+   
 
 phase2work :: WorkSetup ADMXQLD111degen -> IO ()
 phase2work wsetup = do 
@@ -165,13 +177,13 @@ phase2work wsetup = do
              ((,,,) <$> ws_ssetup <*> ws_psetup <*> ws_param <*> ws_rsetup) ws 
        cardPrepare                      
        case (lhesanitizer rsetup,pythia rsetup) of
-         (NoLHESanitize,_) -> return ()
-         (LHESanitize pid, RunPYTHIA) -> do 
+         ([],_) -> return ()
+         (_:_, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA
            runPGS           
            runClean         
-         (LHESanitize pid, NoPYTHIA) -> do 
+         (_:_, NoPYTHIA) -> do 
            sanitizeLHE
        cleanHepFiles  
     print r  
