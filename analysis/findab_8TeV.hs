@@ -53,22 +53,6 @@ chisquareTTBar TotalSR {..} = ((numAL - 870)^2) / (180^2)
 
 
 
-{-
-
-chisquareZJets  :: TotalSR -> Double 
-chisquareZJets TotalSR {..} = ((numCL - 71)^2) / (19^2)  
-                            + ((numEL - 21)^2) / (7^2) 
-                            + ((numAM - 32)^2) / (9^2) 
-                            + ((numA'M - 66)^2) / (18^2) 
-                            + ((numCM - 16)^2) / (5^2) 
-                            + ((numEM - 8.4)^2) / (3.2^2) 
-                            + ((numAT - 3.3)^2) / (1.5^2) 
-                            + ((numBT - 2.0)^2) / (1.3^2) 
-                            + ((numCT - 2.0)^2) / (1.0^2) 
-                            + ((numDT - 0.9)^2) / (0.6^2) 
-                            + ((numET - 3.4)^2) / (1.6^2)  
-
--}
 
 -- (\wdavcfg wdavrdir nm -> getXSecNCount wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
 -- atlas_8TeV_0L2to6J_bkgtest

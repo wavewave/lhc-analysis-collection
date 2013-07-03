@@ -490,7 +490,76 @@ mkHistogram passed =
       ascmap = foldr (\(k,v) m->M.insertWith (+) k v m) M.empty lst 
   in M.toAscList ascmap
 
+----------------
+-- Limit Data --
+----------------
 
+-- this is from S_exp^95 in Table 4
+limitOfNBSM :: [ (EType,Double) ] 
+limitOfNBSM = [ (AL, 1135) 
+              , (AM, 42.7)
+              , (BM, 17.0) 
+              , (BT,  5.8)
+              , (CM, 72.9)
+              , (CT,  3.3)
+              , (DT, 13.6)
+              , (EL, 57.3)
+              , (EM, 21.4)
+              , (ET,  6.5)
+              ] 
+
+limitOfNBSM_SR :: TotalSR Double 
+limitOfNBSM_SR = mkTotalSR [limitOfNBSM]
+
+
+-----------------------
+-- utility functions --
+-----------------------
+ 
+mkTotalSR :: (Num a) => [[ (EType, a) ]] -> TotalSR a
+mkTotalSR hists = TotalSR { numAL = sumup AL 
+                          , numAM = sumup AM
+                          , numBM = sumup BM
+                          , numBT = sumup BT
+                          , numCM = sumup CM
+                          , numCT = sumup CT
+                          , numDT = sumup DT
+                          , numEL = sumup EL
+                          , numEM = sumup EM
+                          , numET = sumup ET
+                          }
+  where sumup k = (sum . mapMaybe (lookup k)) hists
+
+
+
+getRFromSR sr = 
+    let r = TotalSR { numAL = g numAL 
+                    , numAM = g numAM
+                    , numBM = g numBM
+                    , numBT = g numBT
+                    , numCM = g numCM
+                    , numCT = g numCT
+                    , numDT = g numDT
+                    , numEL = g numEL
+                    , numEM = g numEM
+                    , numET = g numET
+                    } 
+    in maximumInSR r 
+  where getratio f x y = f x / f y 
+        g f = getratio f sr limitOfNBSM_SR
+
+maximumInSR TotalSR{..} = 
+    maximum [ numAL, numAM, numBM, numBT, numCM
+            , numCT, numDT, numEL, numEM, numET ]
+
+
+
+
+
+
+------------------- 
+-- main analysis --
+-------------------
 
 -- | as was [0..20], bs was [0..10]
 atlas_8TeV_0L2to6J_bkgtest :: ([Double],[Double]) 
