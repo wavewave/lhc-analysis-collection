@@ -163,7 +163,6 @@ getResult f (rdir,basename) = do
 
 
 main = do
-  -- flip ($) ("1000.0","1000.0")
   outh <- openFile "xqld_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
@@ -195,83 +194,21 @@ main = do
       )
   hClose outh 
 
-{-
-      let vs' = catMaybes vs 
-      let totevts = (sum . map (numberOfEvent.fst)) vs'
-          mul = (*) <$> crossSectionInPb <*> fromIntegral . numberOfEvent
-          totcross = (/ (fromIntegral totevts)) . sum . map (mul . fst) $ vs' 
-          -- -- if I use only LO (normally not do that)
-          -- weight = {- 238.0 -} totcross * 20300 / fromIntegral totevts 
-          -- -- for 8 TeV ttbar (cross section from HATHOR ) 
-          -- weight = 238.0 * 20300 / fromIntegral totevts 
-          test a b = let hists = mapMaybe (lookup (JESParam a b)) . map snd $ vs'
-                         sumup k = (sum . mapMaybe (lookup k)) hists
-                         totsr :: TotalSR Int 
-                         totsr = TotalSR { numAL = sumup AL
-                                         , numAM = sumup AM
-                                         , numBM = sumup BM 
-                                         , numBT = sumup BT 
-                                         , numCM = sumup CM 
-                                         , numCT = sumup CT 
-                                         , numDT = sumup DT 
-                                         , numEL = sumup EL
-                                         , numEM = sumup EM
-                                         , numET = sumup ET } 
-                     in (JESParam a b, totsr) 
-      let xsecn = CrossSectionAndCount totcross totevts
-          combined = (xsecn,[ test a b | a <- [0,1..20], b <- [0,1..10] ] )
-          fn = basename ++ show n1 ++ "to" ++ show n2 ++ "_ATLAS8TeV0L2to6JBkgTest.json" 
-          bstr = encodePretty combined 
-      LB.writeFile fn bstr 
--}
 
+main' = do 
+  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset 
+  print r
 
---  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset 
---  print r
 {-
+  let str = "2sq_no_2l2j2x" 
   r <- runEitherT (mainCount str) 
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
--} 
+ -}
  
 
-  
-{-   
-  h <- openFile "xqld_sqsg_data.dat" WriteMode 
-   
-  mapM_ (\(mg,msq,r)-> hPutStrLn h (mg ++ ", " ++ msq ++ ", " ++ r))
-    =<< forM datalst
-              (\(x,y) -> do 
-                 t_2sq <- (getLHCresult.createRdirBName "2sq_2l2j2x") (x,y) 
-                 t_sqsg <- (getLHCresult.createRdirBName "sqsg_2l3j2x") (x,y)
-                 t_2sg <- (getLHCresult.createRdirBName "2sg_2l4j2x") (x,y)
-                 let h_2sq = takeHist t_2sq 
-                     h_sqsg = takeHist t_sqsg 
-                     h_2sg = takeHist t_2sg
-                     totsr =  mkTotalSR [h_2sq,h_sqsg,h_2sg] 
-                     r_ratio = getRFromSR totsr
-                 -- print h_2sq
-                 -- print h_sqsg
-                 -- print h_2sg
-                 return (x,y, show r_ratio))
-  hClose h 
--}  
-
-
-{-
-getLHCresult (rdir,basename) = do 
-  let nlst = [1]
-  Right r1 <- work -- fetchXSecNHist 
-                       atlasresult_4_7fb
-                       "config1.txt" 
-                       rdir 
-                       basename 
-                       nlst 
-  return r1 
--}  
-
-        
+      
 
 getCount (rdir,basename) = do 
   let nlst = [1]
