@@ -161,8 +161,8 @@ getResult f (rdir,basename) = do
 
 
 
-main' = do
-  outh <- openFile "xqld_sqsg_8TeV_0lep.dat" WriteMode 
+main = do
+  outh <- openFile "simplifiedsusy_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
@@ -188,17 +188,17 @@ main' = do
   hClose outh 
 
 
-main = do 
-{-  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset 
-  print r -}
+main' = do 
+  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset 
+  print r 
 
-
-  let str = "2sq_2j2n" 
+{-
+  let str = "sqsg_3j2n" 
   r <- runEitherT (mainCount str) 
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
-
+-}
  
 
       
