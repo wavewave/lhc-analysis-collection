@@ -42,10 +42,10 @@ import Data.Default
 import Data.List
 import Data.Maybe
 -- 
-import HEP.Parser.LHCOAnalysis.PhysObj hiding (FourMomentum)
+import HEP.Parser.LHCOAnalysis.PhysObj 
 import HEP.Storage.WebDAV.Type 
 -- 
-import HEP.Physics.Analysis.ATLAS.Common ((#),tau2Jet, bJet2Jet, deltaRdist)
+import HEP.Physics.Analysis.ATLAS.Common ((#),tau2Jet, bJet2Jet, deltaRdist,mt)
 -- 
 import Prelude hiding (subtract)
 
@@ -106,7 +106,49 @@ class LensMissingET a where
 
 class LensJetBJets a where
    jetBJets :: Simple Lens a [JetBJetObj] 
+
+class LensLeptons a where 
+   leptons :: Simple Lens a [Lepton12Obj]
+
+
+-- a little utility
  
+missingETpT :: LensMissingET a => a -> Double
+missingETpT = snd . phiptmet . view missingET  
+
+transverseXY :: FourMomentum -> (Double,Double)
+transverseXY (p0,p1,p2,p3) = (p1,p2)
+
+transverseXYFromPhiPT :: (Double,Double) -> (Double,Double)
+transverseXYFromPhiPT (phi,pt) = (pt * cos phi, pt * sin phi)
+
+mTlep :: (LensMissingET a) => a -> Lepton12Obj -> Double
+mTlep x l = let phipt = (phiptmet . view missingET) x
+                vecptmet = transverseXYFromPhiPT phipt 
+                vecptlep = (transverseXY . fourmom) l  
+            in mt vecptmet vecptlep 
+
+
+-- | exclusive m_eff defined for the leading three jets in the event
+meffExcl :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Double
+meffExcl (x,l) = let ptjsum = (sum . map pt . take 3 . view jets) x 
+                 in pt l + ptjsum + missingETpT x
+
+-- | inclusivem_eff defined for all the signal jets in the event 
+meffIncl :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Double
+meffIncl (x,l) = let ptjsum = (sum . map pt . view jets) x 
+                 in pt l + ptjsum + missingETpT x
+
+
+
+isJet :: JetBJetObj -> Bool 
+isJet (JO_Jet _) = True
+isJet (JO_BJet _) = False
+
+isBJet :: JetBJetObj -> Bool 
+isBJet (JO_Jet _) = False
+isBJet (JO_BJet _) = True
+
 
 
 
@@ -143,23 +185,32 @@ data Soft1L1BHighEv
 data Soft1L2BLowEv
 data Soft1L2BHighEv
  
-data SoftEvent =   --  SoftUnclassified PhyEventNoTau
-                   --   | SoftPreselected PhyEventNoTau
-                   --   | SoftIsolated PhyEventNoTau
-                   Soft1Lep (Either String Soft1L1B, Either String Soft1L2B, Either String Soft1L)
+data SoftEvent = Soft1Lep (Either String Soft1L1B, Either String Soft1L2B, Either String Soft1L)
                  | Soft2Muon Soft2MuonEv 
---               | Soft2Muon (PhyEventNoTau, [PhyObj Jet])
---               | Soft1Lep (PhyEventNoTau, [PhyObj Jet])
-
 
 data Soft1L = Soft1L3J (Either String Soft1L3JEv) | Soft1L5J (Either String Soft1L5JEv)
 data Soft1L1B = Soft1L1B (Either String Soft1L1BLowEv, Either String Soft1L1BHighEv)
 data Soft1L2B = Soft1L2B (Either String Soft1L2BLowEv, Either String Soft1L2BHighEv)
 
-data HardEvent = HardEvent (Either String HardInc, Either String HardBin)
+data HardEvent = HardEvent (HardInc, HardBin)
 
-data HardInc
-data HardBin
+data HardInc = HardInc (Either String HardInc3J, Either String HardInc5J, Either String HardInc6J)
+data HardBin = HardBin (Either String HardBin3J, Either String HardBin5J, Either String HardBin6J)
+
+data HardInc3J
+data HardInc5J
+data HardInc6J
+
+data HardBin3J 
+data HardBin5J
+data HardBin6J
+
+data IsInclusive = Inclusive | Binned deriving (Show,Eq,Ord)
+
+data MultiJet = MultiJet3 (JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
+              | MultiJet5 (JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
+              | MultiJet6 (JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
+
 
 -- data SoftEventType = DiMuonEvent | SingleLepEvent
 
@@ -209,6 +260,16 @@ instance LensJetBJets PhyEventNoTau where
     where h (JO_Jet x) (accj,accb) = (x:accj,accb)
           h (JO_BJet x) (accj,accb) = (accj,x:accb)
 
+instance LensLeptons PhyEventNoTau where
+  leptons = lens (\f -> let es = (map LO_Elec . nt_electrons) f
+                            ms = (map LO_Muon . nt_muons) f 
+                        in sortBy (flip ptcompare) (es ++ ms) )
+                 (\f a -> let (es,ms) = foldr h ([],[]) a
+                          in  f { nt_electrons = sortBy (flip ptcompare) es 
+                                , nt_muons = sortBy (flip ptcompare) ms
+                                })
+    where h (LO_Elec x) (acce,accm) = (x:acce,accm)
+          h (LO_Muon x) (acce,accm) = (acce,x:accm)
 
 
 -- | event that already merged taus and b-jets into jets
@@ -248,8 +309,36 @@ instance LensJetBJets PhyEventNoTauNoBJet where
   jetBJets = lens (map JO_Jet . ntnb_jets)
                   (\f a -> f { ntnb_jets = mapMaybe (\case JO_Jet j -> Just j; _ -> Nothing) a })
 
+
+instance LensLeptons PhyEventNoTauNoBJet where
+  leptons = lens (\f -> let es = (map LO_Elec . ntnb_electrons) f
+                            ms = (map LO_Muon . ntnb_muons) f 
+                        in sortBy (flip ptcompare) (es ++ ms) )
+                 (\f a -> let (es,ms) = foldr h ([],[]) a
+                          in  f { ntnb_electrons = sortBy (flip ptcompare) es 
+                                , ntnb_muons = sortBy (flip ptcompare) ms
+                                })
+    where h (LO_Elec x) (acce,accm) = (x:acce,accm)
+          h (LO_Muon x) (acce,accm) = (acce,x:accm)
+
+
+
+getNJets :: (LensJetBJets a) => Int -> a -> Either String MultiJet
+getNJets 3 x = case view jetBJets x of 
+                 j1:j2:j3:js -> return (MultiJet3 (j1,j2,j3) js)
+                 _ -> Left "getNJets: njet < 3"
+getNJets 5 x = case view jetBJets x of 
+                 j1:j2:j3:j4:j5:js -> return (MultiJet5 (j1,j2,j3,j4,j5) js)
+                 _ -> Left "getNJets: njet < 5"
+getNJets 6 x = case view jetBJets x of 
+                 j1:j2:j3:j4:j5:j6:js -> return (MultiJet6 (j1,j2,j3,j4,j5,j6) js)
+                 _ -> Left "getNJets: njet < 6"
+getNJets _ x = Left "getNJets: asking for n /= 3,5,6"
+
+{-
 allJets :: (PhyEventNoTau,[PhyObj Jet]) -> [PhyObj Jet]
 allJets = snd
+-}
 
 phyEventNoTau :: (PhyEventNoTau, [PhyObj Jet]) -> PhyEventNoTau
 phyEventNoTau = fst
@@ -404,15 +493,77 @@ chanSoft2Muon e = do soft2MuonCheckPT e
 -- | hard lepton channel 
 chanHard :: PhyEventNoTau -> Either String HardEvent
 chanHard e = do let e' = (isolateLepton . preselectionHard) e
-                (return . HardEvent) (chanHardInc e', chanHardBin e')
+                l <- hardCheckNLep e'
+                guardE "chanHard: pT_l <= 25" (pt l > 25) 
+                (return . HardEvent) (chanHardInc (e',l), chanHardBin (e',l))
              
-chanHardInc :: PhyEventNoTauNoBJet -> Either String HardInc
-chanHardInc = undefined 
+chanHardInc :: (PhyEventNoTauNoBJet,Lepton12Obj) -> HardInc
+chanHardInc (e,l) = HardInc (chanHardInc3J (e,l), chanHardInc5J (e,l), chanHardInc6J (e,l)) 
 
-chanHardBin :: PhyEventNoTauNoBJet -> Either String HardBin
-chanHardBin = undefined
+chanHardInc3J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardInc3J
+chanHardInc3J (ev,l) = do 
+    -- (guardE "chanHardInc3J: nj < 3" . (>= 3) .  fst . countJetNumber) ev
+    getNJets 3 ev >>= hardCheckPTJet Inclusive  
+    let etmiss = missingETpT ev 
+    guardE "chanHardInc3J: ETmiss <= 500" (etmiss > 500)
+    (guardE "chanHardInc3J: mT <= 150" . (> 150)) (mTlep ev l)
+    let r = etmiss / meffExcl (ev,l)
+    guardE "chanHardInc3J: ETmiss / meff^excl <= 0.3" (r > 0.3) 
+    guardE "chanHardInc3J: meff^incl <= 1400" (meffIncl (ev,l) > 1400)
+    undefined
+
+chanHardInc5J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardInc5J
+chanHardInc5J (ev,l) = do 
+    -- (guardE "chanHardInc5J: nj < 5" . (>= 5) .  fst . countJetNumber) ev
+    getNJets 5 ev >>= hardCheckPTJet Inclusive 
+    (guardE "chanHardInc5J: ETmiss <= 300" . (> 300). missingETpT) ev
+    (guardE "chanHardInc5J: mT <= 200" . (> 200)) (mTlep ev l)
+    guardE "chanHardInc5J: meff^incl <= 1400" (meffIncl (ev,l) > 1400)
+    undefined
+
+chanHardInc6J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardInc6J 
+chanHardInc6J (ev,l) = do 
+    -- (guardE "chanHardInc6J: nj < 6" . (>= 6) .  fst . countJetNumber) ev
+    getNJets 6 ev >>= hardCheckPTJet Inclusive 
+    (guardE "chanHardInc6J: ETmiss <= 350" . (> 350). missingETpT) ev
+    (guardE "chanHardInc6J: mT <= 150" . (> 150)) (mTlep ev l)
+    guardE "chanHardInc6J: meff^incl <= 600" (meffIncl (ev,l) > 600)
+    undefined
+
+chanHardBin :: (PhyEventNoTauNoBJet,Lepton12Obj) -> HardBin
+chanHardBin (e,l) = HardBin (chanHardBin3J (e,l), chanHardBin5J (e,l), chanHardBin6J (e,l))
 
 
+chanHardBin3J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin3J
+chanHardBin3J (ev,l) = do 
+    -- (guardE "chanHardBin3J: nj < 3" . (>= 3) .  fst . countJetNumber) ev
+    getNJets 3 ev >>= hardCheckPTJet Binned  
+    let etmiss = missingETpT ev 
+    guardE "chanHardBin3J: ETmiss <= 300" (etmiss > 300)
+    guardE "chanHardBin3J: mT <= 150" (mTlep ev l > 150)
+    let r = etmiss / meffExcl (ev,l)
+    guardE "chanHardBin3J: ETmiss / meff^excl <= 0.3" (r > 0.3) 
+    guardE "chanHardBin3J: meff^incl <= 800" (meffIncl (ev,l) > 800)
+    undefined
+
+chanHardBin5J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin5J 
+chanHardBin5J (ev,l) = do  
+    -- (guardE "chanHardBin5J: nj < 5" . (>= 5) .  fst . countJetNumber) ev
+    getNJets 5 ev >>= hardCheckPTJet Binned 
+    (guardE "chanHardBin5J: ETmiss <= 300" . (> 300). missingETpT) ev
+    (guardE "chanHardBin5J: mT <= 150" . (> 150)) (mTlep ev l)
+    guardE "chanHardBin5J: meff^incl <= 800" (meffIncl (ev,l) > 800)
+    undefined
+
+
+chanHardBin6J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin6J
+chanHardBin6J (ev,l) = do 
+    -- (guardE "chanHardBin6J: nj < 6" . (>= 6) .  fst . countJetNumber) ev
+    getNJets 6 ev >>= hardCheckPTJet Binned 
+    (guardE "chanHardBin6J: ETmiss <= 250" . (> 250). missingETpT) ev
+    (guardE "chanHardBin6J: mT <= 150" . (> 150)) (mTlep ev l)
+    guardE "chanHardBin3J: meff^incl <= 600" (meffIncl (ev,l) > 600)
+    undefined
 
 
 
@@ -427,15 +578,16 @@ chanHardBin = undefined
 -- counting function -- 
 -----------------------
 
-countLeptonNumber :: PhyEventNoTau -> (Int,Int)
+countLeptonNumber :: (LensElectrons a, LensMuons a) => a -> (Int,Int)
 countLeptonNumber e = let ne = length (view electrons e)
                           nm = length (view muons e)
                       in (ne+nm,nm)
 
 
-countJetNumber :: PhyEventNoTau -> (Int,Int)
-countJetNumber e = let nj = length (view jets e)
-                       nb = length (view bjets e)
+countJetNumber :: (LensJetBJets a) => a -> (Int,Int)
+countJetNumber e = let alljets = view jetBJets e
+                       nj = (length . filter isJet) alljets
+                       nb = (length . filter isBJet) alljets
                    in (nj+nb, nb)
 
 --------------------
@@ -590,6 +742,47 @@ soft2MuonCheckMT = undefined
 -- | > 1.0
 soft2MuonCheckDeltaR :: PhyEventNoTau -> Either String ()
 soft2MuonCheckDeltaR = undefined
+
+----------------------------
+----------------------------
+---- hard channel check ----
+----------------------------
+----------------------------
+
+-- | == 1
+hardCheckNLep :: PhyEventNoTauNoBJet -> Either String Lepton12Obj
+hardCheckNLep e = case view leptons e of 
+                    x:[] -> Right x
+                    _ -> Left "hardCheckNLep: nlep /= 1" 
+
+{-
+-- | > 25, < 10
+hardCheckPTLep :: PhyEventNoTauNoBJet -> Either String ()
+hardCheckPTLep e = undefined
+-}
+
+hardCheckPTJet :: IsInclusive -> MultiJet -> Either String ()
+hardCheckPTJet typ (MultiJet3 (j1,j2,j3) js) = do 
+  let cond1 = pt j1 > 80 && pt j2 > 80 && pt j3 > 30 
+      cond2 = case typ of
+                Inclusive -> True 
+                Binned -> case js of 
+                            [] -> True
+                            j:js' -> pt j < 40
+  guardE ("hardCheckPTJet: 3jet condition for " ++ show typ ++ " not satisfied ") (cond1 && cond2)
+hardCheckPTJet typ (MultiJet5 (j1,j2,j3,j4,j5) js) = do 
+  let cond1 = pt j1 > 80 && pt j2 > 50 && pt j3 > 40 && pt j4 > 40 && pt j5 > 40 
+      cond2 = case typ of
+                Inclusive -> True 
+                Binned -> case js of 
+                            [] -> True
+                            j:js' -> pt j < 40
+  guardE ("hardCheckPTJet: 5jet condition for " ++ show typ ++ " not satisfied ") (cond1 && cond2)
+hardCheckPTJet typ (MultiJet6 (j1,j2,j3,j4,j5,j6) js) = do 
+  let cond1 = pt j1 > 80 && pt j2 > 50 && pt j3 > 40 && pt j4 > 40 && pt j5 > 40 && pt j6 > 40
+  guardE ("hardCheckPTJet: 5jet condition for " ++ show typ ++ " not satisfied ") cond1
+   
+
 
 
 
