@@ -55,11 +55,11 @@ Library
                    aeson-pretty >= 0.7,
                    indexed-extras, 
                    indexed, 
-                   lens 
-                   -- HROOT-core,
-                   -- HROOT-graf, 
-                   -- HROOT-io,  
-                   -- HROOT-hist
+                   lens, 
+                   mmorph,
+                   comonad, 
+                   comonad-transformers, 
+                   data-default
                    
   Exposed-Modules: 
                    HEP.Parser.XSec
@@ -67,6 +67,7 @@ Library
                    -- HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_7TeV
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
+                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_1to2L2to6JMET_8TeV
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton_7TeV
                    -- HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton_7TeV.PrettyPrint
                    HEP.Physics.Analysis.Common.XSecNTotNum 

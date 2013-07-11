@@ -12,6 +12,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.Traversable as T
 import qualified Data.HashMap.Lazy as HM
 import           Data.Maybe 
+import           Data.Monoid ((<>))
 import           System.Directory
 import           System.Environment
 import           System.FilePath ((</>))
@@ -58,7 +59,7 @@ othersq = [ 1000001, -1000001, 1000002, -1000002, 1000003, -1000003, 1000004, -1
                              , 2000002, -2000002, 2000003, -2000003, 2000004, -2000004 ] 
 
 
-p_gluino = d ([1000021], [t jet, t jets, t jets, t adms])
+p_gluino = d ([1000021], [t jets, t jets, t jets, t adms])
 
 p_sdownR :: DDecay
 p_sdownR = d (sdownR, [t jets, t jets, t adms])
@@ -292,7 +293,7 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
      , rgscale = 200.0
      , match   = NoMatch
      , cut     = NoCut 
-     , pythia  = RunPYTHIA 
+     , pythia  = RunPYTHIA8 
      , lhesanitizer = [Replace [(9000201,1000022),(-9000201,1000022)]] 
      , pgs     = RunPGS (AntiKTJet 0.4,NoTau)
      , uploadhep = NoUploadHEP
@@ -301,29 +302,88 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 
 pdir = ProcDir "Work20130705" "montecarlo/admproject/XUDDdegen/8TeV" "scan"
 
--- notgood = [] 
+worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
+worksets = set_2sg <> set_sqsg_o <> set_sqsg_n <> set_2sq_oo <> set_2sq_no <> set_2sq_nn
+  where   
+    makeset str lst = 
+     [ (str,(mgl,msq,50000,50000,10000)) | (mgl,msq) <- lst ] 
+                                         --  (mglstr,msqstr) <- lst
+                                         -- , let mgl = read mglstr, let msq = read msqstr] 
+    set_2sg = makeset "2sg" massset_2sg 
+    set_sqsg_o = makeset "sqsg_o" massset_sqsg_o 
+    set_sqsg_n = makeset "sqsg_n" massset_sqsg_n 
+    set_2sq_oo = makeset "2sq_oo" massset_2sq_oo
+    set_2sq_no = makeset "2sq_no" massset_2sq_no 
+    set_2sq_nn = makeset "2sq_nn" massset_2sq_nn 
+
+
+mesh = [ (g, q) | g <- [100,200..2000], q <- [100,200..2000] ]
+
+massset_2sg = [] -- mesh
+massset_sqsg_o = [] -- mesh
+massset_sqsg_n = [] -- mesh
+massset_2sq_oo = [] -- mesh 
+massset_2sq_no = [] -- mesh
+massset_2sq_nn = [ (200.0,100.0)
+  , (200.0,200.0)
+  , (200.0,300.0)
+  , (200.0,400.0)
+  , (700.0,900.0)
+  , (700.0,1000.0)
+  , (700.0,1100.0)
+  , (700.0,1200.0)
+  , (1000.0,1100.0)
+  , (1000.0,1200.0)
+  , (1100.0,500.0)
+  , (1100.0,600.0)
+  , (1100.0,700.0)
+  , (1100.0,800.0)
+  , (1100.0,1300.0)
+  , (1100.0,1400.0)
+  , (1100.0,1500.0)
+  , (1100.0,1600.0)
+  , (1100.0,1700.0)
+  , (1100.0,1800.0)
+  , (1100.0,1900.0)
+  , (1100.0,2000.0)
+  , (1300.0,1100.0)
+  , (1300.0,1200.0)
+  , (1300.0,1300.0)
+  , (1300.0,1400.0)
+  , (1300.0,1500.0)
+  , (1300.0,1600.0)
+  , (1300.0,1900.0)
+  , (1300.0,2000.0)
+  , (1400.0,300.0)
+  , (1400.0,400.0)
+  , (1400.0,700.0)
+  , (1400.0,800.0)
+  , (1400.0,1100.0)
+  , (1400.0,1200.0) ]
+ 
+
+ 
 
 -- worksets = [ (mgl,msq,50000,50000, 10000) | (mglstr,msqstr) <- notgood, let mgl = read mglstr, let msq = read msqstr] 
 
-worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+-- worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
   args <- getArgs 
   let fp = args !! 0 
-      cmd = args !! 1 
-      n1 = read (args !! 2) :: Int
-      n2 = read (args !! 3) :: Int
-  --  fp <- (!! 0) <$> getArgs 
+      -- cmd = args !! 1 
+      n1 = read (args !! 1) :: Int
+      n2 = read (args !! 2) :: Int
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   -- print (length worksets) 
-  mapM_ (scanwork fp cmd) (drop (n1-1) . take n2 $ worksets )
+  mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
 
 
-scanwork :: FilePath -> String -> (Double,Double,Double,Double,Int) -> IO () 
-scanwork fp cmd (mgl,msq,msl,mneut,n) = do
+scanwork :: FilePath -> (String, (Double,Double,Double,Double,Int)) -> IO () 
+scanwork fp (cmd, (mgl,msq,msl,mneut,n)) = do
   homedir <- getHomeDirectory 
 
   getConfig fp >>= 

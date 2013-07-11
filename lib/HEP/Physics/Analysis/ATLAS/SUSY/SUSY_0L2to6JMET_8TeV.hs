@@ -5,7 +5,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      : HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
@@ -30,34 +29,156 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.Indexed
 import Control.Monad.Indexed.State 
-import Control.Monad.Indexed.Trans
-import Control.Monad.Trans
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Generic as G
 import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Data
-import Data.Function (on)
 import Data.List
 import Data.Maybe
 import qualified Data.Map.Strict as M
-import Data.Typeable 
 import System.Directory 
-import System.FilePath
-import System.Environment
 -- 
 import HEP.Parser.LHCOAnalysis.PhysObj hiding (FourMomentum)
 import HEP.Parser.LHCOAnalysis.Parse
 import HEP.Storage.WebDAV.CURL 
 import HEP.Storage.WebDAV.Type 
 import HEP.Util.Either
-import HEP.Util.Functions hiding (fst3,snd3,trd3)
 -- 
 import HEP.Physics.Analysis.ATLAS.Common
 -- 
 import Prelude hiding (subtract)
 import Debug.Trace
 
+data EType = AL | AM | BM | BT | CM | CT  | DT | EL | EM | ET 
+             deriving (Show,Eq,Ord,Data,Typeable)
+
+instance ToJSON EType where toJSON = G.toJSON 
+
+
+
+type HistEType = [ (EType,Int) ]
+
+data TotalSR a = TotalSR { numAL :: a
+                         , numAM :: a
+                         , numBM :: a
+                         , numBT :: a 
+                         , numCM :: a
+                         , numCT :: a 
+                         , numDT :: a 
+                         , numEL :: a
+                         , numEM :: a 
+                         , numET :: a }
+
+
+deriving instance (Show a)     => Show (TotalSR a) 
+deriving instance (Eq a)       => Eq (TotalSR a)
+deriving instance (Data a)     => Data (TotalSR a)
+deriving instance Typeable1 TotalSR 
+
+
+
+ 
+instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
+
+instance (Num a)  => Num (TotalSR a) where
+  a + b = TotalSR { numAL = numAL a + numAL b   
+                  , numAM = numAM a + numAM b 
+                  , numBM = numBM a + numBM b 
+                  , numBT = numBT a + numBT b 
+                  , numCM = numCM a + numCM b 
+                  , numCT = numCT a + numCT b 
+                  , numDT = numDT a + numDT b 
+                  , numEL = numEL a + numEL b 
+                  , numEM = numEM a + numEM b 
+                  , numET = numET a + numET b 
+                  } 
+  a * b = TotalSR { numAL = numAL a * numAL b   
+                  , numAM = numAM a * numAM b 
+                  , numBM = numBM a * numBM b 
+                  , numBT = numBT a * numBT b 
+                  , numCM = numCM a * numCM b 
+                  , numCT = numCT a * numCT b 
+                  , numDT = numDT a * numDT b 
+                  , numEL = numEL a * numEL b 
+                  , numEM = numEM a * numEM b 
+                  , numET = numET a * numET b 
+                  } 
+
+  negate = id 
+  abs = id
+  fromInteger n = TotalSR { numAL = fromInteger n 
+                          , numAM = fromInteger n
+                          , numBM = fromInteger n
+                          , numBT = fromInteger n
+                          , numCM = fromInteger n
+                          , numCT = fromInteger n
+                          , numDT = fromInteger n
+                          , numEL = fromInteger n
+                          , numEM = fromInteger n
+                          , numET = fromInteger n
+                          }
+  signum _ = fromInteger 1
+
+
+multiplyScalar c a =  
+  TotalSR { numAL = c * numAL a 
+          , numAM = c * numAM a 
+          , numBM = c * numBM a 
+          , numBT = c * numBT a 
+          , numCM = c * numCM a 
+          , numCT = c * numCT a 
+          , numDT = c * numDT a 
+          , numEL = c * numEL a 
+          , numEM = c * numEM a 
+          , numET = c * numET a 
+          }
+
+-----------------------
+-- utility functions --
+-----------------------
+ 
+mkTotalSR :: (Num a) => [[ (EType, a) ]] -> TotalSR a
+mkTotalSR hists = TotalSR { numAL = sumup AL 
+                          , numAM = sumup AM
+                          , numBM = sumup BM
+                          , numBT = sumup BT
+                          , numCM = sumup CM
+                          , numCT = sumup CT
+                          , numDT = sumup DT
+                          , numEL = sumup EL
+                          , numEM = sumup EM
+                          , numET = sumup ET
+                          }
+  where sumup k = (sum . mapMaybe (lookup k)) hists
+
+
+
+getRFromSR sr = 
+    let r = TotalSR { numAL = g numAL 
+                    , numAM = g numAM
+                    , numBM = g numBM
+                    , numBT = g numBT
+                    , numCM = g numCM
+                    , numCT = g numCT
+                    , numDT = g numDT
+                    , numEL = g numEL
+                    , numEM = g numEM
+                    , numET = g numET
+                    } 
+    in maximumInSR r 
+  where getratio f x y = f x / f y 
+        g f = getratio f sr limitOfNBSM_SR
+
+maximumInSR TotalSR{..} = 
+    maximum [ numAL, numAM, numBM, numBT, numCM
+            , numCT, numDT, numEL, numEM, numET ]
+
+
+
+-------------------------
+-- kinematic functions --
+-------------------------
 
 -- meffNj 4 
 
@@ -162,10 +283,6 @@ metCut =
 
 
 
-deltaRdist :: (MomObj a, MomObj b) => a -> b -> Double 
-deltaRdist a b = let deta = eta a - eta b 
-                     dphi = normalizeDphi (phi a) (phi b)
-                 in sqrt (deta*deta + dphi*dphi)
 
 
 
@@ -361,11 +478,6 @@ classify jes ev = fst <$> runIxStateT (classifyM jes) (Raw ev)
 
 
 
-data EType = AL | AM | BM | BT | CM | CT  | DT | EL | EM | ET 
-             deriving (Show,Eq,Ord,Data,Typeable)
-
-instance ToJSON EType where toJSON = G.toJSON 
-
 
 
 
@@ -406,84 +518,6 @@ showAsATLASPaper m =
 --------------------------------------------------------
 --------------------------------------------------------
 
-
-type HistEType = [ (EType,Int) ]
-
-data TotalSR a = TotalSR { numAL :: a
-                         , numAM :: a
-                         , numBM :: a
-                         , numBT :: a 
-                         , numCM :: a
-                         , numCT :: a 
-                         , numDT :: a 
-                         , numEL :: a
-                         , numEM :: a 
-                         , numET :: a }
-
-
-deriving instance (Show a)     => Show (TotalSR a) 
-deriving instance (Eq a)       => Eq (TotalSR a)
-deriving instance (Data a)     => Data (TotalSR a)
-deriving instance Typeable1 TotalSR 
-
-
-
- 
-instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
-
-instance (Num a)  => Num (TotalSR a) where
-  a + b = TotalSR { numAL = numAL a + numAL b   
-                  , numAM = numAM a + numAM b 
-                  , numBM = numBM a + numBM b 
-                  , numBT = numBT a + numBT b 
-                  , numCM = numCM a + numCM b 
-                  , numCT = numCT a + numCT b 
-                  , numDT = numDT a + numDT b 
-                  , numEL = numEL a + numEL b 
-                  , numEM = numEM a + numEM b 
-                  , numET = numET a + numET b 
-                  } 
-  a * b = TotalSR { numAL = numAL a * numAL b   
-                  , numAM = numAM a * numAM b 
-                  , numBM = numBM a * numBM b 
-                  , numBT = numBT a * numBT b 
-                  , numCM = numCM a * numCM b 
-                  , numCT = numCT a * numCT b 
-                  , numDT = numDT a * numDT b 
-                  , numEL = numEL a * numEL b 
-                  , numEM = numEM a * numEM b 
-                  , numET = numET a * numET b 
-                  } 
-
-  negate = id 
-  abs = id
-  fromInteger n = TotalSR { numAL = fromInteger n 
-                          , numAM = fromInteger n
-                          , numBM = fromInteger n
-                          , numBT = fromInteger n
-                          , numCM = fromInteger n
-                          , numCT = fromInteger n
-                          , numDT = fromInteger n
-                          , numEL = fromInteger n
-                          , numEM = fromInteger n
-                          , numET = fromInteger n
-                          }
-  signum _ = fromInteger 1
-
-
-multiplyScalar c a =  
-  TotalSR { numAL = c * numAL a 
-          , numAM = c * numAM a 
-          , numBM = c * numBM a 
-          , numBT = c * numBT a 
-          , numCM = c * numCM a 
-          , numCT = c * numCT a 
-          , numDT = c * numDT a 
-          , numEL = c * numEL a 
-          , numEM = c * numEM a 
-          , numET = c * numET a 
-          }
-
 mkHistogram :: [SRFlag] -> HistEType  
 mkHistogram passed = 
   let lst = (map (\x->(x,1)) . concat . map srFlag2Num ) passed 
@@ -510,48 +544,6 @@ limitOfNBSM = [ (AL, 1135)
 
 limitOfNBSM_SR :: TotalSR Double 
 limitOfNBSM_SR = mkTotalSR [limitOfNBSM]
-
-
------------------------
--- utility functions --
------------------------
- 
-mkTotalSR :: (Num a) => [[ (EType, a) ]] -> TotalSR a
-mkTotalSR hists = TotalSR { numAL = sumup AL 
-                          , numAM = sumup AM
-                          , numBM = sumup BM
-                          , numBT = sumup BT
-                          , numCM = sumup CM
-                          , numCT = sumup CT
-                          , numDT = sumup DT
-                          , numEL = sumup EL
-                          , numEM = sumup EM
-                          , numET = sumup ET
-                          }
-  where sumup k = (sum . mapMaybe (lookup k)) hists
-
-
-
-getRFromSR sr = 
-    let r = TotalSR { numAL = g numAL 
-                    , numAM = g numAM
-                    , numBM = g numBM
-                    , numBT = g numBT
-                    , numCM = g numCM
-                    , numCT = g numCT
-                    , numDT = g numDT
-                    , numEL = g numEL
-                    , numEM = g numEM
-                    , numET = g numET
-                    } 
-    in maximumInSR r 
-  where getratio f x y = f x / f y 
-        g f = getratio f sr limitOfNBSM_SR
-
-maximumInSR TotalSR{..} = 
-    maximum [ numAL, numAM, numBM, numBT, numCM
-            , numCT, numDT, numEL, numEM, numET ]
-
 
 
 

@@ -93,11 +93,12 @@ createRdirBName procname (mg,mq) =
   in (rdir,basename)  
 
 dirset = [ "2sg_6j2x"
+         , "sqsg_n_5j2x" 
          , "sqsg_o_5j2x"
          , "2sq_no_4j2x"
          , "2sq_oo_4j2x"
          , "2sq_nn_4j2x"
-         , "sqsg_n_5j2x" ]
+         ]
 
 
 mainCount :: String -> EitherT String IO ()
@@ -161,21 +162,25 @@ getResult f (rdir,basename) = do
 
 
 
+  -- r1 <- flip ($) ("1000.0","1000.0") ( \(x,y) -> do 
+  -- print r1 
 
-main' = do
-  outh <- openFile "xqld_sqsg_8TeV_0lep.dat" WriteMode 
+
+main = do
+  outh <- openFile "xudd_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
-    =<< forM datalst ( \(x,y) -> do
+    =<< forM datalst ( \(x,y) -> do 
+
           r <- runEitherT $ do
             let analysis x = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName x
                 simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
-            t_2sg    <- (simplify . analysis "2sg_2l4j2x")    (x,y)
-            t_sqsg_o <- (simplify . analysis "sqsg_o_2l3j2x") (x,y)
-            t_sqsg_n <- (simplify . analysis "sqsg_n_2l3j2x") (x,y)
-            t_2sq_oo <- (simplify . analysis "2sq_oo_2l2j2x") (x,y)
-            t_2sq_no <- (simplify . analysis "2sq_no_2l2j2x") (x,y)
-            t_2sq_nn <- (simplify . analysis "2sq_nn_2l2j2x") (x,y)
+            t_2sg    <- (simplify . analysis "2sg_6j2x")    (x,y)
+            t_sqsg_o <- (simplify . analysis "sqsg_o_5j2x") (x,y)
+            t_sqsg_n <- (simplify . analysis "sqsg_n_5j2x") (x,y)
+            t_2sq_oo <- (simplify . analysis "2sq_oo_4j2x") (x,y)
+            t_2sq_no <- (simplify . analysis "2sq_no_4j2x") (x,y)
+            t_2sq_nn <- (simplify . analysis "2sq_nn_4j2x") (x,y)
 
             let h_2sg    = takeHist t_2sg
                 h_sqsg_o = takeHist t_sqsg_o
@@ -187,28 +192,27 @@ main' = do
                 r_ratio = getRFromSR totalsr
 
 
-            trace (show (x,y)) $ return (read x :: Double, read y :: Double, r_ratio)
+            trace (show (x,y,h_2sg)) $ return (read x :: Double, read y :: Double, r_ratio)
           case r of 
             Left err -> error err 
             Right result -> return result
       )
+
   hClose outh 
 
 
-main = do 
+main' = do 
+    r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount)  ( (drop 5 . take 6) dirset ) 
+    print r
+
+
 {-
-  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset 
-  print r
--}
-
-
-  let str = "sqsg_n_5j2x" 
+  let str = "2sq_nn_4j2x" 
   r <- runEitherT (mainCount str) 
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
-
- 
+-}
 
       
 

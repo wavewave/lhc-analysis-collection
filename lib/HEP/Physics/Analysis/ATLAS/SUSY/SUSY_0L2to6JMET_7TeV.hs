@@ -166,12 +166,12 @@ metCut =
 -- mTauBJetMerge = imodify taubjetMergeIx 
 
 
-
+{-
 deltaRdist :: (MomObj a, MomObj b) => a -> b -> Double 
 deltaRdist a b = let deta = eta a - eta b 
                      dphi = normalizeDphi (phi a) (phi b)
                  in sqrt (deta*deta + dphi*dphi)
-
+-}
 
 
 findJetNearElec :: PhyEventClassified -> ([(Int,PhyObj Jet)],[(Int,PhyObj Jet)])

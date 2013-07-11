@@ -61,6 +61,8 @@ iwhen False _ = ireturn ()
 
 data RawEv = Raw PhyEventClassified 
 
+newtype TauMergedEv = TauMerged { unTauMerged :: PhyEventClassified }
+
 newtype JetMergedEv = JetMerged { unJetMerged :: PhyEventClassified }
 
 -- | 
@@ -81,21 +83,6 @@ instance GetJetMerged MoreThan2JEv where
 
 
 
--- 
-
-taubjetMergeIx :: RawEv -> JetMergedEv
-taubjetMergeIx (Raw PhyEventClassified {..}) =  
-  JetMerged (PhyEventClassified { eventid = eventid 
-                     , photonlst = photonlst
-                     , electronlst = electronlst
-                     , muonlst = muonlst
-                     , taulst = [] 
-                     , jetlst = ptordering
-                                ( jetlst 
-                                  ++ map ((,) <$> fst <*> tau2Jet.snd) taulst 
-                                  ++ map ((,) <$> fst <*> bJet2Jet.snd) bjetlst )
-                     , bjetlst = []
-                     , met = met })
 
 -- |  
 mMoreThan2J :: (MonadPlus m) => IxStateT m JetMergedEv MoreThan2JEv () 
@@ -113,6 +100,20 @@ tau2Jet (ObjTau x _ _) = ObjJet x 1.777 1
 bJet2Jet :: PhyObj BJet -> PhyObj Jet
 bJet2Jet (ObjBJet x m n) = ObjJet x m n
 
+-- | tau treated as jets
+mergeTau :: PhyEventClassified -> PhyEventClassified
+mergeTau ev@PhyEventClassified {..} = 
+    ev { taulst = []
+       , jetlst = ptordering (jetlst ++ map ((,) <$> fst <*> tau2Jet.snd) taulst) }
+
+mergeBJet :: PhyEventClassified -> PhyEventClassified 
+mergeBJet ev@PhyEventClassified {..} =  
+    ev { jetlst = ptordering (jetlst ++ map ((,) <$> fst <*> bJet2Jet.snd) bjetlst)
+       , bjetlst = [] }
+
+
+{-
+-- | tau and b-jet treated as jets
 taubjetMerge :: PhyEventClassified -> PhyEventClassified
 taubjetMerge PhyEventClassified {..} = 
   PhyEventClassified { eventid = eventid 
@@ -126,22 +127,34 @@ taubjetMerge PhyEventClassified {..} =
                                   ++ map ((,) <$> fst <*> bJet2Jet.snd) bjetlst )
                      , bjetlst = []
                      , met = met }
+-}
+
+-- | deprecated
+taubjetMerge :: PhyEventClassified -> PhyEventClassified
+taubjetMerge = mergeBJet . mergeTau
 
 
--- | transverse mass 
-mt :: (Double,Double) -> (Double,Double) -> Double
-mt (pt1x,pt1y) (pt2x,pt2y) = sqrt (2.0*pt1*pt2-2.0*pt1x*pt2x-2.0*pt1y*pt2y) 
-  where pt1 = sqrt (pt1x*pt1x+pt1y*pt1y)
-        pt2 = sqrt (pt2x*pt2x+pt2y*pt2y)
-        -- cosph = (pt1x*pt2x + pt1y*pt2y)/
+-- |
+taubjetMergeIx :: RawEv -> JetMergedEv
+taubjetMergeIx (Raw e) = JetMerged ((mergeBJet . mergeTau) e)
 
+-- |
+tauMergeIx :: RawEv -> TauMergedEv
+tauMergeIx (Raw e) = TauMerged (mergeTau e)
 
-
-normalizeDphi :: Double -> Double -> Double 
-normalizeDphi phi1 phi2 = let v = abs (phi1 - phi2)
-                              nv | v > pi = 2*pi - v
-                                 | otherwise = v 
-                          in nv 
+{-
+  JetMerged (PhyEventClassified { eventid = eventid 
+                     , photonlst = photonlst
+                     , electronlst = electronlst
+                     , muonlst = muonlst
+                     , taulst = [] 
+                     , jetlst = ptordering
+                                ( jetlst 
+                                  ++ map ((,) <$> fst <*> tau2Jet.snd) taulst 
+                                  ++ map ((,) <$> fst <*> bJet2Jet.snd) bjetlst )
+                     , bjetlst = []
+                     , met = met })
+-}
 
 
 data JESParam = JESParam { jes_a :: Double 
@@ -205,3 +218,30 @@ mMETRecalculate remnant =
   in -- trace ("met = " ++ show (phiptmet met) ++ " | remnant = " ++ show remnant ++ " | missingphipt = " ++ show missingphipt) $
      
      iput (JetMerged nev) 
+
+
+
+--------------------------------------
+-- utility functions for kinematics --
+--------------------------------------
+
+deltaRdist :: (MomObj a, MomObj b) => a -> b -> Double 
+deltaRdist a b = let deta = eta a - eta b 
+                     dphi = normalizeDphi (phi a) (phi b)
+                 in sqrt (deta*deta + dphi*dphi)
+
+-- | transverse mass 
+mt :: (Double,Double) -> (Double,Double) -> Double
+mt (pt1x,pt1y) (pt2x,pt2y) = sqrt (2.0*pt1*pt2-2.0*pt1x*pt2x-2.0*pt1y*pt2y) 
+  where pt1 = sqrt (pt1x*pt1x+pt1y*pt1y)
+        pt2 = sqrt (pt2x*pt2x+pt2y*pt2y)
+        -- cosph = (pt1x*pt2x + pt1y*pt2y)/
+
+
+
+normalizeDphi :: Double -> Double -> Double 
+normalizeDphi phi1 phi2 = let v = abs (phi1 - phi2)
+                              nv | v > pi = 2*pi - v
+                                 | otherwise = v 
+                          in nv 
+
