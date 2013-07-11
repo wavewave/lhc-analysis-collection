@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiWayIf #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -28,9 +29,9 @@ module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_1to2L2to6JMET_8TeV where
 
 
 import Control.Applicative
-import Control.Arrow ((&&&),(>>>))
-import Control.Comonad
-import Control.Comonad.Trans.Store
+-- import Control.Arrow ((&&&),(>>>))
+-- import Control.Comonad
+-- import Control.Comonad.Trans.Store
 import Control.Lens hiding ((#))
 import Control.Monad
 import Control.Monad.Morph
@@ -55,10 +56,18 @@ instance MFunctor (EitherT e) where
 
 -- meffNj 4 
 
+-------------------
+-- monad utility --
+-------------------
+
+guardE :: String -> Bool -> Either String ()
+guardE msg b = if b then return () else Left msg 
+
 ---------------------
 -- comonad utility --
 --------------------- 
 
+{-
 cget :: Store s a -> s   
 cget = pos 
 
@@ -67,7 +76,7 @@ cput w = seek (extract w) w
 
 switchAfter :: (s -> s) -> (Store s s -> b) -> Store s a -> b  
 switchAfter f g = (cget >>> f ) =>= cput =>= (extract >>> g) 
-
+-}
 
 -------------------------------
 -- Physics Object Definition --
@@ -118,22 +127,39 @@ data ChanType = Soft1Lep ChanBJet
 
 data PrunedEvent = Unpruned PhyEventClassified
                  | TauMerged PhyEventNoTau
-                 | BJetMerged (PhyEventNoTau,[PhyObj Jet])
+--                 | BJetMerged (PhyEventNoTau,[PhyObj Jet])
 --                  | SoftEv SoftEvent 
 --                 | HardEv HardEvent
 
- 
-data SoftEvent = SoftUnclassified PhyEventNoTau
-               | SoftPreselected PhyEventNoTau
-               | SoftIsolated PhyEventNoTau
+-- data Soft1L1BEv
+-- data Soft1L2BEv
+data Soft1L3JEv
+data Soft1L5JEv
+data Soft2MuonEv
 
+data Soft1L1BLowEv
+data Soft1L1BHighEv
+
+data Soft1L2BLowEv
+data Soft1L2BHighEv
+ 
+data SoftEvent =   --  SoftUnclassified PhyEventNoTau
+                   --   | SoftPreselected PhyEventNoTau
+                   --   | SoftIsolated PhyEventNoTau
+                   Soft1Lep (Either String Soft1L1B, Either String Soft1L2B, Either String Soft1L)
+                 | Soft2Muon Soft2MuonEv 
 --               | Soft2Muon (PhyEventNoTau, [PhyObj Jet])
 --               | Soft1Lep (PhyEventNoTau, [PhyObj Jet])
 
 
-data HardEvent = HardUnclassified PhyEventNoTau
-               | HardPreselected PhyEventNoTauNoBJet
-               | HardIsolated PhyEventNoTauNoBJet
+data Soft1L = Soft1L3J (Either String Soft1L3JEv) | Soft1L5J (Either String Soft1L5JEv)
+data Soft1L1B = Soft1L1B (Either String Soft1L1BLowEv, Either String Soft1L1BHighEv)
+data Soft1L2B = Soft1L2B (Either String Soft1L2BLowEv, Either String Soft1L2BHighEv)
+
+data HardEvent = HardEvent (Either String HardInc, Either String HardBin)
+
+data HardInc
+data HardBin
 
 -- data SoftEventType = DiMuonEvent | SingleLepEvent
 
@@ -251,28 +277,320 @@ mergeBJet (TauMerged ev) = (Right . BJetMerged . (,) ev .  sortBy (flip ptcompar
 mergeBJet _ = Left ("mergeBJet: not TauMerged")
 -}
 
-proc1ev :: PhyEventClassified -> Either String PrunedEvent
-proc1ev ev = mergeTau (Unpruned ev) 
+proc1ev :: PhyEventClassified -> Either String (Either String SoftEvent, Either String HardEvent)
+proc1ev ev = (mergeTau 
+              >=> (\case TauMerged e -> Right (mkChannel e)
+                         _ -> Left "proc1ev: not TauMerged") )
+
+             (Unpruned ev) 
  
 
 
 mkChannel :: PhyEventNoTau -> (Either String SoftEvent, Either String HardEvent) 
-mkChannel e = (chanSoft (store id (SoftUnclassified e)), chanHard (store id (HardUnclassified e)))
+mkChannel e = (chanSoft e, chanHard e)
 
 
 -- | soft lepton channel  
-chanSoft :: Store SoftEvent a -> Either String SoftEvent
-chanSoft = cget >>> (\case SoftUnclassified e -> (Right . SoftPreselected . preselectionSoft) e 
-                           _ -> Left "chanSoft : not SoftUnclassified")
-                >=> (\case SoftPreselected e -> (Right . SoftIsolated . isolateLepton) e  
-                           _ -> Left "chanSoft : not SoftPreselected")
+chanSoft :: PhyEventNoTau -> Either String SoftEvent
+chanSoft = branchSoft. isolateLepton . preselectionSoft 
+  
+{-
+         SoftUnclassified e -> (Right . SoftPreselected . preselectionSoft) e 
+         _ -> Left "chanSoft : not SoftUnclassified"
+  y <- case x of 
+         SoftPreselected e -> (Right . SoftIsolated . isolateLepton) e  
+         _ -> Left "chanSoft : not SoftPreselected"
+  branchSoft y
+-}
+          
+branchSoft :: PhyEventNoTau -> Either String SoftEvent 
+branchSoft e = let (n, m) = countLeptonNumber e 
+               in if | n == 1 -> Soft1Lep <$> chanSoft1Lep e 
+                     | n == 2 && m == 2 -> Soft2Muon <$> chanSoft2Muon e
+                     | otherwise -> Left "branchSoft : not single lep or dimuon"
+  
+              
+  
+chanSoft1Lep :: PhyEventNoTau 
+             -> Either String ( Either String Soft1L1B 
+                              , Either String Soft1L2B
+                              , Either String Soft1L)
+chanSoft1Lep e = let (_, m) = countLeptonNumber e 
+                 in do soft1LepCheckPT e m
+                       return (chanSoft1L1B e, chanSoft1L2B e, chanSoft1L e)
+
+
+chanSoft1L1B :: PhyEventNoTau -> Either String Soft1L1B 
+chanSoft1L1B e = do let (nj,nb) = countJetNumber e 
+                    guardE "chanSoft1L1B: nj < 3" (nj >= 3)
+                    guardE "chanSoft1L1B: nb < 1" (nb >= 1)
+                    case head (view jetBJets e) of 
+                      JO_BJet _ -> Left "chanSoft1L1B: leading jet is a b-jet"
+                      _ -> return ()
+                    soft1L1BCheckMT e
+                    soft1L1BCheckRatioMETMeff e 
+                    soft1L1BCheckDeltaRmin e 
+                    (return . Soft1L1B) (chanSoft1L1BLow e, chanSoft1L1BHigh e)
+ 
+chanSoft1L1BLow :: PhyEventNoTau -> Either String Soft1L1BLowEv
+chanSoft1L1BLow e = do soft1L1BLowCheckPTJet e
+                       soft1L1BLowCheckMET e 
+                       return undefined
+
+chanSoft1L1BHigh :: PhyEventNoTau -> Either String Soft1L1BHighEv
+chanSoft1L1BHigh e = do soft1L1BHighCheckPTJet e 
+                        soft1L1BHighCheckMET e 
+                        return undefined
+
+
+
+
+chanSoft1L2B :: PhyEventNoTau -> Either String Soft1L2B
+chanSoft1L2B e = do let (nj,nb) = countJetNumber e
+                    guardE "chanSoft1L2B: nj < 2" (nj >= 2)
+                    guardE "chanSoft1L2B: nb /=2" (nb == 2)
+                    soft1L2BCheckPTJet e 
+                    soft1L2BCheckDeltaPhi e
+                    (return . Soft1L2B) (chanSoft1L2BLow e, chanSoft1L2BHigh e)
+
+chanSoft1L2BLow :: PhyEventNoTau -> Either String Soft1L2BLowEv
+chanSoft1L2BLow e = do soft1L2BLowCheckMET e
+                       soft1L2BLowCheckMCT e 
+                       soft1L2BLowCheckHT2 e
+                       return undefined
+
+chanSoft1L2BHigh :: PhyEventNoTau -> Either String Soft1L2BHighEv
+chanSoft1L2BHigh e = do soft1L2BHighCheckMET e
+                        soft1L2BHighCheckMCT e
+                        return undefined 
+                      
+
+
+
+chanSoft1L :: PhyEventNoTau -> Either String Soft1L
+chanSoft1L e = do 
+                  soft1LCheckMT e 
+                  soft1LCheckRatioMETMeff e
+                  let (nj,_) = countJetNumber e
+                  if | nj == 3 || nj == 4 -> (return . Soft1L3J . chanSoft1L3J) e
+                     | nj >= 5 -> (return . Soft1L5J . chanSoft1L5J) e 
+                     | otherwise -> Left "chanSoft1L: nj < 3"
+
+chanSoft1L3J :: PhyEventNoTau -> Either String Soft1L3JEv
+chanSoft1L3J e = do soft1L3JCheckPTJet e
+                    soft1L3JCheckMET e
+                    soft1L3JCheckDeltaR e
+                    undefined
+
+
+chanSoft1L5J :: PhyEventNoTau -> Either String Soft1L5JEv 
+chanSoft1L5J e = do soft1L5JCheckPTJet e
+                    soft1L5JCheckMET e
+
+                    undefined   
+  
+
+chanSoft2Muon :: PhyEventNoTau -> Either String Soft2MuonEv
+chanSoft2Muon e = do soft2MuonCheckPT e 
+                     soft2MuonCheckMmumu e 
+                     soft2MuonCheckNJet e 
+                     soft2MuonCheckPTJet e
+                     soft2MuonCheckMET e
+                     soft2MuonCheckMT e
+                     soft2MuonCheckDeltaR e 
+                     undefined  
+
 
 -- | hard lepton channel 
-chanHard :: Store HardEvent a -> Either String HardEvent
-chanHard = cget >>> (\case HardUnclassified e -> (Right . HardPreselected . preselectionHard) e
-                           _ -> Left "chanHard : not HardUnclassified")
-                >=> (\case HardIsolated e -> (Right . HardIsolated . isolateLepton ) e
-                           _ -> Left "chanHard : not HardPreselected")         
+chanHard :: PhyEventNoTau -> Either String HardEvent
+chanHard e = do let e' = (isolateLepton . preselectionHard) e
+                (return . HardEvent) (chanHardInc e', chanHardBin e')
+             
+chanHardInc :: PhyEventNoTauNoBJet -> Either String HardInc
+chanHardInc = undefined 
+
+chanHardBin :: PhyEventNoTauNoBJet -> Either String HardBin
+chanHardBin = undefined
+
+
+
+
+
+
+
+
+
+
+
+
+-----------------------
+-- counting function -- 
+-----------------------
+
+countLeptonNumber :: PhyEventNoTau -> (Int,Int)
+countLeptonNumber e = let ne = length (view electrons e)
+                          nm = length (view muons e)
+                      in (ne+nm,nm)
+
+
+countJetNumber :: PhyEventNoTau -> (Int,Int)
+countJetNumber e = let nj = length (view jets e)
+                       nb = length (view bjets e)
+                   in (nj+nb, nb)
+
+--------------------
+-- soft1Lep check -- 
+--------------------
+
+-- | check PT of leptons for soft1Lep channel
+soft1LepCheckPT :: PhyEventNoTau -> Int -- ^ number of muons 
+                -> Either String ()
+soft1LepCheckPT e nmuon
+  | nmuon == 0 = case view electrons e of
+                   x:[] -> if (pt x > 10 && pt x < 25) then Right () else Left "soft1LepPTCheck: elec energy out of range"
+                   _ -> Left "soft1LepPTCheck: no match in elec number" 
+  | nmuon == 1 = case view muons e of 
+                   x:[] -> if (pt x > 6 && pt x < 25) then Right () else Left "soft1LepPTCheck: muon energy out of range"
+                   _ -> Left "soft1LepPTCheck: no match in muon number" 
+  | otherwise = Left ("soft1LepPTCheck: nmuon = " ++ show nmuon)
+
+--------------------
+-- Soft1L1B check -- 
+--------------------
+
+-- | mT > 100
+soft1L1BCheckMT :: PhyEventNoTau -> Either String ()
+soft1L1BCheckMT = undefined
+
+-- | ratio > 0.35
+soft1L1BCheckRatioMETMeff :: PhyEventNoTau -> Either String ()
+soft1L1BCheckRatioMETMeff = undefined
+
+-- | DeltaR > 1.0
+soft1L1BCheckDeltaRmin :: PhyEventNoTau -> Either String ()
+soft1L1BCheckDeltaRmin = undefined
+
+-- | 180 40 40 
+soft1L1BLowCheckPTJet :: PhyEventNoTau -> Either String ()
+soft1L1BLowCheckPTJet = undefined
+
+-- | 180 25 25
+soft1L1BHighCheckPTJet :: PhyEventNoTau -> Either String ()
+soft1L1BHighCheckPTJet = undefined
+
+-- | 250
+soft1L1BLowCheckMET :: PhyEventNoTau -> Either String ()
+soft1L1BLowCheckMET = undefined
+
+-- | 300
+soft1L1BHighCheckMET :: PhyEventNoTau -> Either String ()
+soft1L1BHighCheckMET = undefined
+
+---------------------
+-- Soft1L2B check  -- 
+---------------------
+
+-- | > 60, > 60, < 50
+soft1L2BCheckPTJet :: PhyEventNoTau -> Either String ()
+soft1L2BCheckPTJet = undefined
+
+-- | > 0.4
+soft1L2BCheckDeltaPhi :: PhyEventNoTau -> Either String ()
+soft1L2BCheckDeltaPhi = undefined 
+
+-- | > 200
+soft1L2BLowCheckMET :: PhyEventNoTau -> Either String ()
+soft1L2BLowCheckMET = undefined
+
+-- | > 300 
+soft1L2BHighCheckMET :: PhyEventNoTau -> Either String ()
+soft1L2BHighCheckMET = undefined 
+
+
+-- | > 150
+soft1L2BLowCheckMCT :: PhyEventNoTau -> Either String ()
+soft1L2BLowCheckMCT = undefined 
+
+-- | > 200
+soft1L2BHighCheckMCT :: PhyEventNoTau -> Either String ()
+soft1L2BHighCheckMCT = undefined 
+
+-- | < 50
+soft1L2BLowCheckHT2 :: PhyEventNoTau -> Either String ()
+soft1L2BLowCheckHT2 = undefined 
+
+--------------------------
+-- Soft1L channel check -- 
+--------------------------
+
+soft1LCheckMT :: PhyEventNoTau -> Either String ()
+soft1LCheckMT = undefined
+
+
+soft1LCheckRatioMETMeff :: PhyEventNoTau -> Either String ()
+soft1LCheckRatioMETMeff = undefined 
+
+
+-- | > 180, > 25, > 25  
+soft1L3JCheckPTJet :: PhyEventNoTau -> Either String ()
+soft1L3JCheckPTJet = undefined
+
+ 
+-- | > 180, > 25, > 25, > 25, > 25
+soft1L5JCheckPTJet :: PhyEventNoTau -> Either String ()
+soft1L5JCheckPTJet = undefined
+
+
+-- | > 400
+soft1L3JCheckMET :: PhyEventNoTau -> Either String ()
+soft1L3JCheckMET = undefined
+
+-- | > 300
+soft1L5JCheckMET :: PhyEventNoTau -> Either String ()
+soft1L5JCheckMET = undefined
+
+-- | > 1.0
+soft1L3JCheckDeltaR :: PhyEventNoTau -> Either String ()
+soft1L3JCheckDeltaR = undefined
+
+
+-----------------------------
+-- Soft2Muon channel check -- 
+-----------------------------
+
+-- | check PT of leptons for soft2Muon channel
+soft2MuonCheckPT :: PhyEventNoTau -> Either String ()
+soft2MuonCheckPT e = 
+    case view muons e of 
+      x:[] -> if (pt x > 6 && pt x < 25) then Right () else Left "soft1LepPTCheck: muon energy out of range"
+      _ -> Left "soft1LepPTCheck: no match in muon number" 
+
+
+-- | > 15, mZ - 10 < < mZ+10
+soft2MuonCheckMmumu :: PhyEventNoTau -> Either String ()
+soft2MuonCheckMmumu e = undefined
+
+
+-- | nj >= 2, nb == 0 
+soft2MuonCheckNJet :: PhyEventNoTau -> Either String ()
+soft2MuonCheckNJet e = undefined
+    
+-- | > 70, > 25
+soft2MuonCheckPTJet :: PhyEventNoTau -> Either String ()
+soft2MuonCheckPTJet e = undefined
+
+-- | > 170
+soft2MuonCheckMET :: PhyEventNoTau -> Either String ()
+soft2MuonCheckMET = undefined
+
+-- | > 80
+soft2MuonCheckMT :: PhyEventNoTau -> Either String ()
+soft2MuonCheckMT = undefined 
+
+-- | > 1.0
+soft2MuonCheckDeltaR :: PhyEventNoTau -> Either String ()
+soft2MuonCheckDeltaR = undefined
+
 
 
 
