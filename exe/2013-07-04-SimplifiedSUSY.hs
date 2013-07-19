@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, NoMonomorphismRestriction, RecordWildCards #-}
+B41;296;0c{-# LANGUAGE ScopedTypeVariables, NoMonomorphismRestriction, RecordWildCards #-}
 
 module Main where
 
@@ -12,6 +12,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.Traversable as T
 import qualified Data.HashMap.Lazy as HM
 import           Data.Maybe 
+import           Data.Monoid
 import           System.Directory
 import           System.Environment
 import           System.FilePath ((</>))
@@ -180,55 +181,44 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 
 pdir = ProcDir "Work20130704" "montecarlo/admproject/SimplifiedSUSY/8TeV" "scan"
 
-{-
-notgood =
-  [ ("200.0","100.0")
-  , ("200.0","200.0")
-  , ("200.0","300.0")
-  , ("200.0","400.0")
-  , ("1400.0","1300.0")
-  , ("1400.0","1400.0")
-  , ("1400.0","1500.0")
-  , ("1400.0","1600.0")
-  , ("1400.0","1700.0")
-  , ("1400.0","1800.0")
-  , ("1400.0","1900.0")
-  , ("1400.0","2000.0")
-  , ("1500.0","100.0")
-  , ("1500.0","200.0")
-  , ("1500.0","300.0")
-  , ("1500.0","400.0")
-  , ("1500.0","500.0")
-  , ("1500.0","600.0")
-  , ("1500.0","700.0")
-  , ("1500.0","800.0")
-  , ("1500.0","900.0")
-  , ("1500.0","1000.0")
-  , ("1500.0","1100.0")
-  , ("1500.0","1200.0")
-  ]
--}
 
--- worksets = [ (10,mgl,msq,10000) | (mglstr,msqstr) <- notgood, let mgl = read mglstr, let msq = read msqstr] 
 
-worksets = [ (10,mg,mq,10000) | mg <- [100,200..2000], mq <- [100,200..2000] ] 
+worksets :: [ (String, (Double,Double,Double,Int)) ]
+worksets = set_2sg <> set_sqsg <> set_2sq 
+  where   
+    makeset str lst = 
+     [ (str,(100,mg,mq,10000)) | (mg,mq) <- lst ] 
+                               
+    set_2sg  = makeset "2sg"  massset_2sg 
+    set_sqsg = makeset "sqsg" massset_sqsg 
+    set_2sq  = makeset "2sq"  massset_2sq
 
+
+
+
+mesh = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ] 
+
+massset_2sq  = mesh 
+massset_sqsg = mesh
+massset_2sg  = mesh
+
+
+-- worksets = [ (10,mg,mq,10000) | mg <- [100,200..3000], mq <- [100,200..3000], mg > 2000 || mq > 2000 ] 
 
 main :: IO () 
 main = do 
   args <- getArgs 
   let fp = args !! 0 
-      cmd = args !! 1 
-      n1 = read (args !! 2) :: Int
-      n2 = read (args !! 3) :: Int
-  --  fp <- (!! 0) <$> getArgs 
-  updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  -- print (length worksets) 
-  mapM_ (scanwork fp cmd) (drop (n1-1) . take n2 $ worksets )
+      -- cmd = args !! 1 
+      n1 = read (args !! 1) :: Int
+      n2 = read (args !! 2) :: Int
+  updateGlobalLogger "MadGraphAuto" (setLevel DEBUG) 
+  -- print $ length worksets
+  mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
-scanwork :: FilePath -> String -> (Double,Double,Double,Int) -> IO () 
-scanwork fp cmd (mneut,mgl,msq,n) = do
+scanwork :: FilePath -> (String,(Double,Double,Double,Int)) -> IO () 
+scanwork fp (cmd,(mneut,mgl,msq,n)) = do
   homedir <- getHomeDirectory 
 
   getConfig fp >>= 

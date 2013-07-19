@@ -27,29 +27,9 @@ import HEP.Util.Work
 --
 import Debug.Trace
 
-masslst = [ "100.0"
-          , "200.0"
-          , "300.0"
-          , "400.0"
-          , "500.0" 
-          , "600.0"
-          , "700.0"
-          , "800.0"
-          , "900.0"
-          , "1000.0"
-          , "1100.0"
-          , "1200.0"
-          , "1300.0"
-          , "1400.0"
-          , "1500.0"
-          , "1600.0" 
-          , "1700.0"
-          , "1800.0"
-          , "1900.0"
-          , "2000.0" ]
-
-datalst = [ (x,y) | x <- masslst, y <- masslst ] 
-
+datalst :: [ (Double,Double) ]
+datalst = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ]
+-- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
 
 takeR [Just (_,_,_,r)] = r 
 
@@ -89,7 +69,7 @@ checkFiles c procname = do
 
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYMN10.0MG"++mg++ "MSQ" ++ mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "SimplifiedSUSYMN10.0MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
@@ -180,7 +160,7 @@ main = do
                 r_ratio = getRFromSR totalsr
 
 
-            trace (show (x,y)) $ return (read x :: Double, read y :: Double, r_ratio)
+            trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio)
           case r of 
             Left err -> error err 
             Right result -> return result

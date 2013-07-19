@@ -27,6 +27,7 @@ import HEP.Util.Work
 --
 import Debug.Trace
 
+{-
 masslst = [ "100.0"
           , "200.0"
           , "300.0"
@@ -49,6 +50,11 @@ masslst = [ "100.0"
           , "2000.0" ]
 
 datalst = [ (x,y) | x <- masslst, y <- masslst ] 
+-}
+
+datalst :: [ (Double,Double) ]
+datalst = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ]
+-- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
 
 
 takeR [Just (_,_,_,r)] = r 
@@ -89,7 +95,7 @@ checkFiles c procname = do
 
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/XUDDdegen/8TeV/scan_" ++ procname 
-      basename = "ADMXUDD112degenMG"++mg++ "MQ" ++ mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "ADMXUDD112degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 dirset = [ "2sg_6j2x"
@@ -100,14 +106,14 @@ dirset = [ "2sg_6j2x"
          , "2sq_nn_4j2x"
          ]
 
+-- datalst' = [(x,y)| (x,y) <- datalst, x >= 2200 && (x,y) /= (2200,900) ]
+-- datalst' = [ (2200.0,900.0) ]
 
 mainCount :: String -> EitherT String IO ()
 mainCount str = do 
   EitherT (checkFiles RawData str)
   liftIO $ forM_ datalst (getCount.createRdirBName str)
 
---  r <- runEitherT $ mapM_ (EitherT . checkFiles RawData) dirset 
---  print r
    
 
 fetchXSecNHist :: WebDAVConfig -> WebDAVRemoteDir -> String 
@@ -161,11 +167,6 @@ getResult f (rdir,basename) = do
   work f "config1.txt" rdir basename nlst 
 
 
-
-  -- r1 <- flip ($) ("1000.0","1000.0") ( \(x,y) -> do 
-  -- print r1 
-
-
 main = do
   outh <- openFile "xudd_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
@@ -192,7 +193,7 @@ main = do
                 r_ratio = getRFromSR totalsr
 
 
-            trace (show (x,y,h_2sg)) $ return (read x :: Double, read y :: Double, r_ratio)
+            trace (show (x,y,h_2sg)) $ return (x :: Double, y :: Double, r_ratio)
           case r of 
             Left err -> error err 
             Right result -> return result
@@ -202,18 +203,18 @@ main = do
 
 
 main' = do 
-    r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount)  ( (drop 5 . take 6) dirset ) 
+
+    r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount)  dirset
     print r
 
-
 {-
-  let str = "2sq_nn_4j2x" 
+  let str = "sqsg_o_5j2x" 
   r <- runEitherT (mainCount str) 
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
--}
 
+-}
       
 
 getCount (rdir,basename) = do 

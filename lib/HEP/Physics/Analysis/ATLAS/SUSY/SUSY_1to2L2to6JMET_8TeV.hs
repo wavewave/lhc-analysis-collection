@@ -747,11 +747,6 @@ hardCheckNLep e = case view leptons e of
                     x:[] -> Right x
                     _ -> Left "hardCheckNLep: nlep /= 1" 
 
-{-
--- | > 25, < 10
-hardCheckPTLep :: PhyEventNoTauNoBJet -> Either String ()
-hardCheckPTLep e = undefined
--}
 
 hardCheckPTJet :: IsInclusive -> MultiJet -> Either String ()
 hardCheckPTJet typ (MultiJet3 (j1,j2,j3) js) = do 

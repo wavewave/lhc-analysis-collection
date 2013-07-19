@@ -12,6 +12,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.Traversable as T
 import qualified Data.HashMap.Lazy as HM
 import           Data.Maybe 
+import           Data.Monoid ((<>))
 import           System.Directory
 import           System.Environment
 import           System.FilePath ((</>))
@@ -322,25 +323,110 @@ pdir = ProcDir "Work20130702" "montecarlo/admproject/XQLDdegen/8TeV" "scan"
 
 -- worksets = [ (mgl,msq,50000,50000, 10000) | (mglstr,msqstr) <- notgood, let mgl = read mglstr, let msq = read msqstr] 
 
-worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+-- worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
+
+worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
+worksets = set_2sg <> set_sqsg_o <> set_sqsg_n <> set_2sq_oo <> set_2sq_no <> set_2sq_nn
+  where   
+    makeset str lst = 
+     [ (str,(mgl,msq,50000,50000,10000)) | (mgl,msq) <- lst ] 
+    set_2sg = makeset "2sg" massset_2sg 
+    set_sqsg_o = makeset "sqsg_o" massset_sqsg_o 
+    set_sqsg_n = makeset "sqsg_n" massset_sqsg_n 
+    set_2sq_oo = makeset "2sq_oo" massset_2sq_oo
+    set_2sq_no = makeset "2sq_no" massset_2sq_no 
+    set_2sq_nn = makeset "2sq_nn" massset_2sq_nn 
+
+
+mesh = [ (g, q) | g <- [100,200..3000], q <- [100,200..3000], g > 2000 || q > 2000 ]
+
+massset_2sg = [ (1300.0,2300.0) ]  -- mesh
+massset_sqsg_o = [] -- mesh
+massset_sqsg_n = 
+  [ (2300.0,2600.0)
+  , (2300.0,2700.0)
+  , (2300.0,2800.0)
+  , (2300.0,2900.0)
+  , (2300.0,3000.0)
+  , (2400.0,400.0)
+  , (2400.0,500.0)
+  , (2400.0,600.0)
+  , (2400.0,700.0)
+  , (2400.0,800.0)
+  , (2400.0,900.0)
+  , (2400.0,1000.0)
+  , (2400.0,1100.0)
+  , (2400.0,1200.0)
+  , (2400.0,1300.0)
+  , (2400.0,1400.0)
+  , (2400.0,1500.0)
+  ] -- mesh
+massset_2sq_oo = [] -- mesh 
+massset_2sq_no =
+  [ (800.0,2600.0)
+  , (800.0,2700.0)
+  , (800.0,2800.0)
+  , (800.0,2900.0)
+  , (800.0,3000.0)
+  , (900.0,2200.0)
+  , (900.0,2300.0)
+  , (900.0,2400.0)
+  , (900.0,2500.0)
+  , (900.0,2600.0)
+  , (900.0,2700.0)
+  , (900.0,2800.0)
+  , (900.0,2900.0)
+  , (900.0,3000.0)
+  , (1000.0,2100.0)
+  , (1000.0,2200.0)
+  , (1000.0,2300.0)
+  , (1000.0,2400.0)
+  , (1000.0,2500.0)
+  ] -- mesh
+massset_2sq_nn =
+  [ (300.0,2100.0)
+  , (300.0,2200.0)
+  , (300.0,2300.0)
+  , (300.0,2400.0)
+  , (300.0,2500.0)
+  , (300.0,2600.0)
+  , (300.0,2700.0)
+  , (300.0,2800.0)
+  , (300.0,2900.0)
+  , (300.0,3000.0)
+  , (400.0,2100.0)
+  , (400.0,2200.0)
+  , (400.0,2300.0)
+  , (400.0,2400.0)
+  , (400.0,2500.0)
+  , (400.0,2600.0)
+  , (400.0,2700.0)
+  , (400.0,2800.0)
+  , (400.0,2900.0)
+  , (400.0,3000.0)
+  , (1500.0,2400.0)
+  , (1500.0,2500.0)
+  ] -- mesh 
+
+
 
 main :: IO () 
 main = do 
   args <- getArgs 
   let fp = args !! 0 
-      cmd = args !! 1 
-      n1 = read (args !! 2) :: Int
-      n2 = read (args !! 3) :: Int
+      -- cmd = args !! 1 
+      n1 = read (args !! 1) :: Int
+      n2 = read (args !! 2) :: Int
   --  fp <- (!! 0) <$> getArgs 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
   -- print (length worksets) 
-  mapM_ (scanwork fp cmd) (drop (n1-1) . take n2 $ worksets )
+  mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
 
 
-scanwork :: FilePath -> String -> (Double,Double,Double,Double,Int) -> IO () 
-scanwork fp cmd (mgl,msq,msl,mneut,n) = do
+scanwork :: FilePath -> (String,(Double,Double,Double,Double,Int)) -> IO () 
+scanwork fp (cmd,(mgl,msq,msl,mneut,n)) = do
   homedir <- getHomeDirectory 
 
   getConfig fp >>= 
