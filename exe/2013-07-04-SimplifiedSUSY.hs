@@ -1,4 +1,4 @@
-B41;296;0c{-# LANGUAGE ScopedTypeVariables, NoMonomorphismRestriction, RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables, NoMonomorphismRestriction, RecordWildCards #-}
 
 module Main where
 
@@ -196,11 +196,40 @@ worksets = set_2sg <> set_sqsg <> set_2sq
 
 
 
-mesh = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ] 
+mesh = [ (g,q) | g <- [200,300..3000], q <- [200,300..3000] ] 
 
-massset_2sq  = mesh 
-massset_sqsg = mesh
-massset_2sg  = mesh
+massset_2sq  = [] -- mesh 
+massset_sqsg = 
+  [ (500.0,500.0)
+  , (600.0,500.0)
+  , (700.0,500.0)
+  , (700.0,2600.0)
+  , (700.0,2700.0)
+  , (700.0,2800.0)
+  , (700.0,2900.0)
+  , (700.0,3000.0)
+  , (800.0,500.0)
+  , (900.0,500.0)
+  , (1000.0,500.0)
+  , (1100.0,500.0)
+  , (1200.0,500.0)
+  , (1300.0,500.0)
+  , (1400.0,500.0)
+  , (1500.0,500.0)
+  ] -- mesh
+massset_2sg  = 
+  [  (500.0,500.0)
+  , (600.0,500.0)
+  , (700.0,500.0)
+  , (800.0,500.0)
+  , (900.0,500.0)
+  , (1000.0,500.0)
+  , (1100.0,500.0)
+  , (1200.0,500.0)
+  , (1300.0,500.0)
+  , (1400.0,500.0)
+  , (1500.0,500.0)
+  ] -- mesh
 
 
 -- worksets = [ (10,mg,mq,10000) | mg <- [100,200..3000], mq <- [100,200..3000], mg > 2000 || mq > 2000 ] 

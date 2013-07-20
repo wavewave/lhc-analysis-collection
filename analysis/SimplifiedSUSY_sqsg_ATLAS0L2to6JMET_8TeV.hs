@@ -12,6 +12,7 @@ import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Foldable (foldrM)
 import           Data.Maybe 
+import System.Environment
 import System.IO
 -- 
 
@@ -28,8 +29,8 @@ import HEP.Util.Work
 import Debug.Trace
 
 datalst :: [ (Double,Double) ]
-datalst = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ]
--- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
+datalst = [ (g,q) | g <- [500,600..1500] {- [500,600..3000] -} , q <- [500,600..3000] ]
+-- datalst = [ (g,q) | g <- [1600,1700..3000], q <- [500,600..3000] ]
 
 takeR [Just (_,_,_,r)] = r 
 
@@ -69,7 +70,7 @@ checkFiles c procname = do
 
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYMN10.0MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "SimplifiedSUSYMN100.0MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
@@ -79,14 +80,7 @@ dirset = [ "2sg_4j2n"
          ] 
 
 
-mainCount :: String -> EitherT String IO ()
-mainCount str = do 
-  EitherT (checkFiles RawData str)
-  liftIO $ forM_ datalst (getCount.createRdirBName str)
 
---  r <- runEitherT $ mapM_ (EitherT . checkFiles RawData) dirset 
---  print r
-   
 
 fetchXSecNHist :: WebDAVConfig -> WebDAVRemoteDir -> String 
                -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)]))
@@ -141,7 +135,7 @@ getResult f (rdir,basename) = do
 
 
 
-main = do
+mainAnalysis = do
   outh <- openFile "simplifiedsusy_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
@@ -168,18 +162,32 @@ main = do
   hClose outh 
 
 
-main' = do 
-  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset 
+mainCheck = do 
+  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) (take 1 dirset)
   print r 
 
-{-
-  let str = "sqsg_3j2n" 
-  r <- runEitherT (mainCount str) 
+
+mainCount str = do 
+  --  let str = "2sg_4j2n" -- "sqsg_3j2n" 
+  r <- runEitherT (countEvent str) 
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
--}
+
+main = do 
+  args <- getArgs
+  case args !! 0 of 
+    "count" -> case args !! 1 of
+                 "2sg" -> mainCount "2sg_4j2n"
+                 "sqsg" -> mainCount "sqsg_3j2n" 
+                 "2sq" -> mainCount "2sq_2j2n"
+    "check" -> mainCheck
+    "analysis" -> mainAnalysis
  
+countEvent :: String -> EitherT String IO ()
+countEvent str = do 
+  EitherT (checkFiles RawData str)
+  liftIO $ forM_ datalst (getCount.createRdirBName str)
 
       
 
