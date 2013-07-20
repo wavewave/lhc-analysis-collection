@@ -33,7 +33,7 @@ import HEP.Automation.EventChain.Process.Generator
 import HEP.Automation.EventGeneration.Config
 import HEP.Automation.EventGeneration.Type
 import HEP.Automation.EventGeneration.Work 
-import HEP.Automation.MadGraph.Model.ADMXUDD112degen
+import HEP.Automation.MadGraph.Model.ADMXQLD111degen
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
@@ -47,9 +47,9 @@ import qualified Paths_madgraph_auto_model as PModel
 
 jets = [1,2,3,4,-1,-2,-3,-4,21]
 
--- leptons = [11,13,-11,-13] 
+leptons = [11,13,-11,-13] 
 
--- lepplusneut = [11,12,13,14,-11,-12,-13,-14]
+lepplusneut = [11,12,13,14,-11,-12,-13,-14]
 
 neut = [1000022]
 
@@ -65,50 +65,46 @@ squarks = [  1000001, -1000001  -- sdown_L
           ,  2000004, -2000004  -- scharm_R 
           ] 
 
-
-{-
-sdownR = [2000001,-2000001]
-
-othersq = [ 1000001, -1000001, 1000002, -1000002, 1000003, -1000003, 1000004, -1000004
-                             , 2000002, -2000002, 2000003, -2000003, 2000004, -2000004 ] 
--}
+ 
 
 p_gluino :: DDecay 
 p_gluino = d ([1000021], [p_neut, t jets, t jets])
 
 p_neut :: DDecay 
-p_neut = d (neut, [t jets, t jets, t jets, t adms])
+p_neut = d (neut, [t lepplusneut, t jets, t jets, t adms])
 
 p_squark :: DDecay 
 p_squark = d (squarks, [p_neut, t jets])
 
-p_2sg_10j2x :: DCross 
-p_2sg_10j2x = x (t proton, t proton, [p_gluino, p_gluino])
+p_2sg_2l8j2x :: DCross 
+p_2sg_2l8j2x = x (t proton, t proton, [p_gluino, p_gluino])
 
-p_sqsg_9j2x :: DCross 
-p_sqsg_9j2x = x (t proton, t proton, [p_gluino, p_squark])
+p_sqsg_2l7j2x :: DCross 
+p_sqsg_2l7j2x = x (t proton, t proton, [p_gluino, p_squark])
 
-p_2sq_8j2x :: DCross 
-p_2sq_8j2x = x (t proton, t proton, [p_squark, p_squark])
+p_2sq_2l6j2x :: DCross 
+p_2sq_2l6j2x = x (t proton, t proton, [p_squark, p_squark])
 
 
-map_2sg_10j2x :: ProcSpecMap
-map_2sg_10j2x = 
+map_2sg_2l8j2x :: ProcSpecMap
+map_2sg_2l8j2x = 
     HM.fromList [ (Nothing             , MGProc [] [ "p p > go go QED=0" ])
                 , (Just (3,1000021,[]), MGProc []
                                                [ "go > n1 j j " ] ) 
                 , (Just (4,1000021,[]), MGProc [] 
                                                [ "go > n1 j j " ] )
-                , (Just (1,1000022,[3]), MGProc [ "define sxx = sxxp sxxp~ " ] 
-                                                [ "n1 > sxx j j j " ] )
-                , (Just (1,1000022,[4]), MGProc [ "define sxx = sxxp sxxp~ " ]
-                                                [ "n1 > sxx j j j " ] )
+                , (Just (1,1000022,[3]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ "
+                                                , "define sxx = sxxp sxxp~ " ] 
+                                                [ "n1 > sxx lep j j " ] )
+                , (Just (1,1000022,[4]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ "
+                                                , "define sxx = sxxp sxxp~ " ]
+                                                [ "n1 > sxx lep j j " ] )
                                 
                 ] 
 
 
-map_sqsg_9j2x :: ProcSpecMap
-map_sqsg_9j2x = 
+map_sqsg_2l7j2x :: ProcSpecMap
+map_sqsg_2l7j2x = 
     HM.fromList 
       [ (Nothing, MGProc [ "define sq =  ul ul~ cl cl~ ur ur~ cr cr~ dl dl~ sl sl~ dr dr~ sr sr~" ] 
                          [ "p p > go sq QED=0"])
@@ -131,16 +127,18 @@ map_sqsg_9j2x =
       , (Just (4,-2000004,[]), MGProc [] [ "cr~ > n1 j " ] )
       , (Just (4, 2000004,[]), MGProc [] [ "cr  > n1 j " ]) 
       -- 
-      , (Just (1,1000022,[3]), MGProc [ "define sxx = sxxp sxxp~ " ] 
-                                      [ "n1 > sxx j j j " ] )
-      , (Just (1,1000022,[4]), MGProc [ "define sxx = sxxp sxxp~ " ]
+      , (Just (1,1000022,[3]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ " 
+                                      , "define sxx = sxxp sxxp~ " ] 
+                                      [ "n1 > sxx lep j j " ] )
+      , (Just (1,1000022,[4]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ "
+                                      , "define sxx = sxxp sxxp~ " ]
                                       [ "n1 > sxx j j j " ] )
       ]
 
 
 
-map_2sq_8j2x :: ProcSpecMap
-map_2sq_8j2x = 
+map_2sq_2l6j2x :: ProcSpecMap
+map_2sq_2l6j2x = 
     HM.fromList 
       [ (Nothing, MGProc [ "define sq =  ul ul~ cl cl~ ur ur~ cr cr~ dl dl~ sl sl~ dr dr~ sr sr~" ] 
                          [ "p p > sq sq QED=0"])
@@ -178,19 +176,21 @@ map_2sq_8j2x =
       , (Just (4,-2000004,[]), MGProc [] [ "cr~ > n1 j " ] )
       , (Just (4, 2000004,[]), MGProc [] [ "cr  > n1 j " ]) 
       --
-      , (Just (1,1000022,[3]), MGProc [ "define sxx = sxxp sxxp~ " ] 
-                                      [ "n1 > sxx j j j " ] )
-      , (Just (1,1000022,[4]), MGProc [ "define sxx = sxxp sxxp~ " ]
-                                      [ "n1 > sxx j j j " ] )
+      , (Just (1,1000022,[3]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ "
+                                      , "define sxx = sxxp sxxp~ " ] 
+                                      [ "n1 > sxx lep j j " ] )
+      , (Just (1,1000022,[4]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ "
+                                      , "define sxx = sxxp sxxp~ " ]
+                                      [ "n1 > sxx lep j j " ] )
       ]
 
-mprocs = mkMultiProc pdir [ SingleProc "2sg_10j2x" p_2sg_10j2x map_2sg_10j2x mgrunsetup
-                          , SingleProc "sqsg_9j2x" p_sqsg_9j2x map_sqsg_9j2x mgrunsetup 
-                          , SingleProc "2sq_8j2x" p_2sq_8j2x map_2sq_8j2x mgrunsetup 
+mprocs = mkMultiProc pdir [ SingleProc "2sg_2l8j2x" p_2sg_2l8j2x map_2sg_2l8j2x mgrunsetup
+                          , SingleProc "sqsg_2l7j2x" p_sqsg_2l7j2x map_sqsg_2l7j2x mgrunsetup 
+                          , SingleProc "2sq_2l6j2x" p_2sq_2l6j2x map_2sq_2l6j2x mgrunsetup 
                           ]
 
 
-modelparam mgl msq msl mneut = ADMXUDD112degenParam mgl msq msl mneut 
+modelparam mgl msq msl mneut = ADMXQLD111degenParam mgl msq msl mneut 
 
 -- | 
 mgrunsetup :: NumOfEv -> SetNum -> RunSetup
@@ -208,7 +208,7 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
      , setnum  = sn
      }
 
-pdir = ProcDir "Work20130720" "montecarlo/admproject/XUDDdegen/8TeV/neutLOSP" "scan"
+pdir = ProcDir "Work20130720" "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP" "scan"
 
 worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
 worksets = set_2sg <> set_sqsg <> set_2sq 
@@ -222,8 +222,8 @@ worksets = set_2sg <> set_sqsg <> set_2sq
 
 mesh = [ (g, q) | g <- [200,300..3000], q <- [200,300..3000] ]
 
-massset_2sg = [] -- mesh
-massset_sqsg = [] -- mesh
+massset_2sg = mesh
+massset_sqsg = mesh
 massset_2sq =  mesh 
  
 
@@ -260,12 +260,12 @@ scanwork fp (cmd, (mgl,msq,msl,mneut,n)) = do
                                  , webdav_baseurl = whost } 
           param = modelparam mgl msq msl mneut
       let mjob = case cmd of 
-                   "2sg"    -> Just ("2sg_10j2x", NumOfEv 10000, SetNum 1)
-                   "sqsg" -> Just ("sqsg_9j2x", NumOfEv 10000, SetNum 1)
-                   "2sq" -> Just ("2sq_8j2x", NumOfEv 10000, SetNum 1)
+                   "2sg"    -> Just ("2sg_2l8j2x", NumOfEv 10000, SetNum 1)
+                   "sqsg" -> Just ("sqsg_2l7j2x", NumOfEv 10000, SetNum 1)
+                   "2sq" -> Just ("2sq_2l6j2x", NumOfEv 10000, SetNum 1)
                    _ -> Nothing
       print mjob  
-      maybe (return ()) (genMultiProcess ADMXUDD112degen ssetup mprocs param wdavcfg) mjob
+      maybe (return ()) (genMultiProcess ADMXQLD111degen ssetup mprocs param wdavcfg) mjob
     )
    
 

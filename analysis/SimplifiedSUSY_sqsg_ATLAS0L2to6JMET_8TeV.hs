@@ -29,7 +29,8 @@ import HEP.Util.Work
 import Debug.Trace
 
 datalst :: [ (Double,Double) ]
-datalst = [ (g,q) | g <- [500,600..1500] {- [500,600..3000] -} , q <- [500,600..3000] ]
+datalst = [ (g,q) | g <- [500,600..3000], q <- [500,600..3000] ]
+-- datalst = [ (g,q) | g <- [500,600..1500] {- [500,600..3000] -} , q <- [500,600..3000] ]
 -- datalst = [ (g,q) | g <- [1600,1700..3000], q <- [500,600..3000] ]
 
 takeR [Just (_,_,_,r)] = r 
@@ -136,7 +137,7 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile "simplifiedsusy_sqsg_8TeV_0lep.dat" WriteMode 
+  outh <- openFile "simplifiedsusy100_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do

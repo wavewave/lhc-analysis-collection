@@ -12,6 +12,7 @@ import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Foldable (foldrM)
 import           Data.Maybe 
+import System.Environment 
 import System.IO
 -- 
 
@@ -27,33 +28,11 @@ import HEP.Util.Work
 --
 import Debug.Trace
 
-{-
-masslst = [ "100.0"
-          , "200.0"
-          , "300.0"
-          , "400.0"
-          , "500.0" 
-          , "600.0"
-          , "700.0"
-          , "800.0"
-          , "900.0"
-          , "1000.0"
-          , "1100.0"
-          , "1200.0"
-          , "1300.0"
-          , "1400.0"
-          , "1500.0"
-          , "1600.0" 
-          , "1700.0"
-          , "1800.0"
-          , "1900.0"
-          , "2000.0" ]
-
-datalst = [ (x,y) | x <- masslst, y <- masslst ] 
--}
 
 datalst :: [ (Double,Double) ]
-datalst = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ]
+-- datalst = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ]
+datalst = [ (g,q) | g <- [200,300..1500], q <- [200,300..3000] ]
+-- datalst = [ (g,q) | g <- [1500,1600..3000], q <- [200,300..3000] ]
 -- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
 
 
@@ -105,14 +84,6 @@ dirset = [ "2sg_6j2x"
          , "2sq_oo_4j2x"
          , "2sq_nn_4j2x"
          ]
-
--- datalst' = [(x,y)| (x,y) <- datalst, x >= 2200 && (x,y) /= (2200,900) ]
--- datalst' = [ (2200.0,900.0) ]
-
-mainCount :: String -> EitherT String IO ()
-mainCount str = do 
-  EitherT (checkFiles RawData str)
-  liftIO $ forM_ datalst (getCount.createRdirBName str)
 
    
 
@@ -167,7 +138,7 @@ getResult f (rdir,basename) = do
   work f "config1.txt" rdir basename nlst 
 
 
-main = do
+mainAnalysis = do
   outh <- openFile "xudd_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do 
@@ -202,19 +173,36 @@ main = do
   hClose outh 
 
 
-main' = do 
-
+mainCheck = do 
     r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount)  dirset
     print r
 
-{-
-  let str = "sqsg_o_5j2x" 
-  r <- runEitherT (mainCount str) 
+mainCount str = do 
+  -- let str = "sqsg_o_5j2x" 
+  r <- runEitherT (countEvent str) 
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
 
--}
+main = do 
+  args <- getArgs
+  case args !! 0 of 
+    "count" -> case args !! 1 of
+                 "2sg" -> mainCount "2sg_6j2x"
+                 "sqsg_o" -> mainCount "sqsg_o_5j2x" 
+                 "sqsg_n" -> mainCount "sqsg_n_5j2x" 
+                 "2sq_oo" -> mainCount "2sq_oo_4j2x" 
+                 "2sq_no" -> mainCount "2sq_no_4j2x" 
+                 "2sq_nn" -> mainCount "2sq_nn_4j2x" 
+    "check" -> mainCheck
+    "analysis" -> mainAnalysis
+
+
+countEvent :: String -> EitherT String IO ()
+countEvent str = do 
+  EitherT (checkFiles RawData str)
+  liftIO $ forM_ datalst (getCount.createRdirBName str)
+
       
 
 getCount (rdir,basename) = do 
