@@ -12,7 +12,7 @@ import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Foldable (foldrM)
 import           Data.Maybe 
-import System.Environment
+import System.Environment 
 import System.IO
 -- 
 
@@ -29,6 +29,19 @@ import HEP.Util.Work
 import Util
 import Debug.Trace
 
+{-
+datalst :: [ (Double,Double) ]
+-- datalst = [ (g,q) | g <- [2500,2600..3000], q <- [200,300..3000] ]
+datalst = [ (g,q) | g <- [200,300..3000], q <- [200,300..3000] ]
+
+datalst1of2 :: [ (Double,Double) ]
+datalst1of2 = [ (g,q) | g <- [200,300..1500], q <- [200,300..3000] ]
+
+datalst2of2 :: [ (Double,Double) ]
+datalst2of2 = [ (g,q) | g <- [1600,1700..3000], q <- [200,300..3000] ]
+-- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
+-}
+
 m_neutralino = 300
 
 datalst :: [ (Double,Double) ]
@@ -42,6 +55,8 @@ datalst2of2 = [ (g,q) | g <- [1600,1700..3000], q <- [m_neutralino+100,m_neutral
 
 
 
+
+
 checkFiles :: DataFileClass -> String -> IO (Either String ())
 checkFiles c procname = do 
   rs <- forM datalst (\s -> (doJob (checkFileExistInDAV c)  . createRdirBName procname) s 
@@ -52,16 +67,16 @@ checkFiles c procname = do
   if null missinglst then return (Right ()) else return (Left (show nmiss ++ " files are missing"))
 
 createRdirBName procname (mg,mq) = 
-  let rdir = "montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYMN100.0MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  let rdir = "montecarlo/admproject/XUDDdegen/8TeV/neutLOSP/scan_" ++ procname 
+      basename = "ADMXUDD112degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN100.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
+dirset = [ "2sg_10j2x"
+         , "sqsg_9j2x" 
+         , "2sq_8j2x"
+         ]
 
-dirset = [ "2sg_4j2n"
-         , "sqsg_3j2n"
-         , "2sq_2j2n"
-         ] 
-
+   
 
 atlas_20_3_fbinv_at_8_TeV :: WebDAVConfig -> WebDAVRemoteDir -> String 
                           -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)],[(EType,Double)],Double))
@@ -97,39 +112,38 @@ getResult f (rdir,basename) = do
   work f "config1.txt" rdir basename nlst 
 
 
-
-
 mainAnalysis = do
-  outh <- openFile "simplifiedsusy100_sqsg_8TeV_0lep.dat" WriteMode 
+  outh <- openFile "xudd_neutLOSP100_sqsg_8TeV_0lep.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
-    =<< forM datalst ( \(x,y) -> do
+    =<< forM datalst ( \(x,y) -> do 
+
           r <- runEitherT $ do
             let analysis x = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName x
                 simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
-            t_2sg  <- (simplify . analysis "2sg_4j2n")  (x,y)
-            t_sqsg <- (simplify . analysis "sqsg_3j2n") (x,y)
-            t_2sq  <- (simplify . analysis "2sq_2j2n")  (x,y)
+            t_2sg    <- (simplify . analysis "2sg_10j2x")    (x,y)
+            t_sqsg   <- (simplify . analysis "sqsg_9j2x") (x,y)
+            t_2sq    <- (simplify . analysis "2sq_8j2x") (x,y)
 
             let h_2sg  = takeHist t_2sg
                 h_sqsg = takeHist t_sqsg
                 h_2sq  = takeHist t_2sq
-                totalsr = mkTotalSR [h_2sg, h_sqsg, h_2sq]
+                totalsr = mkTotalSR [ h_2sg, h_sqsg, h_2sq ]
                 r_ratio = getRFromSR totalsr
 
 
-            trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio)
+            trace (show (x,y,h_2sg)) $ return (x :: Double, y :: Double, r_ratio)
           case r of 
             Left err -> error err 
             Right result -> return result
       )
+
   hClose outh 
 
 
 mainCheck = do 
-  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) (take 1 dirset)
-  print r 
-
+    r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount)  dirset
+    print r
 
 mainCount str = do 
   r <- runEitherT (countEvent str) 
@@ -141,15 +155,17 @@ main = do
   args <- getArgs
   case args !! 0 of 
     "count" -> case args !! 1 of
-                 "2sg" -> mainCount "2sg_4j2n"
-                 "sqsg" -> mainCount "sqsg_3j2n" 
-                 "2sq" -> mainCount "2sq_2j2n"
+                 "2sg"  -> mainCount "2sg_10j2x"
+                 "sqsg" -> mainCount "sqsg_9j2x" 
+                 "2sq"  -> mainCount "2sq_8j2x" 
     "check" -> mainCheck
     "analysis" -> mainAnalysis
- 
+
+
 countEvent :: String -> EitherT String IO ()
 countEvent str = do 
   EitherT (checkFiles RawData str)
+
   liftIO $ putStrLn "Proceed 1 or 2 ? (1/2/others)"
   c <- liftIO $ getChar
   if c == '1' 
@@ -157,7 +173,6 @@ countEvent str = do
     else if c == '2' 
            then liftIO $ forM_ datalst2of2 (getCount.createRdirBName str)
            else return ()
-
 
       
 

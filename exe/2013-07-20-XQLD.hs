@@ -132,7 +132,7 @@ map_sqsg_2l7j2x =
                                       [ "n1 > sxx lep j j " ] )
       , (Just (1,1000022,[4]), MGProc [ "define lep = e+ e- mu+ mu- ve ve~ vm vm~ "
                                       , "define sxx = sxxp sxxp~ " ]
-                                      [ "n1 > sxx j j j " ] )
+                                      [ "n1 > sxx lep j j " ] )
       ]
 
 
@@ -210,26 +210,24 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 
 pdir = ProcDir "Work20130720" "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP" "scan"
 
+m_neutralino = 300
+
 worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
 worksets = set_2sg <> set_sqsg <> set_2sq 
   where   
     makeset str lst = 
-     [ (str,(mgl,msq,50000,100,10000)) | (mgl,msq) <- lst ] 
+     [ (str,(mgl,msq,50000,m_neutralino,10000)) | (mgl,msq) <- lst ] 
     set_2sg  = makeset "2sg" massset_2sg 
     set_sqsg = makeset "sqsg" massset_sqsg 
     set_2sq  = makeset "2sq" massset_2sq
 
 
-mesh = [ (g, q) | g <- [200,300..3000], q <- [200,300..3000] ]
+mesh = [ (g, q) | g <- [m_neutralino+100,m_neutralino+200..3000], q<- [m_neutralino+100,m_neutralino+200..3000] ]
 
 massset_2sg = mesh
 massset_sqsg = mesh
-massset_2sq =  mesh 
- 
+massset_2sq = mesh
 
--- worksets = [ (mgl,msq,50000,50000, 10000) | (mglstr,msqstr) <- notgood, let mgl = read mglstr, let msq = read msqstr] 
-
--- worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 main :: IO () 
 main = do 
