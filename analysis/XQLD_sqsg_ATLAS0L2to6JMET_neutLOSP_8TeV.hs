@@ -29,7 +29,8 @@ import HEP.Util.Work
 import Util
 import Debug.Trace
 
-m_neutralino = 300
+m_neutralino :: Double 
+m_neutralino = 500
 
 datalst :: [ (Double,Double) ]
 datalst = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
@@ -52,7 +53,7 @@ checkFiles c procname = do
 
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
-      basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN100.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show m_neutralino ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 dirset = [ "2sg_2l8j2x"
@@ -99,7 +100,7 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile "xqldneut100_sqsg_8TeV_0lep.dat" WriteMode 
+  outh <- openFile ("xqld_neutLOSP" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do

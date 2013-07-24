@@ -29,7 +29,8 @@ import HEP.Util.Work
 import Util
 import Debug.Trace
 
-m_neutralino = 300
+m_neutralino :: Double 
+m_neutralino = 500
 
 datalst :: [ (Double,Double) ]
 datalst = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
@@ -53,7 +54,7 @@ checkFiles c procname = do
 
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYMN100.0MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "SimplifiedSUSYMN" ++ show m_neutralino ++ "MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
@@ -100,7 +101,7 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile "simplifiedsusy100_sqsg_8TeV_0lep.dat" WriteMode 
+  outh <- openFile ("simplifiedsusy" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
