@@ -9,7 +9,7 @@ Maintainer: 	Ian-Woo Kim <ianwookim@gmail.com>
 Build-Type: 	Simple
 Cabal-Version:  >= 1.9.2
 data-files:   
-
+                resource/prospino_2_1.tar.gz
 
 Library
   hs-source-dirs: lib
@@ -53,7 +53,7 @@ Library
                    zlib >= 0.5, 
                    aeson >= 0.6, 
                    aeson-pretty >= 0.7,
-                   indexed-extras, 
+                   indexed-extras >= 0.1.1.0, 
                    indexed, 
                    lens, 
                    mmorph,
@@ -76,6 +76,6 @@ Library
                    HEP.Util.Work
 
   Other-Modules: 
-
+                   Paths_lhc_analysis_collection
  
 		 
