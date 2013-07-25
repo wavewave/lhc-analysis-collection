@@ -38,6 +38,18 @@ checkFileExistInDAV datcls wdavcfg wdavrdir bname = do
   b <- doesFileExistInDAV wdavcfg wdavrdir fp 
   if b then return (Just (Just ()))  else return Nothing 
 
+checkFileExistInDAV_lep :: DataFileClass -> WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe (Maybe ()))
+checkFileExistInDAV_lep datcls wdavcfg wdavrdir bname = do 
+  let fp1 = bname ++ "_ATLAS_1to2L2to6JMET_8TeV.json"
+      fp2 = bname ++ "_total_count.json" 
+      fp3 = bname ++ "_pgs_events.lhco.gz"
+      fp = case datcls of 
+             RawData -> fp3
+             TotalCount -> fp2
+             ChanCount -> fp1 
+  b <- doesFileExistInDAV wdavcfg wdavrdir fp 
+  if b then return (Just (Just ()))  else return Nothing 
+
 
 doJob wk (rdir,basename) = do
   let nlst = [1]

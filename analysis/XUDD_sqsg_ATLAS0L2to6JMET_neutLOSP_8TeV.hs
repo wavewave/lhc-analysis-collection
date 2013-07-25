@@ -29,20 +29,8 @@ import HEP.Util.Work
 import Util
 import Debug.Trace
 
-{-
-datalst :: [ (Double,Double) ]
--- datalst = [ (g,q) | g <- [2500,2600..3000], q <- [200,300..3000] ]
-datalst = [ (g,q) | g <- [200,300..3000], q <- [200,300..3000] ]
-
-datalst1of2 :: [ (Double,Double) ]
-datalst1of2 = [ (g,q) | g <- [200,300..1500], q <- [200,300..3000] ]
-
-datalst2of2 :: [ (Double,Double) ]
-datalst2of2 = [ (g,q) | g <- [1600,1700..3000], q <- [200,300..3000] ]
--- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
--}
-
-m_neutralino = 300
+m_neutralino :: Double 
+m_neutralino = 500
 
 datalst :: [ (Double,Double) ]
 datalst = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
@@ -68,7 +56,7 @@ checkFiles c procname = do
 
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/XUDDdegen/8TeV/neutLOSP/scan_" ++ procname 
-      basename = "ADMXUDD112degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN100.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "ADMXUDD112degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show m_neutralino ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 dirset = [ "2sg_10j2x"
@@ -113,7 +101,7 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile "xudd_neutLOSP100_sqsg_8TeV_0lep.dat" WriteMode 
+  outh <- openFile ("xudd_neutLOSP" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do 
 

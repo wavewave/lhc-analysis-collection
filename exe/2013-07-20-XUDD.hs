@@ -202,7 +202,8 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 
 pdir = ProcDir "Work20130720" "montecarlo/admproject/XUDDdegen/8TeV/neutLOSP" "scan"
 
-m_neutralino = 300
+m_neutralino :: Double 
+m_neutralino = 500
 
 worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
 worksets = set_2sg <> set_sqsg <> set_2sq 

@@ -528,7 +528,7 @@ mkHistogram passed =
 -- Limit Data --
 ----------------
 
--- this is from S_exp^95 in Table 4
+-- | this is from S_exp^95 in Table 4
 limitOfNBSM :: [ (EType,Double) ] 
 limitOfNBSM = [ (AL, 1135) 
               , (AM, 42.7)

@@ -27,33 +27,370 @@
 
 module HEP.Physics.Analysis.ATLAS.SUSY.SUSY_1to2L2to6JMET_8TeV where
 
-
+import Codec.Compression.GZip
 import Control.Applicative
 -- import Control.Arrow ((&&&),(>>>))
 -- import Control.Comonad
 -- import Control.Comonad.Trans.Store
 import Control.Lens hiding ((#))
 import Control.Monad
-import Control.Monad.Morph
 import Control.Monad.State
 import Control.Monad.Trans 
 import Control.Monad.Trans.Either
+import           Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.Aeson.Generic as G
+import           Data.Aeson.Types
+import qualified Data.ByteString.Lazy.Char8 as LB
+import Data.Data
 import Data.Default
 import Data.List
 import Data.Maybe
+import qualified Data.Map.Strict as M
+import System.Directory
 -- 
 import HEP.Parser.LHCOAnalysis.PhysObj 
-import HEP.Storage.WebDAV.Type 
+import HEP.Parser.LHCOAnalysis.Parse
+import HEP.Storage.WebDAV.CURL
+import HEP.Storage.WebDAV.Type
+import HEP.Util.Either 
 import HEP.Util.Functions (invmass)
 -- 
 import HEP.Physics.Analysis.ATLAS.Common ((#),tau2Jet, bJet2Jet, deltaRdist,mt,normalizeDphi)
 -- 
 import Prelude hiding (subtract)
 
+-------------------------
+-- histogram data type --
+-------------------------
 
+data EType = S1L1BLM | S1L1BHM | S1L2BLM | S1L2BHM | S1L3J | S1L5J | S2Mu2J 
+           | BH1E3J | BH1M3J | BH1E5J | BH1M5J | BH1E6J | BH1M6J 
+           | IH1E3J | IH1M3J | IH1E5J | IH1M5J | IH1E6J | IH1M6J
+           deriving (Show, Eq, Ord, Data, Typeable)
+
+instance ToJSON EType where toJSON = G.toJSON
+
+type HistEType = [ (EType,Int) ]
+
+data TotalSR a = TotalSR { numS1L1BLM :: a
+                         , numS1L1BHM :: a
+                         , numS1L2BLM :: a
+                         , numS1L2BHM :: a 
+                         , numS1L3J :: a
+                         , numS1L5J :: a 
+                         , numS2Mu2J :: a 
+                         , numBH1E3J :: a
+                         , numBH1M3J :: a 
+                         , numBH1E5J :: a 
+                         , numBH1M5J :: a 
+                         , numBH1E6J :: a 
+                         , numBH1M6J :: a 
+                         , numIH1E3J :: a
+                         , numIH1M3J :: a 
+                         , numIH1E5J :: a 
+                         , numIH1M5J :: a 
+                         , numIH1E6J :: a 
+                         , numIH1M6J :: a 
+                         }
+
+
+deriving instance (Show a)     => Show (TotalSR a) 
+deriving instance (Eq a)       => Eq (TotalSR a)
+deriving instance (Data a)     => Data (TotalSR a)
+deriving instance Typeable1 TotalSR 
+
+
+instance (Data a) => ToJSON (TotalSR a) where toJSON = G.toJSON
+
+instance (Num a)  => Num (TotalSR a) where
+  a + b = TotalSR { numS1L1BLM = numS1L1BLM a + numS1L1BLM b   
+                  , numS1L1BHM = numS1L1BHM a + numS1L1BHM b 
+                  , numS1L2BLM = numS1L2BLM a + numS1L2BLM b 
+                  , numS1L2BHM = numS1L2BHM a + numS1L2BHM b 
+                  , numS1L3J = numS1L3J a + numS1L3J b 
+                  , numS1L5J = numS1L5J a + numS1L5J b 
+                  , numS2Mu2J = numS2Mu2J a + numS2Mu2J b 
+                  , numBH1E3J = numBH1E3J a + numBH1E3J b 
+                  , numBH1M3J = numBH1M3J a + numBH1M3J b 
+                  , numBH1E5J = numBH1E5J a + numBH1E5J b 
+                  , numBH1M5J = numBH1M5J a + numBH1M5J b 
+                  , numBH1E6J = numBH1E6J a + numBH1E6J b 
+                  , numBH1M6J = numBH1M6J a + numBH1M6J b 
+                  , numIH1E3J = numIH1E3J a + numIH1E3J b 
+                  , numIH1M3J = numIH1M3J a + numIH1M3J b 
+                  , numIH1E5J = numIH1E5J a + numIH1E5J b 
+                  , numIH1M5J = numIH1M5J a + numIH1M5J b 
+                  , numIH1E6J = numIH1E6J a + numIH1E6J b 
+                  , numIH1M6J = numIH1M6J a + numIH1M6J b 
+                  } 
+  a * b = TotalSR { numS1L1BLM = numS1L1BLM a * numS1L1BLM b   
+                  , numS1L1BHM = numS1L1BHM a * numS1L1BHM b 
+                  , numS1L2BLM = numS1L2BLM a * numS1L2BLM b 
+                  , numS1L2BHM = numS1L2BHM a * numS1L2BHM b 
+                  , numS1L3J = numS1L3J a * numS1L3J b 
+                  , numS1L5J = numS1L5J a * numS1L5J b 
+                  , numS2Mu2J = numS2Mu2J a * numS2Mu2J b 
+                  , numBH1E3J = numBH1E3J a * numBH1E3J b 
+                  , numBH1M3J = numBH1M3J a * numBH1M3J b 
+                  , numBH1E5J = numBH1E5J a * numBH1E5J b 
+                  , numBH1M5J = numBH1M5J a * numBH1M5J b 
+                  , numBH1E6J = numBH1E6J a * numBH1E6J b 
+                  , numBH1M6J = numBH1M6J a * numBH1M6J b 
+                  , numIH1E3J = numIH1E3J a * numIH1E3J b 
+                  , numIH1M3J = numIH1M3J a * numIH1M3J b 
+                  , numIH1E5J = numIH1E5J a * numIH1E5J b 
+                  , numIH1M5J = numIH1M5J a * numIH1M5J b 
+                  , numIH1E6J = numIH1E6J a * numIH1E6J b 
+                  , numIH1M6J = numIH1M6J a * numIH1M6J b 
+                  }
+  negate = id 
+  abs = id
+  fromInteger n = TotalSR { numS1L1BLM = fromInteger n 
+                          , numS1L1BHM = fromInteger n
+                          , numS1L2BLM = fromInteger n
+                          , numS1L2BHM = fromInteger n
+                          , numS1L3J = fromInteger n
+                          , numS1L5J = fromInteger n
+                          , numS2Mu2J = fromInteger n
+                          , numBH1E3J = fromInteger n
+                          , numBH1M3J = fromInteger n
+                          , numBH1E5J = fromInteger n
+                          , numBH1M5J = fromInteger n
+                          , numBH1E6J = fromInteger n
+                          , numBH1M6J = fromInteger n
+                          , numIH1E3J = fromInteger n
+                          , numIH1M3J = fromInteger n
+                          , numIH1E5J = fromInteger n
+                          , numIH1M5J = fromInteger n
+                          , numIH1E6J = fromInteger n
+                          , numIH1M6J = fromInteger n
+
+                          }
+  signum _ = fromInteger 1
+
+
+mkHistogram :: [EType] -> HistEType  
+mkHistogram etyps = 
+  let lst = map (\x->(x,1)) etyps
+      ascmap = foldr (\(k,v) m->M.insertWith (+) k v m) M.empty lst 
+  in M.toAscList ascmap
+
+
+
+multiplyScalar c a =  
+  TotalSR { numS1L1BLM = c * numS1L1BLM a 
+          , numS1L1BHM = c * numS1L1BHM a 
+          , numS1L2BLM = c * numS1L2BLM a 
+          , numS1L2BHM = c * numS1L2BHM a 
+          , numS1L3J = c * numS1L3J a 
+          , numS1L5J = c * numS1L5J a 
+          , numS2Mu2J = c * numS2Mu2J a 
+          , numBH1E3J = c * numBH1E3J a 
+          , numBH1M3J = c * numBH1M3J a 
+          , numBH1E5J = c * numBH1E5J a 
+          , numBH1M5J = c * numBH1M5J a 
+          , numBH1E6J = c * numBH1E6J a 
+          , numBH1M6J = c * numBH1M5J a 
+          , numIH1E3J = c * numIH1E3J a 
+          , numIH1M3J = c * numIH1M3J a 
+          , numIH1E5J = c * numIH1E5J a 
+          , numIH1M5J = c * numIH1M5J a 
+          , numIH1E6J = c * numIH1E6J a 
+          , numIH1M6J = c * numIH1M6J a 
+          }
+
+-----------------------
+-- utility functions --
+-----------------------
+ 
+mkTotalSR :: (Num a) => [[ (EType, a) ]] -> TotalSR a
+mkTotalSR hists = TotalSR { numS1L1BLM = sumup S1L1BLM
+                          , numS1L1BHM = sumup S1L1BHM
+                          , numS1L2BLM = sumup S1L2BLM
+                          , numS1L2BHM = sumup S1L2BHM
+                          , numS1L3J = sumup S1L3J
+                          , numS1L5J = sumup S1L5J
+                          , numS2Mu2J = sumup S2Mu2J
+                          , numBH1E3J = sumup BH1E3J
+                          , numBH1M3J = sumup BH1M3J
+                          , numBH1E5J = sumup BH1E5J
+                          , numBH1M5J = sumup BH1M5J
+                          , numBH1E6J = sumup BH1E6J
+                          , numBH1M6J = sumup BH1M6J
+                          , numIH1E3J = sumup IH1E3J
+                          , numIH1M3J = sumup IH1M3J
+                          , numIH1E5J = sumup IH1E5J
+                          , numIH1M5J = sumup IH1M5J
+                          , numIH1E6J = sumup IH1E6J
+                          , numIH1M6J = sumup IH1M6J
+                          }
+  where sumup k = (sum . mapMaybe (lookup k)) hists
+
+
+
+getRFromSR sr = 
+    let r = TotalSR { numS1L1BLM = g numS1L1BLM
+                    , numS1L1BHM = g numS1L1BHM
+                    , numS1L2BLM = g numS1L2BLM
+                    , numS1L2BHM = g numS1L2BHM
+                    , numS1L3J = g numS1L3J
+                    , numS1L5J = g numS1L5J
+                    , numS2Mu2J = g numS2Mu2J
+                    , numBH1E3J = g numBH1E3J
+                    , numBH1M3J = g numBH1M3J
+                    , numBH1E5J = g numBH1E5J
+                    , numBH1M5J = g numBH1M5J
+                    , numBH1E6J = g numBH1E6J
+                    , numBH1M6J = g numBH1M6J
+                    , numIH1E3J = g numIH1E3J
+                    , numIH1M3J = g numIH1M3J
+                    , numIH1E5J = g numIH1E5J
+                    , numIH1M5J = g numIH1M5J
+                    , numIH1E6J = g numIH1E6J
+                    , numIH1M6J = g numIH1M6J
+                    } 
+    in maximumInSR r 
+  where getratio f x y = f x / f y 
+        g f = getratio f sr limitOfNBSM_SR
+
+-- | this is from S_exp^95
+limitOfNBSM :: [ (EType,Double) ]
+limitOfNBSM = [ ( S1L1BLM, 6.9 )
+              , ( S1L1BHM, 6.3 )
+              , ( S1L2BLM, 13.2) 
+              , ( S1L2BHM, 5.3 )
+              , ( S1L3J  , 7.3 )
+              , ( S1L5J  , 10.0) 
+              , ( S2Mu2J , 5.9 )
+              , ( BH1E3J , 20.2)
+              , ( BH1M3J , 15.6)
+              , ( BH1E5J , 12.6)
+              , ( BH1M5J , 7.6 )
+              , ( BH1E6J , 7.8 )
+              , ( BH1M6J , 7.1 )
+              , ( IH1E3J , 5.7 )
+              , ( IH1M3J , 5.1 )
+              , ( IH1E5J , 5.4 )
+              , ( IH1M5J , 4.7 )
+              , ( IH1E6J , 4.4 )
+              , ( IH1M6J , 4.1 )
+              ] 
+
+limitOfNBSM_SR :: TotalSR Double
+limitOfNBSM_SR = mkTotalSR [limitOfNBSM]
+
+
+
+maximumInSR TotalSR{..} = 
+    maximum [ numS1L1BLM, numS1L1BHM, numS1L2BLM, numS1L2BHM, numS1L3J, numS1L5J, numS2Mu2J
+            , numBH1E3J, numBH1M3J, numBH1E5J, numBH1M5J, numBH1E6J, numBH1M6J 
+            , numIH1E3J, numIH1M3J, numIH1E5J, numIH1M5J, numIH1E6J, numIH1M6J  
+            ]
+
+
+------------------------------------------
+-- intermediate data types for analysis --
+------------------------------------------
+
+data PrunedEvent = Unpruned PhyEventClassified
+                 | TauMerged PhyEventNoTau
+
+
+data MultiLep = MultiLep1 Lepton12Obj | MultiLep2 Lepton12Obj Lepton12Obj | MultiLepOther
+
+
+-- data Soft1L3J deriving Show 
+-- data Soft1L5J deriving Show 
+data Soft2Muon = Soft2Muon deriving Show
+
+data Soft1L1BLow = Soft1L1BLow deriving Show 
+data Soft1L1BHigh = Soft1L1BHigh deriving Show
+
+data Soft1L2BLow = Soft1L2BLow deriving Show
+data Soft1L2BHigh = Soft1L2BHigh deriving Show
+ 
+data SoftEvent = SoftSingleLep (Either String Soft1L1B, Either String Soft1L2B, Either String Soft1L)
+                 | SoftDiMuon (Either String Soft2Muon)
+                 deriving Show
+
+data Soft1L = Soft1L3J | Soft1L5J  
+            deriving Show 
+data Soft1L1B = Soft1L1B (Either String Soft1L1BLow, Either String Soft1L1BHigh)
+              deriving Show 
+data Soft1L2B = Soft1L2B (Either String Soft1L2BLow, Either String Soft1L2BHigh)
+              deriving Show 
+
+data MassRegion = LowMass | HighMass deriving (Show,Eq,Ord) 
+
+
+data HardEvent = HardEvent (HardInc, Either String HardBin)
+               deriving Show
+
+data HardInc = HardInc (Either String HardInc3J, Either String HardInc5J, Either String HardInc6J)
+             deriving Show 
+
+
+data HardBin = HardBin3J { hardBinIsMuon :: Bool } 
+             | HardBin5J { hardBinIsMuon :: Bool } 
+             | HardBin6J { hardBinIsMuon :: Bool } 
+             deriving Show
+
+
+data HardInc3J = HardInc3J { hardInc3JIsMuon :: Bool } deriving Show 
+data HardInc5J = HardInc5J { hardInc5JIsMuon :: Bool } deriving Show 
+data HardInc6J = HardInc6J { hardInc6JIsMuon :: Bool } deriving Show 
+
+
+data IsInclusive = Inclusive | Binned deriving (Show,Eq,Ord)
+
+data MultiJet = MultiJet2 (JetBJetObj,JetBJetObj) [JetBJetObj]
+              | MultiJet3 (JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
+              | MultiJet5 (JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
+              | MultiJet6 (JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
+
+
+getETypes :: Either String (Either String SoftEvent, Either String HardEvent) -> [EType]
+getETypes (Left _) = []
+getETypes (Right (es,eh)) =
+  let result_soft = case es of 
+        Left _ -> [] 
+        Right (SoftSingleLep (e1b,e2b,einc)) -> 
+          let r_1b = case e1b of 
+                Left _ -> []
+                Right (Soft1L1B (e1bl,e1bh)) -> 
+                  let r_1bl = either (const []) (const [S1L1BLM]) e1bl  
+                      r_1bh = either (const []) (const [S1L1BHM]) e1bh
+                  in r_1bl ++ r_1bh
+              r_2b = case e2b of 
+                Left _ -> []
+                Right (Soft1L2B (e2bl,e2bh)) ->
+                  let r_2bl = either (const []) (const [S1L2BLM]) e2bl
+                      r_2bh = either (const []) (const [S1L2BHM]) e2bh
+                  in r_2bl ++ r_2bh   
+              r_inc = case einc of 
+                Left _ -> []
+                Right Soft1L3J -> [S1L3J]
+                Right Soft1L5J -> [S1L5J]
+          in r_1b ++ r_2b ++ r_inc
+        Right (SoftDiMuon e2mu) -> either (const []) (const [S2Mu2J]) e2mu
+      result_hard = case eh of 
+        Left _ -> []
+        Right (HardEvent (HardInc (eih3, eih5, eih6), ebh)) ->
+          let r_bh = either (const [])  
+                       (\case HardBin3J b -> if b then [BH1M3J] else [BH1E3J]   
+                              HardBin5J b -> if b then [BH1M5J] else [BH1E5J] 
+                              HardBin6J b -> if b then [BH1M6J] else [BH1E6J] 
+                       ) ebh 
+              r_ih3 = either (const []) (\case HardInc3J b -> if b then [IH1M3J] else [IH1E3J]) eih3
+              r_ih5 = either (const []) (\case HardInc5J b -> if b then [IH1M5J] else [IH1E5J]) eih5
+              r_ih6 = either (const []) (\case HardInc6J b -> if b then [IH1M6J] else [IH1E6J]) eih6
+          in r_ih3 ++ r_ih5 ++ r_ih6 ++ r_bh 
+  in result_soft ++ result_hard
+
+{-
 instance MFunctor (EitherT e) where 
   hoist nat m = EitherT (nat (runEitherT m))
-
+-}
 
 -- meffNj 4 
 
@@ -64,20 +401,6 @@ instance MFunctor (EitherT e) where
 guardE :: String -> Bool -> Either String ()
 guardE msg b = if b then return () else Left msg 
 
----------------------
--- comonad utility --
---------------------- 
-
-{-
-cget :: Store s a -> s   
-cget = pos 
-
-cput :: Store s s -> Store s s
-cput w = seek (extract w) w 
-
-switchAfter :: (s -> s) -> (Store s s -> b) -> Store s a -> b  
-switchAfter f g = (cget >>> f ) =>= cput =>= (extract >>> g) 
--}
 
 -------------------------------
 -- Physics Object Definition --
@@ -172,77 +495,6 @@ isJet (JO_BJet _) = False
 isBJet :: JetBJetObj -> Bool 
 isBJet (JO_Jet _) = False
 isBJet (JO_BJet _) = True
-
-
-
-
-{-
-data ChanBJet = BJet0 | BJet1 | BJet2
-
-data Chan356Jet = Jet3 | Jet5 | Jet6 
-
-data ChanEMu = ChanE | ChanMu
-
-data ChanDimuon = DimuonJ3 | DimuonJ5
-
-data ChanType = Soft1Lep ChanBJet 
-              | Soft2Muon ChanDimuon 
-              | Hard1LepBinned ChanEMu Chan356Jet
-              | Hard1LepInc ChanEMu Chan356Jet 
--}
-
-data PrunedEvent = Unpruned PhyEventClassified
-                 | TauMerged PhyEventNoTau
---                 | BJetMerged (PhyEventNoTau,[PhyObj Jet])
---                  | SoftEv SoftEvent 
---                 | HardEv HardEvent
-
-
-data MultiLep = MultiLep1 Lepton12Obj | MultiLep2 Lepton12Obj Lepton12Obj | MultiLepOther
-
--- data Soft1L1BEv
--- data Soft1L2BEv
-data Soft1L3J
-data Soft1L5J
-data Soft2Muon = Soft2Muon
-
-data Soft1L1BLow = Soft1L1BLow
-data Soft1L1BHigh = Soft1L1BHigh
-
-data Soft1L2BLow = Soft1L2BLow
-data Soft1L2BHigh = Soft1L2BHigh
- 
-data SoftEvent = SoftSingleLep (Either String Soft1L1B, Either String Soft1L2B, Either String Soft1L)
-                 | SoftDiMuon (Either String Soft2Muon)
-
-data Soft1L = Soft1L3J | Soft1L5J 
-data Soft1L1B = Soft1L1B (Either String Soft1L1BLow, Either String Soft1L1BHigh)
-data Soft1L2B = Soft1L2B (Either String Soft1L2BLow, Either String Soft1L2BHigh)
-
-data MassRegion = LowMass | HighMass deriving (Show,Eq,Ord) 
-
-
-data HardEvent = HardEvent (HardInc, Either String HardBin)
-
-data HardInc = HardInc (Either String HardInc3J, Either String HardInc5J, Either String HardInc6J)
-data HardBin = HardBin3J | HardBin5J | HardBin6J
-
-data HardInc3J = HardInc3J 
-data HardInc5J = HardInc5J
-data HardInc6J = HardInc6J
-
-{-
-data HardBin3J = HardBin3J
-data HardBin5J = HardBin5J
-data HardBin6J = HardBin6J
--} 
-
-data IsInclusive = Inclusive | Binned deriving (Show,Eq,Ord)
-
-data MultiJet = MultiJet2 (JetBJetObj,JetBJetObj) [JetBJetObj]
-              | MultiJet3 (JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
-              | MultiJet5 (JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
-              | MultiJet6 (JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj,JetBJetObj) [JetBJetObj]
 
 
 -- data SoftEventType = DiMuonEvent | SingleLepEvent
@@ -373,12 +625,6 @@ getNJets _ x = Left "getNJets: asking for n /= 2,3,5,6"
 
 
 
-
-{-
-allJets :: (PhyEventNoTau,[PhyObj Jet]) -> [PhyObj Jet]
-allJets = snd
--}
-
 phyEventNoTau :: (PhyEventNoTau, [PhyObj Jet]) -> PhyEventNoTau
 phyEventNoTau = fst
 
@@ -398,12 +644,6 @@ mergeTau :: PrunedEvent -> Either String PrunedEvent
 mergeTau (Unpruned ev) = Right (TauMerged (mkPhyEventNoTau ev))
 mergeTau _ = Left ("mergeTau: not Unpruned")
 
-{-
-mergeBJet :: PrunedEvent -> Either String PrunedEvent 
-mergeBJet (TauMerged ev) = (Right . BJetMerged . (,) ev .  sortBy (flip ptcompare)) 
-                             (view jets ev ++ map bJet2Jet (view bjets ev))
-mergeBJet _ = Left ("mergeBJet: not TauMerged")
--}
 
 proc1ev :: PhyEventClassified -> Either String (Either String SoftEvent, Either String HardEvent)
 proc1ev ev = (mergeTau 
@@ -422,14 +662,6 @@ mkChannel e = (chanSoft e, chanHard e)
 chanSoft :: PhyEventNoTau -> Either String SoftEvent
 chanSoft = branchSoft. isolateLepton . preselectionSoft 
   
-{-
-         SoftUnclassified e -> (Right . SoftPreselected . preselectionSoft) e 
-         _ -> Left "chanSoft : not SoftUnclassified"
-  y <- case x of 
-         SoftPreselected e -> (Right . SoftIsolated . isolateLepton) e  
-         _ -> Left "chanSoft : not SoftPreselected"
-  branchSoft y
--}
           
 branchSoft :: PhyEventNoTau -> Either String SoftEvent 
 branchSoft e = let (ls, m) = countLeptonNumber e 
@@ -558,7 +790,6 @@ chanHardInc (e,l) = HardInc (chanHardInc3J (e,l), chanHardInc5J (e,l), chanHardI
 
 chanHardInc3J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardInc3J
 chanHardInc3J (ev,l) = do 
-    -- (guardE "chanHardInc3J: nj < 3" . (>= 3) .  fst . countJetNumber) ev
     getNJets 3 ev >>= hardCheckPTJet Inclusive  
     let etmiss = missingETpT ev 
     guardE "chanHardInc3J: ETmiss <= 500" (etmiss > 500)
@@ -566,25 +797,23 @@ chanHardInc3J (ev,l) = do
     let r = etmiss / meffExcl (ev,l)
     guardE "chanHardInc3J: ETmiss / meff^excl <= 0.3" (r > 0.3) 
     guardE "chanHardInc3J: meff^incl <= 1400" (meffIncl (ev,l) > 1400)
-    return HardInc3J
+    return (HardInc3J (isMuon l))
 
 chanHardInc5J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardInc5J
 chanHardInc5J (ev,l) = do 
-    -- (guardE "chanHardInc5J: nj < 5" . (>= 5) .  fst . countJetNumber) ev
     getNJets 5 ev >>= hardCheckPTJet Inclusive 
     (guardE "chanHardInc5J: ETmiss <= 300" . (> 300). missingETpT) ev
     (guardE "chanHardInc5J: mT <= 200" . (> 200)) (mTlep ev l)
     guardE "chanHardInc5J: meff^incl <= 1400" (meffIncl (ev,l) > 1400)
-    return HardInc5J
+    return (HardInc5J (isMuon l))
 
 chanHardInc6J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardInc6J 
 chanHardInc6J (ev,l) = do 
-    -- (guardE "chanHardInc6J: nj < 6" . (>= 6) .  fst . countJetNumber) ev
     getNJets 6 ev >>= hardCheckPTJet Inclusive 
     (guardE "chanHardInc6J: ETmiss <= 350" . (> 350). missingETpT) ev
     (guardE "chanHardInc6J: mT <= 150" . (> 150)) (mTlep ev l)
     guardE "chanHardInc6J: meff^incl <= 600" (meffIncl (ev,l) > 600)
-    return HardInc6J
+    return (HardInc6J (isMuon l))
 
 chanHardBin :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin
 chanHardBin (e,l) = 
@@ -600,7 +829,6 @@ chanHardBin (e,l) =
 
 chanHardBin3J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin
 chanHardBin3J (ev,l) = do 
-    -- (guardE "chanHardBin3J: nj < 3" . (>= 3) .  fst . countJetNumber) ev
     getNJets 3 ev >>= hardCheckPTJet Binned  
     let etmiss = missingETpT ev 
     guardE "chanHardBin3J: ETmiss <= 300" (etmiss > 300)
@@ -608,34 +836,24 @@ chanHardBin3J (ev,l) = do
     let r = etmiss / meffExcl (ev,l)
     guardE "chanHardBin3J: ETmiss / meff^excl <= 0.3" (r > 0.3) 
     guardE "chanHardBin3J: meff^incl <= 800" (meffIncl (ev,l) > 800)
-    return HardBin3J
+    return (HardBin3J (isMuon l))
 
 chanHardBin5J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin
 chanHardBin5J (ev,l) = do  
-    -- (guardE "chanHardBin5J: nj < 5" . (>= 5) .  fst . countJetNumber) ev
     getNJets 5 ev >>= hardCheckPTJet Binned 
     (guardE "chanHardBin5J: ETmiss <= 300" . (> 300). missingETpT) ev
     (guardE "chanHardBin5J: mT <= 150" . (> 150)) (mTlep ev l)
     guardE "chanHardBin5J: meff^incl <= 800" (meffIncl (ev,l) > 800)
-    return HardBin5J
+    return (HardBin5J (isMuon l))
 
 
 chanHardBin6J :: (PhyEventNoTauNoBJet,Lepton12Obj) -> Either String HardBin
 chanHardBin6J (ev,l) = do 
-    -- (guardE "chanHardBin6J: nj < 6" . (>= 6) .  fst . countJetNumber) ev
     getNJets 6 ev >>= hardCheckPTJet Binned 
     (guardE "chanHardBin6J: ETmiss <= 250" . (> 250). missingETpT) ev
     (guardE "chanHardBin6J: mT <= 150" . (> 150)) (mTlep ev l)
     guardE "chanHardBin3J: meff^incl <= 600" (meffIncl (ev,l) > 600)
-    return HardBin6J 
-
-
-
-
-
-
-
-
+    return (HardBin6J (isMuon l))
 
 
 -----------------------
@@ -856,165 +1074,34 @@ mkElimCmd (i,l,(jeti,jetio,_)) = case l of
 
                                                         
       
-
-
-
-{-
-classify :: forall m. Monad m => PhyEventClassified -> EitherT String m ()
-classify ev = classifyM' >> return () 
-  where -- classifyM' :: (Monad m) => EitherT String m ()
-        classifyM' = hoist (flip evalStateT (Unpruned ev)) classifyM
-
--}
-
-{-
-checkSoft :: (Monad m) => PrunedEvent -> EitherT String m Bool 
-checkSoft = \case 
-               BJetMerged ev -> classifySoft ev
-               _ -> left "checkSoft : not BJetMerged" 
-
-softeventtype :: SoftEvent -> Maybe SoftEventType
-softeventtype (Soft2Muon _) =  Just DiMuonEvent
-softeventtype (Soft1Lep _) = Just SingleLepEvent
-softeventtype _ = Nothing 
-
-classifySoft :: SoftEvent -> Maybe SoftEventType
-classifySoft e = (store softeventtype e)
-
-
-cget = pos 
-
-cput w = seek (extract w) w 
-
-switchAfter f g = (cget >>> f ) =>= cput =>= (extract >>> g) 
-
-classifyFlow = (switchAfter objrecon_soft 
-                 (dimuon &&& soft1lep))
-               &&& 
-               (switchAfter objrecon_hard 
-                 (binned &&& inclusive))
-
-dimuon = dimuon_3jet ||| dimuon_5jet
-
-singlelep = singlelep_bjet1 ||| singlelep_bjet2 
-
-{- 
-softflow = switchAfter objrecon_soft 
-             (cget >>> (dimuon &&& singlelep))
--}
-
-{-
-hardflow = switchAfter objrecon_hard 
-             (cget >>> (binned &&& inclusive))
--}
-
-
-
-classifySoft2muon :: SoftEvent -> Bool 
-classifySoft2muon e = True
-
-classifySoft1Lep :: SoftEvent -> Bool
-classifySoft1Lep e = True 
-
-
-checkHard :: (Monad m) => PrunedEvent -> EitherT String m Bool
-checkHard e = e # \case  
-                BJetMerged ev -> return True
-                _ -> left "checkHard : not BJetMerged"
-   
-
- 
-classifyM :: Monad m => EitherT String (StateT PrunedEvent m) (Bool,Bool)
-classifyM = get >>= mergeTau >>= mergeBJet >>= put >> do 
-              e <- get 
-              s <- checkSoft e 
-              h <- checkHard e
-              return (s,h)
-
-classify :: forall m. Monad m => PhyEventClassified -> EitherT String m ()
-classify ev = classifyM' >> return () 
-  where -- classifyM' :: (Monad m) => EitherT String m ()
-        classifyM' = hoist (flip evalStateT (Unpruned ev)) classifyM
-
--- runStateT classifyM (Unpruned ev)) >> return ()
-
--}
-
-
-{-
-
-
-
-
--- |
-preSelectionSoft :: (MonadPlus m) => IxStateT TauMergedEv TauMergedEv ()
-preSelectionSoft = 
-  iget >>>= \(TauMerged ev@PhyEventClassified {..}) -> 
-  let elst' = filter (\(_,e)->pt e > 7 && abs (eta e) < 2.47) electronlst 
-      mlst' = filter (\(_,m)->pt m > 6 && abs (eta m) < 2.4) muonlst 
-      jlst' = filter (\(_,j)->pt j > 20 && abs (eta j) < 2.8) jetlst
-      blst' = filter (\(_,b)->pt b > 20 && abs (eta b) < 2.8) bjetlst  
-  in iput (JetMerged ev { electronlst = elst', muonlst = mlst', jetlst = jlst', bjetlst=blst' })
-
-
--- |
-preSelectionHard :: (MonadPlus m) => IxStateT TauMergedEv TauMergedEv ()
-preSelectionHard = 
-  iget >>>= \(TauMerged ev@PhyEventClassified {..}) -> 
-  let elst' = filter (\(_,e)->pt e > 10 && abs (eta e) < 2.47) electronlst 
-      mlst' = filter (\(_,m)->pt m > 10 && abs (eta m) < 2.4) muonlst 
-      jlst' = filter (\(_,j)->pt j > 20 && abs (eta j) < 2.8) jetlst
-      blst' = filter (\(_,b)->pt b > 20 && abs (eta b) < 2.8) bjetlst  
-  in iput (JetMerged ev { electronlst = elst', muonlst = mlst', jetlst = jlst', bjetlst=blst' })
-
-
-
-
-classifyM :: MonadPlus m => IxStateT m RawEv TauMergedEv ()
-classifyM = 
-    imodify tauMergeIx >>>
-    objrecon     
-
-
-
-classify :: (Functor m, MonadPlus m) => PhyEventClassified -> m ()
-classify ev = fst <$> runIxStateT classifyM (Raw ev)
-
-
-
-
-
-
-
 ------------------- 
 -- main analysis --
 -------------------
 
 -- | 
-atlas_SUSY_1to2L2to6JMET_8TeV :: ([Double],[Double]) 
-                              -> WebDAVConfig 
+atlas_SUSY_1to2L2to6JMET_8TeV :: WebDAVConfig 
                               -> WebDAVRemoteDir 
                               -> String 
                               -> IO (Maybe ()) 
-atlas_SUSY_1to2L2to6JMET_8TeV (as,bs) wdavcfg wdavrdir bname = do return Nothing
-{-    print bname 
+atlas_SUSY_1to2L2to6JMET_8TeV wdavcfg wdavrdir bname = do 
+    print bname 
     let fp = bname ++ "_pgs_events.lhco.gz"
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp) $ do 
       downloadFile False wdavcfg wdavrdir fp 
       bstr <- LB.readFile fp 
       let unzipped =decompress bstr 
           evts = parsestr unzipped 
-          passed jes = (catMaybes . map (classify jes)) evts  
-          asclst jes = mkHistogram (passed jes)
-          testlst = [ (trace (show jes) jes, asclst jes) | a <- as, b <- bs, let jes = JESParam a b ]
+          passed = map proc1ev evts  
+          -- asclst jes = mkHistogram (passed jes)
+          -- testlst = [ (jes, asclst jes) | a <- as, b <- bs, let jes = JESParam a b ]
+          hist =  mkHistogram. concat . filter (not.null) . map getETypes $ passed 
+
       let jsonfn = bname ++ "_ATLAS_1to2L2to6JMET_8TeV.json"
-      let bstr = encodePretty testlst 
+      let bstr = encodePretty hist 
       LB.writeFile jsonfn bstr 
       uploadFile wdavcfg wdavrdir jsonfn 
       removeFile jsonfn
       removeFile fp 
 
       return ()
- -}
-
--}
+ 

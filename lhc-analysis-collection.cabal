@@ -56,9 +56,6 @@ Library
                    indexed-extras >= 0.1.1.0, 
                    indexed, 
                    lens, 
-                   mmorph,
-                   comonad, 
-                   comonad-transformers, 
                    data-default
                    
   Exposed-Modules: 
