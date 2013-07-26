@@ -1,13 +1,25 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 import qualified Data.ByteString.Char8 as B
 
 import Control.Applicative
-import Data.Attoparsec.Char8
-import Data.Attoparsec.Combinator
+import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Either
+-- import Data.Attoparsec.Char8
+-- import Data.Attoparsec.Combinator
+import Data.Aeson.Encode.Pretty (encodePretty)
+import qualified Data.Aeson.Generic as G 
+import Data.Aeson.Types
+import qualified Data.ByteString.Lazy.Char8 as LB
+import qualified Data.Configurator as C
+import Data.Data 
 import Data.List.Split
 import qualified Data.Map as M
+import System.Console.CmdArgs
 import System.Directory
 import System.FilePath
 import System.IO 
@@ -16,32 +28,83 @@ import Text.Printf
 import Text.StringTemplate
 import Text.StringTemplate.Helpers
 -- 
+import qualified HEP.Automation.EventGeneration.Config as EC
+import HEP.Storage.WebDAV.CURL
+import HEP.Storage.WebDAV.Type
+import HEP.Util.Either
+-- 
 import Paths_lhc_analysis_collection
 
--- pSLHA = many (skipWhile (/= '<')) >> (try (string "slha>") <|> pSLHA) 
-{-
-pSLHA = (manyTill anyChar (try (string "<slha>")) >> manyTill anyChar (string "</slha>")) <?> "pSLHA"
+-------------------------
+-- config data defined -- 
+-------------------------
 
-extractSLHA :: FilePath -> IO (Either String String)
-extractSLHA fp = do 
-  bstr <- B.readFile fp 
-  let c = parseOnly pSLHA bstr 
-  return c 
--}
+data Config = Config { prospinoBaseDir :: FilePath 
+                     , prospinoResultFileName :: String 
+                     , prospinoRemoteDir :: FilePath 
+                     } 
 
-{-
-main :: IO ()
-main = do 
-  putStrLn "run prospino"
-  r <- extractSLHA "test.lhe"
-  case r of 
-    Left err -> putStrLn err 
-    Right str -> do 
-      writeFile "prospino.in.les_houches" str 
-      system "./prospino_2.run"
-      return ()
-  return ()
--}
+getConfig :: FilePath -> IO (Maybe Config)
+getConfig conf = do 
+  cfg <- C.load [C.Required conf] 
+  mbasedir <- C.lookup cfg "prospino.basedir" 
+  mfilename <- C.lookup cfg "prospino.resultFileName"
+  mremotedir <- C.lookup cfg "prospino.remoteDir" 
+  return (Config <$> mbasedir <*> mfilename <*> mremotedir)
+
+
+-------------
+-- command --
+-------------
+
+data RunProspino = Install { config :: FilePath }
+                 | GluinoPair { evgencfg :: FilePath 
+                              , squark :: Double
+                              , gluino :: Double
+                              , config :: FilePath } 
+                 | SquarkGluino { evgencfg :: FilePath 
+                                , squark :: Double
+                                , gluino :: Double 
+                                , config :: FilePath }
+                 | SquarkPair { evgencfg :: FilePath
+                              , squark :: Double
+                              , gluino :: Double 
+                              , config :: FilePath }
+                 | SquarkAntisquark { evgencfg :: FilePath
+                                    , squark :: Double
+                                    , gluino :: Double 
+                                    , config :: FilePath 
+                                    } 
+                 deriving (Show, Data, Typeable)
+
+install = Install { config = "runprospino.conf" }
+
+gluinopair = GluinoPair { evgencfg = def &= typ "EVGENCFG" &= argPos 0
+                        , squark = def &= typ "MSQUARK" &= argPos 1
+                        , gluino = def &= typ "MGLUINO" &= argPos 2
+                        , config = "runprospino.conf" }
+
+squarkgluino = SquarkGluino { evgencfg = def &= typ "EVGENCFG" &= argPos 1
+                            , squark = def &= typ "MSQUARK" &= argPos 2
+                            , gluino = def &= typ "MGLUINO" &= argPos 3
+                            , config = "runprospino.conf" }
+
+squarkpair = SquarkPair { evgencfg = def &= typ "EVGENCFG" &= argPos 0
+                        , squark = def &= typ "MSQUARK" &= argPos 1
+                        , gluino = def &= typ "MGLUINO" &= argPos 2
+                        , config = "runprospino.conf" }
+
+squarkantisquark = SquarkAntisquark { evgencfg = def &= typ "EVGENCFG" &= argPos 0
+                                    , squark = def &= typ "MSQUARK" &= argPos 1
+                                    , gluino = def &= typ "MGLUINO" &= argPos 2
+                                    , config = "runprospino.conf" }
+
+
+mode = modes [ install, gluinopair, squarkgluino, squarkpair, squarkantisquark ] 
+
+----------------------------------------------
+-- data structure needed for defining a job --
+----------------------------------------------
 
 data ProcessType = Gluino_Gluino | Squark_Gluino | Squark_Squark | Squark_Antisquark
                  deriving (Show,Eq,Ord)
@@ -57,6 +120,21 @@ data MSSMParam = MSSMParam { msquark :: Double
                            , mneuttwo :: Double
                            , mchargino :: Double
                            , mcharginotwo :: Double }
+
+data CrossSectionResult = CrossSectionResult { xsecRefLO :: Double 
+                                             , xsecRefNLO :: Double
+                                             , xsecRefMultiSquarkLO :: Double
+                                             , xsecRefMultiSquarkNLO :: Double           
+                                             , xsecKFactor :: Double 
+                                             }
+                        deriving (Show, Eq, Data, Typeable)
+
+instance ToJSON CrossSectionResult where
+  toJSON = G.toJSON 
+
+-------------------
+-- job processes -- 
+-------------------
 
 makeProspinoIn :: MSSMParam -> IO String
 makeProspinoIn MSSMParam {..} = do 
@@ -85,17 +163,17 @@ makeProspinoMain proc = do
   putStrLn "make prospino_main.f90"
   tpath <- (</> "template") <$> getDataDir 
   templates <- directoryGroup tpath
-  let procstr = case proc of 
-                  Gluino_Gluino -> "gg"
-                  Squark_Gluino -> "gs"
-                  Squark_Squark -> "ss" 
-                  Squark_Antisquark -> "sb" 
+  let procstr :: String = case proc of 
+        Gluino_Gluino -> "gg" 
+        Squark_Gluino -> "sg"
+        Squark_Squark -> "ss" 
+        Squark_Antisquark -> "sb" 
 
   return $ renderTemplateGroup templates 
              [ ( "process", procstr) ] 
              "prospino_main.f90"  
 
-readProspinoData :: IO ()
+readProspinoData :: IO LB.ByteString
 readProspinoData = do 
   str <- readFile "prospino.dat"
   let xs = (filter (not.null) . splitOn " " . head . lines) str 
@@ -115,18 +193,41 @@ readProspinoData = do
       kFactor :: Double = read (xs !! 13)
       xsecmsLO :: Double = read (xs !! 14)
       xsecmsNLO :: Double = read (xs !! 15)
-  print xs
-  print (proc,i1,i2,dummy0,dummy1,scafac,m1,m2)
-  print (angle,xsecLO,relErrorLO,xsecNLO,relErrorNLO,kFactor,xsecmsLO,xsecmsNLO) 
+  -- print xs
+  -- print (proc,i1,i2,dummy0,dummy1,scafac,m1,m2)
+  -- print (angle,xsecLO,relErrorLO,xsecNLO,relErrorNLO,kFactor,xsecmsLO,xsecmsNLO) 
+  let result = CrossSectionResult { xsecRefLO = xsecLO
+                                  , xsecRefNLO = xsecNLO
+                                  , xsecRefMultiSquarkLO = xsecmsLO
+                                  , xsecRefMultiSquarkNLO = xsecmsNLO
+                                  , xsecKFactor = kFactor 
+                                  }
+      bstr = encodePretty result
+  return bstr 
    
 minfty = 50000
 
-testMSSMParam = MSSMParam { msquark      = 1000
+testMSSMParam :: (Double,Double) -> MSSMParam 
+testMSSMParam (q,g)
+              = MSSMParam { msquark      = q
                           , msbottom     = minfty
                           , mstop        = minfty
                           , mslepton     = minfty
                           , mstau        = minfty
-                          , mgluino      = 1000
+                          , mgluino      = g
+                          , mneutralino  = minfty
+                          , mneuttwo     = minfty
+                          , mchargino    = minfty
+                          , mcharginotwo = minfty }
+
+testMSSMParam2 :: (Double,Double) -> MSSMParam 
+testMSSMParam2 (q,g)
+              = MSSMParam { msquark      = q
+                          , msbottom     = q
+                          , mstop        = q
+                          , mslepton     = minfty
+                          , mstau        = minfty
+                          , mgluino      = g
                           , mneutralino  = minfty
                           , mneuttwo     = minfty
                           , mchargino    = minfty
@@ -137,33 +238,67 @@ testMSSMParam = MSSMParam { msquark      = 1000
 
 basedir = "/home2/iankim/repo/src/lhc-analysis-collection/analysis"
 
-installProspino :: FilePath -> IO FilePath 
-installProspino bdir  = do 
+installProspino :: Config -> IO FilePath 
+installProspino cfg  = do 
+  let bdir = prospinoBaseDir cfg 
   cdir <- getCurrentDirectory 
   setCurrentDirectory bdir
   -- 
   resdir <- (</> "resource") <$> getDataDir
   readProcess "tar" ["xvzf" , resdir </> "prospino_2_1.tar.gz"] ""
   -- 
+  setCurrentDirectory (bdir </> "prospino_2_1")
+  system "make"
+  -- 
   setCurrentDirectory cdir
   return (bdir </> "prospino_2_1")
 
+ 
+
+run :: FilePath -> Config -> ProcessType -> (Double,Double) -> IO ()
+run mccfgfile cfg' proc (q,g) = do  
+  runEitherT $ do 
+    cfg <- (EitherT . liftM (maybeToEither "getConfig")) (EC.getConfig mccfgfile)
+    let priv = EC.evgen_privatekeyfile cfg 
+        pass = EC.evgen_passwordstore cfg 
+        wdavroot = EC.evgen_webdavroot cfg 
+    cr <- (EitherT . liftM (maybeToEither "getCredential")) (EC.getCredential priv pass)
+    let wdavcfg = WebDAVConfig cr wdavroot 
+        wdavrdir = WebDAVRemoteDir (prospinoRemoteDir cfg')  
+
+    liftIO $ do 
+      cdir <- getCurrentDirectory
+      let prospinodir = prospinoBaseDir cfg' </> "prospino_2_1"
+      setCurrentDirectory prospinodir 
+      str1 <- makeProspinoIn (case proc of 
+                                Squark_Antisquark -> testMSSMParam2 (q,g)
+                                _ -> testMSSMParam (q,g)
+                             )
+      str2 <- makeProspinoMain proc
+      writeFile "prospino.in.les_houches" str1 
+      writeFile "prospino_main.f90" str2
+      system "make" 
+      system "./prospino_2.run"
+      LB.writeFile (prospinoResultFileName cfg') =<< readProspinoData 
+      uploadFile wdavcfg wdavrdir (prospinoResultFileName cfg') 
+      setCurrentDirectory cdir
+  return ()
 
 
-main = do  
-  cdir <- getCurrentDirectory
-  prospinodir <- installProspino basedir 
-  setCurrentDirectory prospinodir 
-  str1 <- makeProspinoIn testMSSMParam
-  str2 <- makeProspinoMain Gluino_Gluino
+main :: IO () 
+main = do 
+  param <- cmdArgs mode 
+  mconfig <- getConfig (config param) 
+  case mconfig of 
+    Nothing -> error "config file cannot be parsed"
+    Just cfg -> do
+      -- let bdir = prospinoBaseDir cfg  
+      case param of 
+        Install _              -> installProspino cfg >> return ()
+        GluinoPair evcfg q g _       -> run evcfg cfg Gluino_Gluino (q,g)
+        SquarkGluino evcfg q g _     -> run evcfg cfg Squark_Gluino (q,g)
+        SquarkPair evcfg q g _       -> run evcfg cfg Squark_Squark (q,g)
+        SquarkAntisquark evcfg q g _ -> run evcfg cfg Squark_Antisquark (q,g) 
 
-  writeFile "prospino.in.les_houches" str1 
-  writeFile "prospino_main.f90" str2
 
-  system "make" 
-  system "./prospino_2.run"
 
-  readProspinoData 
-
-  setCurrentDirectory cdir
-  
