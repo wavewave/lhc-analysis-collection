@@ -10,6 +10,8 @@ Build-Type: 	Simple
 Cabal-Version:  >= 1.9.2
 data-files:   
                 resource/prospino_2_1.tar.gz
+                template/prospino.in.les_houches.st
+                template/prospino_main.f90.st
 
 Library
   hs-source-dirs: lib
@@ -72,7 +74,7 @@ Library
                    HEP.Util.Table 
                    HEP.Util.Work
 
-  Other-Modules: 
+--  Other-Modules: 
                    Paths_lhc_analysis_collection
  
 		 

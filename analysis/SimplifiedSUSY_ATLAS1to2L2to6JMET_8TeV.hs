@@ -33,17 +33,9 @@ m_neutralino :: Double
 m_neutralino = 500
 
 datalst :: [ (Double,Double) ]
-datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
+datalst = [ (mg,mn) | mg <- [ 200,250..1500 ], mn <- [ 50,100..mg-50] ]
+-- datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
 -- datalst = [ (1300,300) ]
-
-{-
-datalst1of2 :: [ (Double,Double) ]
-datalst1of2 = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..1500], q <- [m_neutralino+100,m_neutralino+200..3000] ]
-
-datalst2of2 :: [ (Double,Double) ]
-datalst2of2 = [ (g,q) | g <- [1600,1700..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
--}
-
 
 checkFiles :: DataFileClass -> String -> IO (Either String ())
 checkFiles c procname = do 
@@ -57,13 +49,24 @@ checkFiles c procname = do
 minfty :: Double
 minfty = 50000.0
 
+kFactor = 2.0
+ 
+-- | in pb^-1 unit
+luminosity = 20300
+{-
 createRdirBName procname (mq,mn) = 
   let rdir = "montecarlo/admproject/SimplifiedSUSYlep/8TeV/scan_" ++ procname 
       basename = "SimplifiedSUSYlepN" ++ show mn ++ "G"++show minfty++ "QL" ++ show mq ++ "C"++show (0.5*(mn+mq))++ "L" ++ show minfty ++ "NN" ++ show minfty ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
+-}
+
+createRdirBName procname (mg,mn) = 
+  let rdir = "montecarlo/admproject/SimplifiedSUSYlep/8TeV/scan_" ++ procname 
+      basename = "SimplifiedSUSYlepN" ++ show mn ++ "G"++show mg ++ "QL" ++ show minfty ++ "C"++show (0.5*(mn+mg))++ "L" ++ show minfty ++ "NN" ++ show minfty ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
 
 
-dirset = [ "1step_2sq" ] 
+dirset = [ "1step_2sg" ] -- [ "1step_2sq" ] 
 
 
 
@@ -84,7 +87,7 @@ atlas_20_3_fbinv_at_8_TeV wdavcfg wdavrdir bname = do
   (xsec :: CrossSectionAndCount) 
     <- (EitherT . return . maybeToEither (fp2 ++ " JSON cannot be decoded") .G.decode) r2  
   --
-  let weight = crossSectionInPb xsec * 20300 / fromIntegral (numberOfEvent xsec)
+  let weight = crossSectionInPb xsec * luminosity * kFactor / fromIntegral (numberOfEvent xsec)
       hist = map (\(x,y) -> (x,fromIntegral y * weight)) result 
       getratio (x,y) = do y' <- lookup x limitOfNBSM 
                           return (y/ y') 
@@ -105,16 +108,16 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile ("simplifiedsusylep_1step_2sq_8TeV.dat") WriteMode 
-  mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
+  outh <- openFile ("simplifiedsusylep_1step_2sg_8TeV.dat") WriteMode 
+  mapM_ (\(mg,mn,r) -> hPutStrLn outh (show mg ++ ", " ++ show mn ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
-            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "1step_2sq"
+            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "1step_2sg"
                 -- simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
-            t_2sq  <- (fmap head . analysis) (x,y)
-            let h_2sq  = takeHist t_2sq
-                totalsr = mkTotalSR [h_2sq]
+            t_2sg  <- (fmap head . analysis) (x,y)
+            let h_2sg  = takeHist t_2sg
+                totalsr = mkTotalSR [h_2sg]
                 r_ratio = getRFromSR totalsr
             return (x :: Double, y :: Double, r_ratio)
           case r of 
@@ -137,7 +140,7 @@ mainCheck = do
 
 
 mainCount = do 
-  r <- runEitherT (countEvent "1step_2sq")
+  r <- runEitherT (countEvent "1step_2sg")
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
