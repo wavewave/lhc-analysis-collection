@@ -1,6 +1,7 @@
 import Control.Applicative
 import System.Directory
 import System.Environment 
+import System.Process
 import qualified Text.StringTemplate as ST
 
 render :: String -> [(String,String)] -> String
@@ -30,9 +31,10 @@ trd3 (_,_,a) = a
 main :: IO ()
 main = do 
   args <- getArgs
-  let dirname = args !! 0
-      n1 = read (args !! 1) :: Int 
-      n2 = read (args !! 2) :: Int 
+  let cfgfile = args !! 0  
+      dirname = args !! 1
+      n1 = read (args !! 2) :: Int 
+      n2 = read (args !! 3) :: Int 
       datasublst = (zip [1..] . drop (n1-1) . take n2) datalst
       filenames = map ((,,) <$> fst <*> snd <*> createRdirBName "1step_2sg" . snd) datasublst   
       makecfg rdirbname =  render strtmpl [ ("basedir", dirname )
@@ -49,7 +51,7 @@ main = do
  
   setCurrentDirectory dirname 
   mapM_ (\(x,_,y)->writeFile x y) cfglst 
-  mapM_ (\(x,(g,n),y) -> print (cmd (g,n))) cfglst
+  mapM_ (\(x,(g,n),y) -> let c = cmd cfgfile x (g,n) in print c >> system c) cfglst
   
-cmd (g,n) = "/home2/iankim/repo/src/lhc-analysis-collection/analysis/runProspino gg " ++ show minfty ++ " " ++ show n
+cmd cfgfile jobfile (g,n) = "/home2/iankim/repo/src/lhc-analysis-collection/analysis/runProspino gluinopair " ++ cfgfile ++ " " ++ show minfty ++ " " ++ show n ++ " --config=" ++ jobfile
    

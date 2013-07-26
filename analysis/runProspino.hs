@@ -57,7 +57,7 @@ getConfig conf = do
 -- command --
 -------------
 
-data RunProspino = Install { config :: FilePath }
+data RunProspino = Install { installdir :: FilePath }
                  | GluinoPair { evgencfg :: FilePath 
                               , squark :: Double
                               , gluino :: Double
@@ -77,7 +77,7 @@ data RunProspino = Install { config :: FilePath }
                                     } 
                  deriving (Show, Data, Typeable)
 
-install = Install { config = "runprospino.conf" }
+install = Install { installdir = def &= typ "INSTALLDIR" &= argPos 0 }
 
 gluinopair = GluinoPair { evgencfg = def &= typ "EVGENCFG" &= argPos 0
                         , squark = def &= typ "MSQUARK" &= argPos 1
@@ -236,11 +236,11 @@ testMSSMParam2 (q,g)
 
 -- prospinodir = "/home2/iankim/repo/src/lhc-analysis-collection/template/prospino_2_1"
 
-basedir = "/home2/iankim/repo/src/lhc-analysis-collection/analysis"
+-- basedir = "/home2/iankim/repo/src/lhc-analysis-collection/analysis"
 
-installProspino :: Config -> IO FilePath 
-installProspino cfg  = do 
-  let bdir = prospinoBaseDir cfg 
+installProspino :: FilePath -> IO FilePath 
+installProspino bdir  = do 
+  -- let bdir = prospinoBaseDir cfg 
   cdir <- getCurrentDirectory 
   setCurrentDirectory bdir
   -- 
@@ -288,17 +288,16 @@ run mccfgfile cfg' proc (q,g) = do
 main :: IO () 
 main = do 
   param <- cmdArgs mode 
-  mconfig <- getConfig (config param) 
-  case mconfig of 
-    Nothing -> error "config file cannot be parsed"
-    Just cfg -> do
-      -- let bdir = prospinoBaseDir cfg  
-      case param of 
-        Install _              -> installProspino cfg >> return ()
-        GluinoPair evcfg q g _       -> run evcfg cfg Gluino_Gluino (q,g)
-        SquarkGluino evcfg q g _     -> run evcfg cfg Squark_Gluino (q,g)
-        SquarkPair evcfg q g _       -> run evcfg cfg Squark_Squark (q,g)
-        SquarkAntisquark evcfg q g _ -> run evcfg cfg Squark_Antisquark (q,g) 
+  case param of 
+    Install dir                  -> installProspino dir >> return ()
+    GluinoPair evcfg q g cfile -> 
+      getConfig cfile >>= (\(Just cfg) -> run evcfg cfg Gluino_Gluino (q,g))
+    SquarkGluino evcfg q g cfile -> 
+      getConfig cfile >>= (\(Just cfg) -> run evcfg cfg Squark_Gluino (q,g))
+    SquarkPair evcfg q g cfile -> 
+      getConfig cfile >>= (\(Just cfg) -> run evcfg cfg Squark_Squark (q,g))
+    SquarkAntisquark evcfg q g cfile ->
+      getConfig cfile >>= (\(Just cfg) -> run evcfg cfg Squark_Antisquark (q,g))
 
 
 
