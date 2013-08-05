@@ -121,16 +121,6 @@ data MSSMParam = MSSMParam { msquark :: Double
                            , mchargino :: Double
                            , mcharginotwo :: Double }
 
-data CrossSectionResult = CrossSectionResult { xsecRefLO :: Double 
-                                             , xsecRefNLO :: Double
-                                             , xsecRefMultiSquarkLO :: Double
-                                             , xsecRefMultiSquarkNLO :: Double           
-                                             , xsecKFactor :: Double 
-                                             }
-                        deriving (Show, Eq, Data, Typeable)
-
-instance ToJSON CrossSectionResult where
-  toJSON = G.toJSON 
 
 -------------------
 -- job processes -- 

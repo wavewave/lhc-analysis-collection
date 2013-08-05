@@ -20,8 +20,10 @@ createRdirBName procname (mq,mn) =
   in (rdir,basename)  
 
 datalst :: [ (Double,Double) ]
+datalst =  [ (850.0,750.0) ]
+
 -- datalst = [ (mg,mn) | mg <- [ 200,250..1500 ], mn <- [ 50,100..mg-50] ]
-datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
+-- datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
 -- datalst = [ (1300,300) ]
 
 fst3 (a,_,_) = a

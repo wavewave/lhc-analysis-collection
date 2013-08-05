@@ -63,16 +63,18 @@ Library
   Exposed-Modules: 
                    HEP.Parser.XSec
                    HEP.Physics.Analysis.ATLAS.Common 
-                   -- HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_7TeV
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_1to2L2to6JMET_8TeV
                    HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton_7TeV
-                   -- HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton_7TeV.PrettyPrint
                    HEP.Physics.Analysis.Common.XSecNTotNum 
+                   HEP.Physics.Analysis.Common.Prospino
                    HEP.Util.Format
                    HEP.Util.Table 
                    HEP.Util.Work
+
+                   -- HEP.Physics.Analysis.ATLAS.Exotic.Leptoquark
+                   -- HEP.Physics.Analysis.ATLAS.SUSY_MultiLepton_7TeV.PrettyPrint
 
 --  Other-Modules: 
                    Paths_lhc_analysis_collection
