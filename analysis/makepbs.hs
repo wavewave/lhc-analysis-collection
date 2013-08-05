@@ -13,10 +13,12 @@ main = do
   let exename = args !! 0  
       mode = args !! 1 
       njob = (read (args !! 2) :: Int) 
-  mapM_ (work exename mode) [0..njob-1] -- [0..539] -- [0..3] -- [0..12]
+  mapM_ (work exename mode) [0..njob-1] 
 
 work exename mode n = do 
   let (n1,n2) = case mode of  
+                  "twenty" -> (n*20+1,(n+1)*20)
+                  "ten" -> (n*10+1,(n+1)*10)
                   "five" -> (n*5 +1,(n+1)*5) 
                   "one" ->  (n+1,n+1)
   cdir <- getCurrentDirectory 

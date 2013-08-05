@@ -24,17 +24,19 @@ takeHist [Just (_,_,h,_)] = h
 
 takeResult [Just (_,r,_,_)] = r
 
-data DataFileClass = RawData | TotalCount | ChanCount 
+data DataFileClass = RawData | TotalCount | ChanCount | Prospino
 
 checkFileExistInDAV :: DataFileClass -> WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe (Maybe ()))
 checkFileExistInDAV datcls wdavcfg wdavrdir bname = do 
   let fp1 = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
       fp2 = bname ++ "_total_count.json" 
       fp3 = bname ++ "_pgs_events.lhco.gz"
+      prospinofp = bname ++ "_xsecKfactor.json"
       fp = case datcls of 
              RawData -> fp3
              TotalCount -> fp2
              ChanCount -> fp1 
+             Prospino -> prospinofp
   b <- doesFileExistInDAV wdavcfg wdavrdir fp 
   if b then return (Just (Just ()))  else return Nothing 
 
@@ -43,10 +45,14 @@ checkFileExistInDAV_lep datcls wdavcfg wdavrdir bname = do
   let fp1 = bname ++ "_ATLAS_1to2L2to6JMET_8TeV.json"
       fp2 = bname ++ "_total_count.json" 
       fp3 = bname ++ "_pgs_events.lhco.gz"
+      prospinofp = bname ++ "_xsecKfactor.json"
       fp = case datcls of 
              RawData -> fp3
              TotalCount -> fp2
              ChanCount -> fp1 
+             Prospino -> prospinofp
+  print fp 
+  print wdavrdir 
   b <- doesFileExistInDAV wdavcfg wdavrdir fp 
   if b then return (Just (Just ()))  else return Nothing 
 

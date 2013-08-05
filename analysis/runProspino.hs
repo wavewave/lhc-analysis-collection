@@ -173,6 +173,9 @@ makeProspinoMain proc = do
              [ ( "process", procstr) ] 
              "prospino_main.f90"  
 
+elimLastDot :: String -> String 
+elimLastDot str = if last str == '.' then init str else str 
+
 readProspinoData :: IO LB.ByteString
 readProspinoData = do 
   str <- readFile "prospino.dat"
@@ -180,19 +183,19 @@ readProspinoData = do
       proc :: String = xs !! 0
       i1 :: Int = read (xs !! 1)
       i2 :: Int = read (xs !! 2)
-      dummy0 :: Double = read (xs !! 3)
-      dummy1 :: Double = read (xs !! 4)
-      scafac :: Double = read (xs !! 5)
-      m1 :: Double     = read (xs !! 6)
-      m2 :: Double     = read (xs !! 7)
-      angle :: Double  = read (xs !! 8)
-      xsecLO :: Double = read (xs !! 9) 
-      relErrorLO :: Double = read (xs !! 10)
-      xsecNLO :: Double = read (xs !! 11)
-      relErrorNLO :: Double = read (xs !! 12)
-      kFactor :: Double = read (xs !! 13)
-      xsecmsLO :: Double = read (xs !! 14)
-      xsecmsNLO :: Double = read (xs !! 15)
+      dummy0 :: Double = (read . elimLastDot) (xs !! 3)
+      dummy1 :: Double = (read . elimLastDot) (xs !! 4)
+      scafac :: Double = (read . elimLastDot) (xs !! 5)
+      m1 :: Double     = (read . elimLastDot) (xs !! 6)
+      m2 :: Double     = (read . elimLastDot) (xs !! 7)
+      angle :: Double  = (read . elimLastDot) (xs !! 8)
+      xsecLO :: Double = (read . elimLastDot) (xs !! 9) 
+      relErrorLO :: Double = (read . elimLastDot) (xs !! 10)
+      xsecNLO :: Double = (read . elimLastDot) (xs !! 11)
+      relErrorNLO :: Double = (read . elimLastDot) (xs !! 12)
+      kFactor :: Double = (read . elimLastDot) (xs !! 13)
+      xsecmsLO :: Double = (read . elimLastDot) (xs !! 14)
+      xsecmsNLO :: Double = (read . elimLastDot) (xs !! 15)
   -- print xs
   -- print (proc,i1,i2,dummy0,dummy1,scafac,m1,m2)
   -- print (angle,xsecLO,relErrorLO,xsecNLO,relErrorNLO,kFactor,xsecmsLO,xsecmsNLO) 

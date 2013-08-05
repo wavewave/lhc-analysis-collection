@@ -33,8 +33,8 @@ m_neutralino :: Double
 m_neutralino = 500
 
 datalst :: [ (Double,Double) ]
-datalst = [ (mg,mn) | mg <- [ 200,250..1500 ], mn <- [ 50,100..mg-50] ]
--- datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
+-- datalst = [ (mg,mn) | mg <- [ 200,250..1500 ], mn <- [ 50,100..mg-50] ]
+datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
 -- datalst = [ (1300,300) ]
 
 checkFiles :: DataFileClass -> String -> IO (Either String ())
@@ -49,7 +49,7 @@ checkFiles c procname = do
 minfty :: Double
 minfty = 50000.0
 
-kFactor = 2.0
+kFactor = 1.5
  
 -- | in pb^-1 unit
 luminosity = 20300
@@ -60,13 +60,13 @@ createRdirBName procname (mq,mn) =
   in (rdir,basename)  
 -}
 
-createRdirBName procname (mg,mn) = 
+createRdirBName procname (mq,mn) = 
   let rdir = "montecarlo/admproject/SimplifiedSUSYlep/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYlepN" ++ show mn ++ "G"++show mg ++ "QL" ++ show minfty ++ "C"++show (0.5*(mn+mg))++ "L" ++ show minfty ++ "NN" ++ show minfty ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "SimplifiedSUSYlepN" ++ show mn ++ "G"++show minfty ++ "QL" ++ show mq ++ "C"++show (0.5*(mn+mq))++ "L" ++ show minfty ++ "NN" ++ show minfty ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
-dirset = [ "1step_2sg" ] -- [ "1step_2sq" ] 
+dirset = [ "1step_2sq" ] 
 
 
 
@@ -108,16 +108,16 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile ("simplifiedsusylep_1step_2sg_8TeV.dat") WriteMode 
+  outh <- openFile ("simplifiedsusylep_1step_2sq_8TeV.dat") WriteMode 
   mapM_ (\(mg,mn,r) -> hPutStrLn outh (show mg ++ ", " ++ show mn ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
-            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "1step_2sg"
+            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "1step_2sq"
                 -- simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
-            t_2sg  <- (fmap head . analysis) (x,y)
-            let h_2sg  = takeHist t_2sg
-                totalsr = mkTotalSR [h_2sg]
+            t_2sq  <- (fmap head . analysis) (x,y)
+            let h_2sq  = takeHist t_2sq
+                totalsr = mkTotalSR [h_2sq]
                 r_ratio = getRFromSR totalsr
             return (x :: Double, y :: Double, r_ratio)
           case r of 
@@ -126,15 +126,21 @@ mainAnalysis = do
           )
   hClose outh 
 
+{-
+          case r of 
+            Left err -> error err 
+            Right result -> return result 
+       )
+-}
 
 
 mainCheck = do 
-  r <- runEitherT $ mapM_ (EitherT . checkFiles {- ChanCount -} Prospino) dirset
+  r <- runEitherT $ mapM_ (EitherT . checkFiles ChanCount) dirset
   print r 
 
 
 mainCount = do 
-  r <- runEitherT (countEvent "1step_2sg")
+  r <- runEitherT (countEvent "1step_2sq")
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
