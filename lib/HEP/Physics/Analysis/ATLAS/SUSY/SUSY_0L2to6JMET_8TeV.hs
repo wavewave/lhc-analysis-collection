@@ -27,6 +27,8 @@ import Codec.Compression.GZip
 import Control.Applicative
 import Control.Lens
 import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Either
 import Control.Monad.Indexed
 import Control.Monad.Indexed.State 
 import           Data.Aeson.Encode.Pretty (encodePretty)
@@ -278,14 +280,6 @@ metCut =
 
 
 
--- mTauBJetMerge :: (MonadPlus m) => IxStateT m RawEv JetMergedEv ()
--- mTauBJetMerge = imodify taubjetMergeIx 
-
-
-
-
-
-
 findJetNearElec :: PhyEventClassified -> ([(Int,PhyObj Jet)],[(Int,PhyObj Jet)])
 findJetNearElec PhyEventClassified {..} =
     let js = jetlst 
@@ -466,16 +460,23 @@ classifyM jes =
     mLeptonDiscardNearJet >>> 
     mMETRecalculate e >>>  
     objrecon      >>> 
-    -- trigger       >>> 
     leptonVeto    >>> 
     metCut        >>> 
     mMoreThan2J   >>> 
     jetCut        >>>
     classifyChannel 
 
-classify :: (Functor m, MonadPlus m) => JESParam -> PhyEventClassified -> m SRFlag 
-classify jes ev = fst <$> runIxStateT (classifyM jes) (Raw ev)
 
+
+execAction :: (Functor m, MonadPlus m) => 
+              (JESParam -> IxStateT m RawEv MoreThan2JEv a) -> JESParam -> PhyEventClassified -> m a 
+execAction act jes ev = fst <$> runIxStateT (act jes) (Raw ev)
+
+
+
+classify :: (Functor m, MonadPlus m) => JESParam -> PhyEventClassified -> m SRFlag 
+classify = execAction classifyM
+-- classify jes ev = fst <$> runIxStateT (classifyM jes) (Raw ev)
 
 
 
@@ -579,4 +580,84 @@ atlas_8TeV_0L2to6J_bkgtest (as,bs) wdavcfg wdavrdir bname = do
       removeFile fp 
 
       return ()
+
+-------------------------------
+-- for special histogramming -- 
+-------------------------------
+
+
+classifyChannelWithOnlyJetPT :: (MonadPlus m) => IxStateT m MoreThan2JEv MoreThan2JEv (Bool,Bool,Bool,Bool,Bool)
+classifyChannelWithOnlyJetPT = 
+    iget >>>= \tev@Ev2J {..} -> 
+    let rev = remainingEvent 
+        js = jetlst rev
+        j1 = firstJet
+        j2 = secondJet 
+        (mj3,mj4,mj5,mj6) = case js of 
+                              j3:j4:j5:j6:_j7s -> (Just j3,Just j4,Just j5,Just j6)
+                              j3:j4:j5:[]     -> (Just j3,Just j4,Just j5,Nothing)
+                              j3:j4:[]        -> (Just j3,Just j4,Nothing,Nothing)
+                              j3:[]           -> (Just j3,Nothing,Nothing,Nothing)
+                              []              -> (Nothing,Nothing,Nothing,Nothing) 
+        -- here we use the fact that jets are ordered 
+        c2 = mj3 >>= \j3 -> return ((pt.snd) j3 > 60)
+        c3 = mj4 >>= \j4 -> return ((pt.snd) j4 > 60)
+        c4 = mj5 >>= \j5 -> return ((pt.snd) j5 > 60)
+        c5 = mj6 >>= \j6 -> return ((pt.snd) j6 > 60)
+    in ireturn $ ((set _5 . boolify) c5)
+                 . ((set _4 . boolify) c4) 
+                 . ((set _3 . boolify) c3) 
+                 . ((set _2 . boolify) c2)
+                 . (set _1 True) 
+                 $ (False,False,False,False,False)
+  where boolify :: Maybe Bool -> Bool 
+        boolify Nothing = False 
+        boolify (Just a) = a
+
+
+classifyAndGetMissingET :: MonadPlus m => 
+                           JESParam -> IxStateT m RawEv MoreThan2JEv (Double,(Bool,Bool,Bool,Bool,Bool))
+classifyAndGetMissingET jes = 
+    imodify taubjetMergeIx >>>
+    mJesCorrection jes >>>= \e -> 
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
+    mMETRecalculate e >>>  
+    objrecon      >>> 
+    leptonVeto    >>> 
+    -- metCut        >>> 
+    mMoreThan2J   >>> 
+    jetCut        >>> 
+    classifyChannelWithOnlyJetPT >>>= \sr -> 
+    iget >>>= \Ev2J {..} -> 
+    ireturn ((snd . phiptmet . met) remainingEvent, sr)
+
+
+
+
+
+-- | jes is assumed to be (0,0)
+atlas_getMissingET :: WebDAVConfig 
+                   -> WebDAVRemoteDir 
+                   -> String 
+                   -> EitherT String IO [(Double, (Bool,Bool,Bool,Bool,Bool))]
+atlas_getMissingET wdavcfg wdavrdir bname = do 
+    let fp = bname ++ "_pgs_events.lhco.gz"
+    guardEitherM (fp ++ " does not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp)
+    liftIO $ downloadFile False wdavcfg wdavrdir fp 
+    bstr <- liftIO $ LB.readFile fp 
+    let unzipped =decompress bstr 
+        evts = parsestr unzipped 
+        passed = (catMaybes . map (execAction classifyAndGetMissingET (JESParam 0 0))) evts  
+        -- asclst jes = mkHistogram (passed jes)
+        -- testlst = [ (trace (show jes) jes, passed jes) | a <- as, b <- bs, let jes = JESParam a b ]
+    -- putStrLn "== result =="
+    -- let jsonfn = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
+    -- let bstr = encodePretty testlst 
+    -- LB.putStrLn bstr 
+    -- LB.writeFile jsonfn bstr 
+    -- uploadFile wdavcfg wdavrdir jsonfn 
+    -- removeFile jsonfn
+    liftIO $ removeFile fp 
+    return passed
       
