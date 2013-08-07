@@ -56,12 +56,12 @@ minfty = 50000.0
 luminosity = 20300
 
 createRdirBName procname (mg,mn) = 
-  let rdir = "montecarlo/admproject/SimplifiedSUSYlep/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYlepN" ++ show mn ++ "G"++show mg ++ "QL" ++ show minfty ++ "C"++show (0.5*(mn+mg))++ "L" ++ show minfty ++ "NN" ++ show minfty ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP_mgmnscan/scan_" ++ procname 
+      basename = "ADMXQLD111degenMG" ++ show mg ++ "MQ" ++ show minfty ++ "ML" ++ show minfty ++ "MN"++show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
-dirset = [ "1step_2sg" ]  
+dirset = [ "2sg_2l8j2x" ]  
 
 
 
@@ -113,11 +113,11 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile ("simplifiedsusylep_1step_2sg_8TeV.dat") WriteMode 
+  outh <- openFile ("xqld_neutlosp_mgmnscan_8TeV.dat") WriteMode 
   mapM_ (\(mg,mn,r) -> hPutStrLn outh (show mg ++ ", " ++ show mn ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
-            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "1step_2sg"
+            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "2sg_2l8j2x"
                 -- simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
             t_2sg  <- (fmap head . analysis) (x,y)
@@ -134,12 +134,12 @@ mainAnalysis = do
 
 
 mainCheck = do 
-  r <- runEitherT $ mapM_ (EitherT . checkFiles {- ChanCount -} Prospino) dirset
+  r <- runEitherT $ mapM_ (EitherT . checkFiles  {- ChanCount -} Prospino ) dirset
   print r 
 
 
 mainCount = do 
-  r <- runEitherT (countEvent "1step_2sg")
+  r <- runEitherT (countEvent "2sg_2l8j2x")
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()

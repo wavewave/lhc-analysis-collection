@@ -98,7 +98,6 @@ atlas_20_3_fbinv_at_8_TeV wdavcfg wdavrdir bname = do
       maxf (x,y) acc = do r <- getratio (x,y)
                           return (max acc r)
   -- 
-  liftIO $ putStrLn $ "kfactor = " ++ show kFactor
   maxratio <- (EitherT . return . maybeToEither "in atlas_xx:foldrM" . foldrM maxf 0) hist 
   return (xsec, result, hist, maxratio) 
 

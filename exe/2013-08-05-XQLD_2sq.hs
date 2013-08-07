@@ -151,8 +151,6 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 
 pdir = ProcDir "Work201308052sq" "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP_mqmnscan" "scan"
 
-m_neutralino :: Double 
-m_neutralino = 500.0
 
 worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
 worksets = set_2sq 
@@ -162,7 +160,9 @@ worksets = set_2sq
     set_2sq  = makeset "2sq" massset_2sq
 
 
-massset_2sq = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ]
+massset_2sq = [ (450.0,250.0), (500.0,250.0), (500.0,300.0), (500.0, 350.0), (550.0,150.0) ]
+
+-- [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ]
 
 main :: IO () 
 main = do 
