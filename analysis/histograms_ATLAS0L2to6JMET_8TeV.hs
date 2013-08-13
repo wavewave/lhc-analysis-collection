@@ -49,7 +49,7 @@ getAnalysisMaxx :: AnalysisType -> Double
 getAnalysisMaxx MET = 1000 
 getAnalysisMaxx MEFF = 3000
 getAnalysisMaxx RatioMET_MEFF = 0.4
-getAnalysisMaxx FirstLepPT = 1000
+getAnalysisMaxx FirstLepPT = 500
 getAnalysisMaxx FirstJetPT = 1000
 
 
@@ -65,6 +65,12 @@ createRdirBName_xqld procname (mg,mq,mn) =
       basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
+createRdirBName_xqldnoneut procname (mg,mq,mn) = 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
+      basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
+
+
 
 createRdirBName_xudd procname (mg,mq,mn) = 
   let rdir = "montecarlo/admproject/XUDDdegen/8TeV/neutLOSP/scan_" ++ procname 
@@ -79,6 +85,15 @@ createRdirBName_simplifiedsusy procname (mg,mq,mn) =
 dirset_xqld = [ "2sg_2l8j2x"
               , "sqsg_2l7j2x"
               , "2sq_2l6j2x" ]
+
+dirset_xqldnoneut = [ "2sg_2l4j2x"
+                    , "2sq_oo_2l2j2x"
+                    , "2sq_no_2l2j2x"
+                    , "2sq_nn_2l2j2x"
+                    , "sqsg_o_2l3j2x"
+                    , "sqsg_n_2l3j2x"
+                    ]
+
 
 dirset_xudd = [ "2sg_10j2x"
               , "sqsg_9j2x" 
@@ -121,10 +136,11 @@ getResult f (rdir,basename) = do
   fileWork f "config1.txt" rdir basename nlst 
 
 main = do 
-  let mg = 1000.0 :: Double
-      mq = 1000.0 :: Double 
-      mn = 500.0 :: Double 
-  mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld (mg,mq,mn)
+  let mg = 2000.0 :: Double
+      mq = 1500.0 :: Double 
+      mn = 300.0 :: Double 
+  mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
+  -- mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_xudd dirset_xudd (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
   -- mainAnalysis MET createRdirBName_xqld dirset_xqld (mg,mq,mn) 
