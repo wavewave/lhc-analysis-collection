@@ -122,13 +122,13 @@ getResult f (rdir,basename) = do
 
 main = do 
   let mg = 1000.0 :: Double
-      -- mq = 1000.0 :: Double 
       mq = 1000.0 :: Double 
       mn = 500.0 :: Double 
+  mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_xudd dirset_xudd (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
   -- mainAnalysis MET createRdirBName_xqld dirset_xqld (mg,mq,mn) 
-  mainAnalysisNJet createRdirBName_xudd dirset_xudd (mg,mq,mn)
+  -- mainAnalysisNJet createRdirBName_xudd dirset_xudd (mg,mq,mn)
   -- mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
 
 

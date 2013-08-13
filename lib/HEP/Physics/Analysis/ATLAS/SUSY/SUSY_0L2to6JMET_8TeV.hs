@@ -269,8 +269,8 @@ leptonVeto :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv ()
 leptonVeto = 
   iget >>>= \(JetMerged PhyEventClassified {..}) -> 
   let elst = filter ((>10) <$> pt.snd) electronlst 
-      llst = filter ((>10) <$> pt.snd) muonlst
-  in iguard ((null elst) && (null llst))
+      mlst = filter ((>10) <$> pt.snd) muonlst
+  in iguard ((null elst) && (null mlst))
 
 -- | missing Et cut > 160 GeV
 metCut :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv () 
@@ -686,8 +686,8 @@ classifyAndGet1stLepPT jes =
     iget >>>= \Ev2J {..} -> 
                  let elst = (map snd . {- filter ((>10) <$> pt.snd) -} electronlst) remainingEvent
                      mlst = (map snd . {- filter ((>10) <$> pt.snd) -} muonlst) remainingEvent
-                     lolst = sortBy (flip ptcompare) (map LO_Elec elst ++ map LO_Muon llst)
-                 in if null lolst then ireturn (0,sr) else ((pt . head) lolst, sr)
+                     lolst = sortBy (flip ptcompare) (map LO_Elec elst ++ map LO_Muon mlst)
+                 in if null lolst then ireturn (0,sr) else ireturn ((pt . head) lolst, sr)
 
 -- |
 classifyAndGet1stJetPT :: MonadPlus m => 
