@@ -1,0 +1,23 @@
+set terminal png 
+set output 'simplifiedsusylep_1step_2sq_8TeV.png'
+
+#set view map 
+#unset surface 
+#set dgrid3d
+set xlabel "Squark Mass (GeV)"
+set ylabel "Neutralino Mass (GeV)"
+set xrange [200:1300] 
+set yrange [0:1000]
+set zrange [-12:8]
+unset key 
+unset surface
+set contour base
+set cntrparam level incremental -20, 20, 20
+set pm3d 
+set view map 
+set palette rgbformulae 33,13,10
+unset clabel 
+splot 'simplifiedsusylep_1step_2sq_8TeV_mesh.dat' using 1:2:(log ($3)) with lines lw 1.5 lc rgb "#202020"
+# with lines  lw 2 lc rgb "#202020"
+
+

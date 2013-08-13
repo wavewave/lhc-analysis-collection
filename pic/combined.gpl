@@ -1,0 +1,20 @@
+set terminal pngcairo dashed
+set output 'xqld_neutLOSP500.0_0lep_sqsg_8TeV.png'
+
+set xlabel "Gluino Mass (GeV)"
+set ylabel "Squark Mass (GeV)"
+
+set xrange [600:3000]
+set yrange [600:3000]
+#set zrange [-14:8]
+set log cb 
+set key 
+
+unset surface
+set view map 
+set palette rgbformulae 33,13,10
+
+plot 'xqld_neutLOSP500.0_sqsg_8TeV_0lep.dat' u 1:2:($3) with image, 'xqld_neutLOSP500.0_0lep_sqsg_8TeV_contour.dat' u 1:2 w l lt -1 lc rgb "black" lw 1.5 title "Xqld" , 'simplifiedsusy500.0_0lep_sqsg_8TeV_contour.dat' u 1:2 w l lt 2 lc rgb "black" lw 1.5 title "Simplified"
+
+
+

@@ -1,0 +1,25 @@
+set terminal pngcairo dashed
+set output 'xudd_neutLOSP100_0lep_sqsg_8TeV.png'
+
+#set view map 
+#unset surface 
+set xlabel "Gluino Mass (GeV)"
+set ylabel "Squark Mass (GeV)"
+
+set xrange [400:3000] 
+set yrange [400:3000]
+set zrange [-18:4]
+set log cb 
+
+set key 
+
+unset surface
+set view map 
+set palette rgbformulae 33,13,10
+
+
+plot 'xudd_neutLOSP100_sqsg_8TeV_0lep.dat' u 1:2:($3) with image, 'xudd_neutLOSP100_0lep_sqsg_8TeV_contour.dat' u 1:2 w l lt -1 lc rgb "black" lw 1.5 title "Xudd" , 'simplifiedsusy100_0lep_sqsg_8TeV_contour.dat' u 1:2 w l lt 2 lc rgb "black" lw 1.5 title "Simplified"
+
+# with lines  lw 2 lc rgb "#202020"
+
+

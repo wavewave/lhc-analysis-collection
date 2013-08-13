@@ -46,10 +46,10 @@ getAnalysis FirstJetPT = atlas_get1stJetPT
 
 -- |
 getAnalysisMaxx :: AnalysisType -> Double 
-getAnalysisMaxx MET = 1000 
+getAnalysisMaxx MET = 1500
 getAnalysisMaxx MEFF = 3000
 getAnalysisMaxx RatioMET_MEFF = 0.4
-getAnalysisMaxx FirstLepPT = 500
+getAnalysisMaxx FirstLepPT = 1500
 getAnalysisMaxx FirstJetPT = 1000
 
 
@@ -66,7 +66,7 @@ createRdirBName_xqld procname (mg,mq,mn) =
   in (rdir,basename)  
 
 createRdirBName_xqldnoneut procname (mg,mq,mn) = 
-  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/scan_" ++ procname 
       basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
@@ -76,6 +76,12 @@ createRdirBName_xudd procname (mg,mq,mn) =
   let rdir = "montecarlo/admproject/XUDDdegen/8TeV/neutLOSP/scan_" ++ procname 
       basename = "ADMXUDD112degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
+
+createRdirBName_xuddnoneut procname (mg,mq,mn) = 
+  let rdir = "montecarlo/admproject/XUDDdegen/8TeV/scan_" ++ procname 
+      basename = "ADMXUDD112degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
+
 
 createRdirBName_simplifiedsusy procname (mg,mq,mn) = 
   let rdir = "montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname 
@@ -100,54 +106,44 @@ dirset_xudd = [ "2sg_10j2x"
               , "2sq_8j2x"
               ]
 
+dirset_xuddnoneut = [ "2sg_6j2x" 
+                    , "2sq_nn_4j2x"
+                    , "2sq_no_4j2x" 
+                    , "2sq_oo_4j2x" 
+                    , "sqsg_n_5j2x"
+                    , "sqsg_o_5j2x" ] 
+
+
 dirset_simplifiedsusy = [ "2sg_4j2n" 
                         , "2sq_2j2n"
                         , "sqsg_3j2n" ] 
 
-
-mkHistMissingET :: WebDAVConfig -> WebDAVRemoteDir -> String 
-                -> EitherT String IO (CrossSectionAndCount,[(JESParam,HistEType)],[(EType,Double)],Double)
-mkHistMissingET wdavcfg wdavrdir bname = do 
-  let fp1 = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
-      fp2 = bname ++ "_total_count.json" 
-  --
-  guardEitherM (fp1 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp1)
-  (_,mr1) <- liftIO (downloadFile True wdavcfg wdavrdir fp1)
-  r1 <- (liftM LB.pack . EitherT . return . maybeToEither (fp1 ++ " is not downloaded ")) mr1 
-  (result :: [(JESParam, HistEType)]) <- (EitherT . return . maybeToEither (fp1 ++ " JSON cannot be decoded") . G.decode) r1 
-  -- 
-  guardEitherM (fp2 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp2) 
-  (_,mr2) <- liftIO (downloadFile True wdavcfg wdavrdir fp2)
-  r2 <- (liftM LB.pack . EitherT . return . maybeToEither (fp2 ++ " is not downloaded ")) mr2 
-  (xsec :: CrossSectionAndCount) <- (EitherT . return . maybeToEither (fp2 ++ " JSON cannot be decoded") . G.decode)  r2  
-
-  let weight = crossSectionInPb xsec * luminosity / fromIntegral (numberOfEvent xsec)
-      hist = map (\(x,y) -> (x,fromIntegral y * weight)) ((snd . head) result )
-
-  let getratio (x,y) = do y' <- lookup x limitOfNBSM 
-                          return (y/ y') 
-      maxf (x,y) acc = do r <- getratio (x,y)
-                          return (max acc r)
-  maxratio <- EitherT . return . maybeToEither "in mkhist:foldrM" $ foldrM maxf 0 hist 
-  return (xsec, result, hist, maxratio) 
 
 getResult f (rdir,basename) = do 
   let nlst = [1]
   fileWork f "config1.txt" rdir basename nlst 
 
 main = do 
-  let mg = 2000.0 :: Double
+  {- let mg = 2000.0 :: Double
       mq = 1500.0 :: Double 
-      mn = 300.0 :: Double 
-  mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
+      mn = 300.0 :: Double  -}
+
+  let set = [ (1500.0,1000.0, mn) | mn <- [100.0,300.0,500.0] ]
+      set' = [ (1500.0,1000.0,100.0) ] 
+  -- mainAnalysis FirstLepPT createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
+
+  -- mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
+  -- mapM_ (mainAnalysis MET createRdirBName_simplifiedsusy dirset_simplifiedsusy) set -- (mg,mq,mn)
+  -- mapM_ (mainAnalysis MET createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
+  -- mainAnalysis MET createRdirBName_xqld dirset_xqld (mg,mq,mn) 
+
   -- mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_xudd dirset_xudd (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
-  -- mainAnalysis MET createRdirBName_xqld dirset_xqld (mg,mq,mn) 
+
   -- mainAnalysisNJet createRdirBName_xudd dirset_xudd (mg,mq,mn)
-  -- mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
-
-
+  mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
+  -- mapM_ (mainAnalysisNJet createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
 
 -- | 
 mainAnalysis :: AnalysisType
@@ -199,7 +195,7 @@ mainAnalysisNJet rdirbnamefunc dirset (mg,mq,mn) = do
 getXsec :: WebDAVConfig -> WebDAVRemoteDir -> String -> EitherT String IO CrossSectionAndCount 
 getXsec wdavcfg wdavrdir bname = do 
   let fp2 = bname ++ "_total_count.json" 
-  guardEitherM (fp2 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp2) 
+  guardEitherM (show wdavrdir ++ "/" ++ fp2 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp2) 
   (_,mr2) <- liftIO (downloadFile True wdavcfg wdavrdir fp2)
   r2 <- (liftM LB.pack . EitherT . return . maybeToEither (fp2 ++ " is not downloaded ")) mr2 
   (xsec :: CrossSectionAndCount) <- (EitherT . return . maybeToEither (fp2 ++ " JSON cannot be decoded") . G.decode)  r2  
