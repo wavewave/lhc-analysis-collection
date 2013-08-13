@@ -43,6 +43,26 @@ work task cfgfile rdir bname sets =
 
 
 -- | 
+singleWork :: (WebDAVConfig -> WebDAVRemoteDir -> String -> EitherT String IO a) 
+           -> FilePath 
+           -> FilePath 
+           -> FilePath 
+           -> Int 
+           -> EitherT String IO a 
+singleWork task cfgfile rdir bname set = do 
+    cfg <- (EitherT . liftM (maybeToEither "getConfig")) (getConfig cfgfile)
+    let priv = evgen_privatekeyfile cfg 
+        pass = evgen_passwordstore cfg 
+        wdavroot = evgen_webdavroot cfg 
+    cr <- (EitherT . liftM (maybeToEither "getCredential")) (getCredential priv pass)
+    let wdavcfg = WebDAVConfig cr wdavroot 
+        wdavrdir = WebDAVRemoteDir rdir 
+        b = bname ++ show set 
+    task wdavcfg wdavrdir b 
+
+
+
+-- | 
 fileWork :: (WebDAVConfig -> WebDAVRemoteDir -> String -> EitherT String IO a) 
      -> FilePath 
      -> FilePath 

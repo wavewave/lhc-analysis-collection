@@ -466,22 +466,17 @@ classifyM jes =
     jetCut        >>>
     classifyChannel 
 
-
-
+-- | 
 execAction :: (Functor m, MonadPlus m) => 
-              (JESParam -> IxStateT m RawEv MoreThan2JEv a) -> JESParam -> PhyEventClassified -> m a 
+              (JESParam -> IxStateT m RawEv ev a) -> JESParam -> PhyEventClassified -> m a 
 execAction act jes ev = fst <$> runIxStateT (act jes) (Raw ev)
 
-
-
+-- | 
 classify :: (Functor m, MonadPlus m) => JESParam -> PhyEventClassified -> m SRFlag 
 classify = execAction classifyM
 -- classify jes ev = fst <$> runIxStateT (classifyM jes) (Raw ev)
 
-
-
-
-
+-- |
 srFlag2Num :: SRFlag -> [EType] 
 srFlag2Num SRFlag {..} = maybe id fE sr_classE 
                          . maybe id fD sr_classD 
@@ -633,31 +628,137 @@ classifyAndGetMissingET jes =
     ireturn ((snd . phiptmet . met) remainingEvent, sr)
 
 
+classifyAndGetMeff :: MonadPlus m => 
+                           JESParam -> IxStateT m RawEv MoreThan2JEv (Double,(Bool,Bool,Bool,Bool,Bool))
+classifyAndGetMeff jes = 
+    imodify taubjetMergeIx >>>
+    mJesCorrection jes >>>= \e -> 
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
+    mMETRecalculate e >>>  
+    objrecon      >>> 
+    leptonVeto    >>> 
+    metCut        >>> 
+    mMoreThan2J   >>> 
+    jetCut        >>> 
+    classifyChannelWithOnlyJetPT >>>= \sr -> 
+    iget >>>= \tev -> let JetMerged e = getJetMerged tev
+                          meffincval = meffinc40 e
+                      in ireturn (meffincval, sr)
+
+-- |
+classifyAndGetRatioMET_Meff :: MonadPlus m => 
+                               JESParam 
+                               -> IxStateT m RawEv MoreThan2JEv (Double,(Bool,Bool,Bool,Bool,Bool))
+classifyAndGetRatioMET_Meff jes = 
+    imodify taubjetMergeIx >>>
+    mJesCorrection jes >>>= \e -> 
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
+    mMETRecalculate e >>>  
+    objrecon      >>> 
+    leptonVeto    >>> 
+    metCut        >>> 
+    mMoreThan2J   >>> 
+    jetCut        >>> 
+    classifyChannelWithOnlyJetPT >>>= \sr -> 
+    iget >>>= \tev -> let JetMerged e = getJetMerged tev
+                          metval = (snd . phiptmet . met) e
+                          meff2val = meffNj 2 e
+                      in ireturn (metval / meff2val, sr)
+
+
+-- |
+classifyAndGet1stLepPT :: MonadPlus m => 
+                           JESParam -> IxStateT m RawEv MoreThan2JEv (Double,(Bool,Bool,Bool,Bool,Bool))
+classifyAndGet1stLepPT jes = 
+    imodify taubjetMergeIx >>>
+    mJesCorrection jes >>>= \e -> 
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
+    mMETRecalculate e >>>  
+    objrecon      >>> 
+    -- leptonVeto    >>> 
+    metCut        >>> 
+    mMoreThan2J   >>> 
+    jetCut        >>> 
+    classifyChannelWithOnlyJetPT >>>= \sr -> 
+    iget >>>= \Ev2J {..} -> 
+                 let elst = (map snd . {- filter ((>10) <$> pt.snd) -} electronlst) remainingEvent
+                     mlst = (map snd . {- filter ((>10) <$> pt.snd) -} muonlst) remainingEvent
+                     lolst = sortBy (flip ptcompare) (map LO_Elec elst ++ map LO_Muon llst)
+                 in if null lolst then ireturn (0,sr) else ((pt . head) lolst, sr)
+
+-- |
+classifyAndGet1stJetPT :: MonadPlus m => 
+                           JESParam -> IxStateT m RawEv JetMergedEv (Double,(Bool,Bool,Bool,Bool,Bool))
+classifyAndGet1stJetPT jes = 
+    imodify taubjetMergeIx >>>
+    mJesCorrection jes >>>= \e -> 
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
+    mMETRecalculate e >>>  
+    objrecon      >>> 
+    leptonVeto    >>> 
+    metCut        >>> 
+    iget >>>= \(JetMerged ev) -> 
+      let js = jetlst ev 
+      in iguard ((not.null) js) >>>
+         ireturn ((pt . head . map snd) js, (True,True,True,True,True))
+
+-- |
+classifyAndGetNJet :: MonadPlus m => 
+                           JESParam -> IxStateT m RawEv JetMergedEv Int
+classifyAndGetNJet jes = 
+    imodify taubjetMergeIx >>>
+    mJesCorrection jes >>>= \e -> 
+    mJetDiscardNearElec >>> 
+    mLeptonDiscardNearJet >>> 
+    mMETRecalculate e >>>  
+    objrecon      >>> 
+    leptonVeto    >>> 
+    metCut        >>> 
+    iget >>>= \(JetMerged ev) -> 
+      let js = (map (pt.snd) . jetlst) ev 
+      in ireturn $ case js of 
+                     [] -> 0
+                     j1:j's -> if j1 <= 130  
+                               then 0 
+                               else 1 + length (filter (>60) j's)
 
 
 
 -- | jes is assumed to be (0,0)
-atlas_getMissingET :: WebDAVConfig 
-                   -> WebDAVRemoteDir 
-                   -> String 
-                   -> EitherT String IO [(Double, (Bool,Bool,Bool,Bool,Bool))]
-atlas_getMissingET wdavcfg wdavrdir bname = do 
+atlas_hist :: (JESParam -> IxStateT Maybe RawEv ev a)
+           -> WebDAVConfig 
+           -> WebDAVRemoteDir 
+           -> String 
+           -> EitherT String IO [a]
+atlas_hist act wdavcfg wdavrdir bname = do 
     let fp = bname ++ "_pgs_events.lhco.gz"
     guardEitherM (fp ++ " does not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp)
     liftIO $ downloadFile False wdavcfg wdavrdir fp 
     bstr <- liftIO $ LB.readFile fp 
     let unzipped =decompress bstr 
         evts = parsestr unzipped 
-        passed = (catMaybes . map (execAction classifyAndGetMissingET (JESParam 0 0))) evts  
-        -- asclst jes = mkHistogram (passed jes)
-        -- testlst = [ (trace (show jes) jes, passed jes) | a <- as, b <- bs, let jes = JESParam a b ]
-    -- putStrLn "== result =="
-    -- let jsonfn = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
-    -- let bstr = encodePretty testlst 
-    -- LB.putStrLn bstr 
-    -- LB.writeFile jsonfn bstr 
-    -- uploadFile wdavcfg wdavrdir jsonfn 
-    -- removeFile jsonfn
+        passed = (catMaybes . map (execAction act (JESParam 0 0))) evts  
     liftIO $ removeFile fp 
+    liftIO $ putStrLn ("atlas_hist : # of evts = " ++ show (length evts))
+    liftIO $ putStrLn ("passed : # of evts = " ++ show (length passed))
+    -- liftIO $ mapM_ print passed
     return passed
       
+
+atlas_getMissingET = atlas_hist classifyAndGetMissingET
+
+atlas_getMeff = atlas_hist classifyAndGetMeff
+
+atlas_getRatioMET_Meff = atlas_hist classifyAndGetRatioMET_Meff
+
+atlas_get1stLepPT = atlas_hist classifyAndGet1stLepPT
+
+atlas_get1stJetPT = atlas_hist classifyAndGet1stJetPT 
+
+atlas_getNJet = atlas_hist classifyAndGetNJet 
+
+
