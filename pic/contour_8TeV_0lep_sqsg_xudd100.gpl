@@ -1,0 +1,24 @@
+set terminal png 
+set output 'xudd_neutLOSP100_0lep_sqsg_8TeV.png'
+
+#set view map 
+#unset surface 
+set xlabel "Gluino Mass (GeV)"
+set ylabel "Squark Mass (GeV)"
+set xrange [500:3000] 
+set yrange [500:3000]
+set zrange [-13:8]
+unset key 
+unset surface
+set contour base
+set cntrparam level incremental -20, 20, 20
+set view map 
+set palette rgbformulae 33,13,10
+unset clabel 
+
+set table 'xudd_neutLOSP100_0lep_sqsg_8TeV_contour.dat'
+splot 'xudd_neutLOSP100_sqsg_8TeV_0lep.dat' using 1:2:(log ($3)) with lines lw 1.5 lc rgb "#202020"
+
+
+
+
