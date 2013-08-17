@@ -61,7 +61,7 @@ luminosity = 20300
 --  Triple (Double,Double,Double) | Doublet (Double,Double) 
 
 createRdirBName_xqld procname (mg,mq,mn) = 
-  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/scan_" ++ procname 
       basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
@@ -111,7 +111,7 @@ mkHistMissingET wdavcfg wdavrdir bname = do
   let fp1 = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
       fp2 = bname ++ "_total_count.json" 
   --
-  guardEitherM (fp1 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp1)
+  guardEitherM (show wdavrdir ++ "/" ++ fp1 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp1)
   (_,mr1) <- liftIO (downloadFile True wdavcfg wdavrdir fp1)
   r1 <- (liftM LB.pack . EitherT . return . maybeToEither (fp1 ++ " is not downloaded ")) mr1 
   (result :: [(JESParam, HistEType)]) <- (EitherT . return . maybeToEither (fp1 ++ " JSON cannot be decoded") . G.decode) r1 
