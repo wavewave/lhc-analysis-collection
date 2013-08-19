@@ -30,11 +30,15 @@ import HEP.Util.Work
 import Util
 import Debug.Trace
 
+mneut :: Double
+mneut = 500.0 
+
 
 datalst :: [ (Double,Double) ]
--- datalst = [ (mg,mn) | mg <- [ 200,250..1500 ], mn <- [ 50,100..mg-50] ]
-datalst = [ (mq,mn) | mq <- [ 200,250..1300], mn <- [ 50,100..mq-50 ] ] 
--- datalst = [ (1300,300) ]
+datalst = -- [ (2800,1600) ] 
+          [ (g,q) | {- g <- [2800,2900,3000], -}  g <- [mneut+100,mneut+200..3000],  q <- [mneut+100,mneut+200..3000] ]
+
+-- [ (g,q) | g <- [200,300..3000], q <- [g,g+100..3000] ]
 
 checkFiles :: DataFileClass -> String -> IO (Either String ())
 checkFiles c procname = do 
@@ -52,14 +56,17 @@ minfty = 50000.0
 -- | in pb^-1 unit
 luminosity = 20300
 
-createRdirBName procname (mq,mn) = 
-  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP_mqmnscan/scan_" ++ procname 
-      basename = "ADMXQLD111degenMG" ++ show minfty ++ "MQ" ++ show mq ++ "ML" ++ show minfty ++ "MN"++show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+
+createRdirBName procname (mg,mq) = 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
+      basename = "ADMXQLD111degenMG" ++ show mg ++ "MQ" ++ show mq ++ "ML" ++ show minfty ++ "MN"++show mneut ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
 
-dirset = [ "2sq_2l6j2x" ]  
-
+dirset = [ "2sg_2l8j2x"
+         , "sqsg_2l7j2x"
+         , "2sq_2l6j2x" 
+         ]
 
 
 atlas_20_3_fbinv_at_8_TeV :: WebDAVConfig -> WebDAVRemoteDir -> String 
@@ -80,14 +87,16 @@ atlas_20_3_fbinv_at_8_TeV wdavcfg wdavrdir bname = do
   (xsec :: CrossSectionAndCount) 
     <- (EitherT . return . maybeToEither (fp2 ++ " JSON cannot be decoded") .G.decode) r2  
   --
+  {-
   guardEitherM (kfactorfp ++ " not exist") (doesFileExistInDAV wdavcfg wdavrdir kfactorfp)
   (_,mrk) <- liftIO (downloadFile True wdavcfg wdavrdir kfactorfp)
   rk <- (liftM LB.pack . EitherT . return . maybeToEither (kfactorfp ++ " is not downloaded ")) mrk 
   liftIO$ print rk 
   (result_kfactor :: CrossSectionResult) 
     <- (EitherT . return . maybeToEither (kfactorfp ++ " JSON cannot be decoded") .G.decode) rk
+  -}
   -- 
-  let kFactor = xsecKFactor result_kfactor
+  let kFactor = 1.0 -- xsecKFactor result_kfactor
       weight = crossSectionInPb xsec * luminosity * kFactor / fromIntegral (numberOfEvent xsec)
       hist = map (\(x,y) -> (x,fromIntegral y * weight)) result 
       getratio (x,y) = do y' <- lookup x limitOfNBSM 
@@ -110,15 +119,23 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile ("xqld_neutlosp_mqmnscan_8TeV.dat") WriteMode 
+  outh <- openFile ("xqld_neutLOSP"++show mneut++"_sqsg_8TeV_1lep.dat") WriteMode 
   mapM_ (\(mg,mn,r) -> hPutStrLn outh (show mg ++ ", " ++ show mn ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
-            let analysis = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName "2sq_2l6j2x" 
+            let analysis p = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName p
+                simplify = fmap head
                 takeHist (_,_,h,_) = h
-            t_2sq  <- (fmap head . analysis) (x,y)
-            let h_2sq  = takeHist t_2sq
-                totalsr = mkTotalSR [h_2sq]
+
+            t_2sg    <- (simplify . analysis "2sg_2l8j2x")    (x,y)
+            t_sqsg   <- (simplify . analysis "sqsg_2l7j2x") (x,y)
+            t_2sq    <- (simplify . analysis "2sq_2l6j2x") (x,y)
+
+            let h_2sg  = takeHist t_2sg
+                h_sqsg = takeHist t_sqsg
+                h_2sq  = takeHist t_2sq
+
+                totalsr = mkTotalSR [h_2sg, h_sqsg, h_2sq]
                 r_ratio = getRFromSR totalsr
             return (x :: Double, y :: Double, r_ratio)
           case r of 
@@ -135,7 +152,7 @@ mainCheck = do
 
 
 mainCount = do 
-  r <- runEitherT (countEvent "2sq_2l6j2x")
+  r <- runEitherT (mapM_ countEvent . drop 2 . take 3 $ dirset)
   case r of 
     Left err -> putStrLn err
     Right _ -> return ()
