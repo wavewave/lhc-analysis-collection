@@ -48,7 +48,7 @@ getAnalysis FirstJetPT = atlas_get1stJetPT
 getAnalysisMaxx :: AnalysisType -> Double 
 getAnalysisMaxx MET = 1500
 getAnalysisMaxx MEFF = 3000
-getAnalysisMaxx RatioMET_MEFF = 0.4
+getAnalysisMaxx RatioMET_MEFF = 0.8
 getAnalysisMaxx FirstLepPT = 1500
 getAnalysisMaxx FirstJetPT = 1000
 
@@ -131,18 +131,26 @@ main = do
   let set = [ (1500.0,1000.0, mn) | mn <- [100.0,300.0,500.0] ]
       set' = [ (1500.0,1000.0,100.0) ] 
   -- mainAnalysis FirstLepPT createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
+  -- mapM_ (mainAnalysis FirstLepPT createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
+  
 
   -- mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
   -- mapM_ (mainAnalysis MET createRdirBName_simplifiedsusy dirset_simplifiedsusy) set -- (mg,mq,mn)
   -- mapM_ (mainAnalysis MET createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
   -- mainAnalysis MET createRdirBName_xqld dirset_xqld (mg,mq,mn) 
 
+  -- mapM_ (mainAnalysis MEFF createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
+  mapM_ (mainAnalysis RatioMET_MEFF createRdirBName_xuddnoneut dirset_xuddnoneut) set'
+
+
+  -- mapM_ (mainAnalysis RatioMET_MEFF createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
+
   -- mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_xudd dirset_xudd (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
 
   -- mainAnalysisNJet createRdirBName_xudd dirset_xudd (mg,mq,mn)
-  mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
+  -- mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
   -- mapM_ (mainAnalysisNJet createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
 
 -- | 

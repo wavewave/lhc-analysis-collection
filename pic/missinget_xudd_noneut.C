@@ -2,7 +2,7 @@
   
   TFile l("ADMXUDD112degenMG1500.0MQ1000.0ML50000.0MN50000.0_total_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set_MET.root");
   TH1F* h_l = (TH1F*) l.Get("2jet"); 
-  h_l -> SetLineColor(30); 
+  h_l -> SetLineColor(38); 
   h_l -> SetTitle("M_{#tilde{g}}=1500 GeV, M_{#tilde{q}}=1000 GeV");
   h_l -> SetXTitle("E_{T}^{miss}");
   h_l -> SetYTitle("Number of Events");  
@@ -24,7 +24,7 @@
 
 
   TLatex l1(150,30,"XUDD");
-  l1.SetTextColor(30);  
+  l1.SetTextColor(38);  
   TLatex l2(600,30,"m_{N}=100"); 
   l2.SetTextColor(42);
   l1.Draw("same"); 

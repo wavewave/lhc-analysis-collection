@@ -14,7 +14,7 @@
 
   TFile u100("ADMXUDD112degenMG1500.0MQ1000.0ML50000.0MN50000.0_total_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set_NJet.root");
   TH1F* h_u100 = (TH1F*) u100.Get("NJet"); 
-  h_u100 -> SetLineColor(30); 
+  h_u100 -> SetLineColor(38); 
   h_u100 -> Draw("same"); 
  
   TFile s100("SimplifiedSUSYMN100.0MG1500.0MSQ1000.0_total_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set_NJet.root"); 
@@ -24,7 +24,7 @@
 
 
   TLatex l1(4,65,"XUDD"); 
-  l1.SetTextColor(30);
+  l1.SetTextColor(38);
   l1.Draw("same"); 
 
 

@@ -6,8 +6,9 @@ set ylabel "$yvar$ Mass (GeV)"
 
 set xrange [$xmin$:$xmax$]
 set yrange [$ymin$:$ymax$]
-set zrange [1e-13:1e10]
-set log cb  
+set cbrange [1e-6:1e2]
+set logscale cb  
+set cbtics (1e-6,1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100) 
 set key 
 
 unset surface
@@ -20,12 +21,8 @@ interpolate(x,y0,x0,y1,x1) = (x-x0)*(y1-y0)/(x1-x0)+y0
 
 base(x) = (x <= -0.75) ? 0 : ( x <= -0.25 ? interpolate(x,0.0,-0.75,1.0,-0.25) : (x <= 0.25 ? 1.0 : (x <= 0.75 ? interpolate(x,1.0,0.25,0.0,0.75) : 0.0 )))
 
-#r(x) = (logval(x)*(theta(x-0.0001)))+1.0*theta(0.0001-x)
-#g(x) = (logval(x)*(theta(x-0.0001)))+1.0*theta(0.0001-x)
-#b(x) = (logval(x)*(theta(x-0.0001)))+1.0*theta(0.0001-x)
-
-r(x)= base(x-0.75)*theta(x-0.01)+1.0*theta(0.01-x)
-g(x)= 0.5*base(x-0.25)*theta(x-0.01)+0.25+1.0*theta(0.01-x)
+r(x)= base(x-0.55)*theta(x-0.01)+1.0*theta(0.01-x)
+g(x)= 0.5*base(x-0)*theta(x-0.01)+0.2+1.0*theta(0.01-x)
 b(x)= base(x+0.15)*theta(x-0.01)+1.0*theta(0.01-x)
 
 set palette model RGB functions r(gray),g(gray),b(gray)
