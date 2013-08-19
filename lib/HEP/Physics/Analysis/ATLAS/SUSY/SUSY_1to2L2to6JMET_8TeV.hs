@@ -43,6 +43,7 @@ import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy.Char8 as LB
 import Data.Data
 import Data.Default
+import Data.Either
 import Data.List
 import Data.Maybe
 import qualified Data.Map.Strict as M
@@ -387,12 +388,7 @@ getETypes (Right (es,eh)) =
           in r_ih3 ++ r_ih5 ++ r_ih6 ++ r_bh 
   in result_soft ++ result_hard
 
-{-
-instance MFunctor (EitherT e) where 
-  hoist nat m = EitherT (nat (runEitherT m))
--}
 
--- meffNj 4 
 
 -------------------
 -- monad utility --
@@ -645,8 +641,10 @@ mergeTau (Unpruned ev) = Right (TauMerged (mkPhyEventNoTau ev))
 mergeTau _ = Left ("mergeTau: not Unpruned")
 
 
-proc1ev :: PhyEventClassified -> Either String (Either String SoftEvent, Either String HardEvent)
-proc1ev ev = (mergeTau 
+
+-- | main entry for one event
+classify :: PhyEventClassified -> Either String (Either String SoftEvent, Either String HardEvent)
+classify ev = (mergeTau 
               >=> (\case TauMerged e -> Right (mkChannel e)
                          _ -> Left "proc1ev: not TauMerged") )
 
@@ -1072,7 +1070,39 @@ mkElimCmd (i,l,(jeti,jetio,_)) = case l of
                                    LO_Muon _ -> if null jeti && null jetio then NoElim else ElimLep i
 
 
-                                                        
+------------------------
+-- histogram analysis --                                    
+------------------------
+
+classifyAndGetValue :: (PhyEventNoTau->Double,PhyEventNoTauNoBJet->Double) 
+                       -> PhyEventClassified 
+                       -> Either String (Either String Double, Either String Double) -- ^ (soft, hard)
+classifyAndGetValue (f1,f2) ev = (mergeTau
+                                     >=> (\case TauMerged e -> Right (worker e) 
+                                                _ -> Left "classifyAndGetMET: not TauMerged"))
+                                   (Unpruned ev) 
+  where worker e = (workerSoft e, workerHard e)
+        workerSoft e = do let e' = (isolateLepton . preselectionSoft) e 
+                              (ls,m) = countLeptonNumber e' 
+                          case ls of 
+                            MultiLep1 l -> do 
+                              let (nj,_) = countJetNumber e'
+                              guardE "workerSoft: nj < 3" (nj >= 3)
+                              getNJets 3 e' >>= soft1L3JCheckPTJet 
+                              (return . f1) e' 
+                            _ -> Left "workerSoft : not single lep" 
+
+        workerHard e = do let e' = (isolateLepton . preselectionHard) e 
+                          l <- hardCheckNLep e' 
+                          guardE "workerHard:pT_l <= 25" (pt l > 25)
+                          getNJets 3 e' >>= hardCheckPTJet Inclusive
+                          (return . f2) e'
+
+
+
+
+
+
       
 ------------------- 
 -- main analysis --
@@ -1091,7 +1121,7 @@ atlas_SUSY_1to2L2to6JMET_8TeV wdavcfg wdavrdir bname = do
       bstr <- LB.readFile fp 
       let unzipped =decompress bstr 
           evts = parsestr unzipped 
-          passed = map proc1ev evts  
+          passed = map classify evts  
           -- asclst jes = mkHistogram (passed jes)
           -- testlst = [ (jes, asclst jes) | a <- as, b <- bs, let jes = JESParam a b ]
           hist =  mkHistogram. concat . filter (not.null) . map getETypes $ passed 
@@ -1102,6 +1132,25 @@ atlas_SUSY_1to2L2to6JMET_8TeV wdavcfg wdavrdir bname = do
       uploadFile wdavcfg wdavrdir jsonfn 
       removeFile jsonfn
       removeFile fp 
-
       return ()
- 
+
+-- | for making histogram 
+atlas_hist :: (PhyEventClassified -> Either String (Either String a, Either String b))
+           -> WebDAVConfig 
+           -> WebDAVRemoteDir 
+           -> String 
+           -> EitherT String IO ([a],[b])
+atlas_hist anal wdavcfg wdavrdir bname = do 
+    let fp = bname ++ "_pgs_events.lhco.gz"
+    guardEitherM (fp ++ " does not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp)
+    liftIO $ downloadFile False wdavcfg wdavrdir fp 
+    bstr <- liftIO $ LB.readFile fp 
+    let unzipped =decompress bstr 
+        evts = parsestr unzipped 
+        analyzed = (rights . map anal) evts  
+        as = (rights . map fst) analyzed
+        bs = (rights . map snd) analyzed
+    return (as,bs)
+
+atlas_getMET = atlas_hist (classifyAndGetValue (missingETpT,missingETpT))
+
