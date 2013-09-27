@@ -45,12 +45,12 @@ getAnalysis FirstLepPT = atlas_get1stLepPT
 getAnalysis FirstJetPT = atlas_get1stJetPT
 
 -- |
-getAnalysisMaxx :: AnalysisType -> Double 
-getAnalysisMaxx MET = 1500
-getAnalysisMaxx MEFF = 3000
-getAnalysisMaxx RatioMET_MEFF = 0.4
-getAnalysisMaxx FirstLepPT = 1500
-getAnalysisMaxx FirstJetPT = 1000
+getAnalysisMinMaxX :: AnalysisType -> (Double,Double) 
+getAnalysisMinMaxX MET = (0,1000)
+getAnalysisMinMaxX MEFF = (0,3000)
+getAnalysisMinMaxX RatioMET_MEFF = (0,0.7)
+getAnalysisMinMaxX FirstLepPT = (-10,500)
+getAnalysisMinMaxX FirstJetPT = (0,1000)
 
 
 -- | 
@@ -61,7 +61,7 @@ luminosity = 20300
 --  Triple (Double,Double,Double) | Doublet (Double,Double) 
 
 createRdirBName_xqld procname (mg,mq,mn) = 
-  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/scan_" ++ procname 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
       basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
@@ -124,25 +124,53 @@ getResult f (rdir,basename) = do
   fileWork f "config1.txt" rdir basename nlst 
 
 main = do 
-  {- let mg = 2000.0 :: Double
-      mq = 1500.0 :: Double 
-      mn = 300.0 :: Double  -}
+  let -- set = [ (1000.0,1000.0, mn) | mn <- [100.0,300.0,500.0] ]
+      -- set' = [ (1500.0,1000.0,100.0) ] 
+      -- set'' = [ (1500.0,1000.0,100.0), (1500.0,1000.0,300.0), (1500.0,1000.0,500.0) ] 
+      -- set_xudd_sq = [ (2500.0,1500.0,50000.0) ] 
+      -- set_smpl_sq = [ (2500.0,1500.0, mn) | mn <- [100.0,300.0,500.0] ]  
+      set_xudd_neut = [ (1000.0,1000.0,mn) | mn <- [100.0, 300.0, 500.0] ]
+      set_smpl_neut = [ (1000.0,1000.0, mn) | mn <- [100.0,300.0,500.0] ]
 
-  let set = [ (1500.0,1000.0, mn) | mn <- [100.0,300.0,500.0] ]
-      set' = [ (1500.0,1000.0,100.0) ] 
-  -- mainAnalysis FirstLepPT createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
+  -- mapM_ (mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld) set -- set'
+  -- mapM_ (mainAnalysis FirstLepPT createRdirBName_simplifiedsusy dirset_simplifiedsusy) set -- set''
+
+  -- mapM_ (mainAnalysis MET createRdirBName_xuddnoneut dirset_xuddnoneut) set_xudd_sq
+  -- mapM_ (mainAnalysis MET createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_sq
+  -- mapM_ (mainAnalysis MET createRdirBName_xudd dirset_xudd) set_xudd_neut
+  -- mapM_ (mainAnalysis MET createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_neut
+
+
+  -- mapM_ (mainAnalysis MEFF createRdirBName_xuddnoneut dirset_xuddnoneut) set_xudd_sq
+  -- mapM_ (mainAnalysis MEFF createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_sq
+  -- mapM_ (mainAnalysis MEFF createRdirBName_xudd dirset_xudd) set_xudd_neut
+  -- mapM_ (mainAnalysis MEFF createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_neut
+
+
+
+  -- mapM_ (mainAnalysis RatioMET_MEFF createRdirBName_xuddnoneut dirset_xuddnoneut) set_xudd_sq
+  -- mapM_ (mainAnalysis RatioMET_MEFF createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_sq
+  mapM_ (mainAnalysis RatioMET_MEFF createRdirBName_xudd dirset_xudd) set_xudd_neut
+  mapM_ (mainAnalysis RatioMET_MEFF createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_neut
+
+
 
   -- mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
   -- mapM_ (mainAnalysis MET createRdirBName_simplifiedsusy dirset_simplifiedsusy) set -- (mg,mq,mn)
   -- mapM_ (mainAnalysis MET createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
-  -- mainAnalysis MET createRdirBName_xqld dirset_xqld (mg,mq,mn) 
+  -- mapM_ (mainAnalysis MET createRdirBName_xqld dirset_xqld) set
 
   -- mainAnalysis FirstLepPT createRdirBName_xqld dirset_xqld (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_xudd dirset_xudd (mg,mq,mn)
   -- mainAnalysis FirstJetPT createRdirBName_simplifiedsusy dirset_simplifiedsusy (mg,mq,mn)
 
-  -- mainAnalysisNJet createRdirBName_xudd dirset_xudd (mg,mq,mn)
-  mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
+  -- mapM_ (mainAnalysisNJet createRdirBName_xuddnoneut dirset_xuddnoneut) set_xudd_sq 
+  -- mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_sq
+  -- mapM_ (mainAnalysisNJet createRdirBName_xudd dirset_xudd) set_xudd_neut 
+  -- mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set_smpl_neut
+
+
+  -- mapM_ (mainAnalysisNJet createRdirBName_simplifiedsusy dirset_simplifiedsusy) set
   -- mapM_ (mainAnalysisNJet createRdirBName_xuddnoneut dirset_xuddnoneut) set' 
 
 -- | 
@@ -152,7 +180,7 @@ mainAnalysis :: AnalysisType
              -> (Double,Double,Double) 
              -> IO ()
 mainAnalysis analtype rdirbnamefunc dirset (mg,mq,mn) = do 
-  let minx = 0; maxx = getAnalysisMaxx analtype; nchan = 50
+  let (minx,maxx) = getAnalysisMinMaxX analtype; nchan = 51
  
       (_,bname') = rdirbnamefunc "total" (mg,mq,mn)
 

@@ -34,31 +34,41 @@ import Debug.Trace
 import HROOT
 
 
-data AnalysisType = MET deriving (Show)
+data AnalysisType = MET | FirstJetPT deriving (Show)
 
 -- | 
 getAnalysis :: AnalysisType -> WebDAVConfig -> WebDAVRemoteDir -> String 
             -> EitherT String IO ([Double], [Double])
 getAnalysis MET = atlas_getMET
-{- 
-getAnalysis MEFF = atlas_getMeff
-getAnalysis RatioMET_MEFF = atlas_getRatioMET_Meff
-getAnalysis FirstLepPT = atlas_get1stLepPT 
+-- getAnalysis MEFF = atlas_getMeff
+-- getAnalysis RatioMET_MEFF = atlas_getRatioMET_Meff
+-- getAnalysis FirstLepPT = atlas_get1stLepPT 
 getAnalysis FirstJetPT = atlas_get1stJetPT
--}
+
 
 -- |
 getAnalysisMaxx :: AnalysisType -> Double 
-getAnalysisMaxx MET = 1500
-{- getAnalysisMaxx MEFF = 3000
-getAnalysisMaxx RatioMET_MEFF = 0.4
-getAnalysisMaxx FirstLepPT = 1500
+getAnalysisMaxx MET = 800
+-- getAnalysisMaxx MEFF = 3000
+-- getAnalysisMaxx RatioMET_MEFF = 0.4
+-- getAnalysisMaxx FirstLepPT = 1500
 getAnalysisMaxx FirstJetPT = 1000
--}
+
 
 -- | 
 luminosity :: Double 
 luminosity = 20300 
+
+createRdirBName_xqldnosq procname (mg,mq,mn) = 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP_mgmnscan/scan_" ++ procname 
+      basename = "ADMXQLD111degenMG"++ show mg++ "MQ50000.0ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
+
+createRdirBName_xqldnosg procname (mg,mq,mn) = 
+  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP_mgmnscan/scan_" ++ procname 
+      basename = "ADMXQLD111degenMG50000.0MQ" ++ show mq ++ "ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+  in (rdir,basename)  
+
 
 createRdirBName_xqld procname (mg,mq,mn) = 
   let rdir = "montecarlo/admproject/XQLDdegen/8TeV/scan_" ++ procname 
@@ -70,12 +80,17 @@ createRdirBName_xqldnoneut procname (mg,mq,mn) =
       basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN50000.0_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
 
-{-
-createRdirBName_simplifiedsusy procname (mg,mq,mn) = 
-  let rdir = "montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname 
-      basename = "SimplifiedSUSYMN"++ show mn++ "MG" ++ show mg ++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+
+createRdirBName_simplifiedsusylep procname (mg,mq,mn) = 
+  let rdir = "montecarlo/admproject/SimplifiedSUSYlep/8TeV/scan_" ++ procname 
+      mc = 0.5 * (mg + mn)
+      basename = "SimplifiedSUSYlepN"++ show mn++ "G" ++ show mg ++ "QL" ++ show mq ++ "C" ++ show mc ++ "L50000.0NN50000.0" ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
   in (rdir,basename)  
--}
+
+
+dirset_xqldnosq = [ "2sg_2l8j2x" ]
+
+dirset_xqldnosg = [ "2sq_2l6j2x" ]
 
 dirset_xqld = [ "2sg_2l8j2x"
               , "sqsg_2l7j2x"
@@ -90,12 +105,9 @@ dirset_xqldnoneut = [ "2sg_2l4j2x"
                     ]
 
 
-{-
-dirset_simplifiedsusy = [ "2sg_4j2n" 
-                        , "2sq_2j2n"
-                        , "sqsg_3j2n" ] 
 
--}
+dirset_simplifiedsusylepnosq = [ "1step_2sg" ] 
+dirset_simplifiedsusylepnosg = [ "1step_2sq" ] 
 
 
 getResult f (rdir,basename) = do 
@@ -105,7 +117,16 @@ getResult f (rdir,basename) = do
 main = do 
   let set = [ (1500.0,1000.0, mn) | mn <- [100.0,300.0,500.0] ]
       set' = [ (1500.0,1000.0,100.0) ] 
-  mapM_ (mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut) set' 
+      set'' = [ (1000.0,50000.0,800.0) ] 
+      set''' = [ (1000.0,50000.0,100.0) ] 
+  -- mapM_ (mainAnalysis MET createRdirBName_xqldnoneut dirset_xqldnoneut) set' 
+  -- mapM_ (mainAnalysis MET createRdirBName_xqldnosq dirset_xqldnosq) set''
+  -- mapM_ (mainAnalysis MET createRdirBName_simplifiedsusylep dirset_simplifiedsusylepnosq) set''
+
+
+  -- mapM_ (mainAnalysis FirstJetPT createRdirBName_xqldnosq dirset_xqldnosq) (set''++set''')
+  mapM_ (mainAnalysis FirstJetPT createRdirBName_simplifiedsusylep dirset_simplifiedsusylepnosq) (set'') -- ++set''')
+
 
   -- mainAnalysis FirstLepPT createRdirBName_xqldnoneut dirset_xqldnoneut (mg,mq,mn)
 
@@ -130,7 +151,7 @@ mainAnalysis :: AnalysisType
 mainAnalysis analtype rdirbnamefunc dirset (mg,mq,mn) = do 
   let minx = 0; maxx = getAnalysisMaxx analtype; nchan = 50
       (_,bname') = rdirbnamefunc "total" (mg,mq,mn)
-  tfile <- newTFile (bname' ++ "_1to2Lto6JMET_Hist" ++ show analtype ++ ".root") "NEW" "" 1   
+  tfile <- newTFile (bname' ++ "_1to2L2to6JMET_Hist" ++ show analtype ++ ".root") "NEW" "" 1   
   hsoft <- newTH1F "soft" "soft" nchan minx maxx
   hhard <- newTH1F "hard" "hard" nchan minx maxx
   r <- runEitherT $ mapM_ (\x -> countEvent analtype rdirbnamefunc (mg,mq,mn) x (hsoft,hhard)) dirset 

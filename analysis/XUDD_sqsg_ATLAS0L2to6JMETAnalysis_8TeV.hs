@@ -30,8 +30,13 @@ import Debug.Trace
 
 
 datalst :: [ (Double,Double) ]
+-- datalst = [ (g,q) | g <- [200,300..1500], q <- [200,300..3000] ]
+
+
+datalst = [ (g,q) | g <- [2500], q <- [200,300..3000] ]
+
 -- datalst = [ (g,q) | g <- [100,200..3000], q <- [100,200..3000] ]
-datalst = [ (g,q) | g <- [200,300..1500], q <- [200,300..3000] ]
+
 -- datalst = [ (g,q) | g <- [1500,1600..3000], q <- [200,300..3000] ]
 -- datalst = [ (3000,q) | q <- [2000,2100..3000] ]
 
@@ -86,7 +91,7 @@ dirset = [ "2sg_6j2x"
          ]
 
    
-
+{-
 fetchXSecNHist :: WebDAVConfig -> WebDAVRemoteDir -> String 
                -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)]))
 fetchXSecNHist wdavcfg wdavrdir bname = do 
@@ -103,6 +108,7 @@ fetchXSecNHist wdavcfg wdavrdir bname = do
     r2 <- liftM LB.pack (MaybeT . return $ mr2) 
     (xsec :: CrossSectionAndCount) <- MaybeT . return $ G.decode  r2  
     return (xsec,result)
+-}
 
 atlas_20_3_fbinv_at_8_TeV :: WebDAVConfig -> WebDAVRemoteDir -> String 
                           -> IO (Maybe (CrossSectionAndCount,[(JESParam,HistEType)],[(EType,Double)],Double))
@@ -139,7 +145,7 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile "xudd_sqsg_8TeV_0lep.dat" WriteMode 
+  outh <- openFile "xudd_sqsg_8TeV_0lep_temp.dat" WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do 
 
@@ -147,6 +153,9 @@ mainAnalysis = do
             let analysis x = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName x
                 simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
+                takeXSec (x,_,_,_) = crossSectionInPb x * 20300
+                
+
             t_2sg    <- (simplify . analysis "2sg_6j2x")    (x,y)
             t_sqsg_o <- (simplify . analysis "sqsg_o_5j2x") (x,y)
             t_sqsg_n <- (simplify . analysis "sqsg_n_5j2x") (x,y)
@@ -160,11 +169,23 @@ mainAnalysis = do
                 h_2sq_oo = takeHist t_2sq_oo
                 h_2sq_no = takeHist t_2sq_no
                 h_2sq_nn = takeHist t_2sq_nn
+
+                x_2sg    = takeXSec t_2sg
+                x_sqsg_o = takeXSec t_sqsg_o
+                x_sqsg_n = takeXSec t_sqsg_n
+                x_2sq_oo = takeXSec t_2sq_oo
+                x_2sq_no = takeXSec t_2sq_no
+                x_2sq_nn = takeXSec t_2sq_nn
+
                 totalsr = mkTotalSR [h_2sg, h_sqsg_o, h_sqsg_n, h_2sq_oo, h_2sq_no, h_2sq_nn]
+                totalpr = x_2sg + x_sqsg_o + x_sqsg_n + x_2sq_oo + x_2sq_no + x_2sq_nn  
+
+                totalsrpr = multiplyScalar (1.0/totalpr) totalsr
                 r_ratio = getRFromSR totalsr
 
 
-            trace (show (x,y,h_2sg)) $ return (x :: Double, y :: Double, r_ratio)
+            trace (show (x,y,h_2sg)) $ return (x :: Double, y :: Double, totalsrpr) 
+            -- trace (show (x,y,h_2sg)) $ return (x :: Double, y :: Double, -- r_ratio)
           case r of 
             Left err -> error err 
             Right result -> return result
