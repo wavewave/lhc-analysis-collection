@@ -211,7 +211,7 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 pdir = ProcDir "Work20130720" "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP" "scan"
 
 m_neutralino :: Double 
-m_neutralino = 500.0
+m_neutralino = 100.0
 
 worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
 worksets = set_2sg <> set_sqsg <> set_2sq 
@@ -223,26 +223,17 @@ worksets = set_2sg <> set_sqsg <> set_2sq
     set_2sq  = makeset "2sq" massset_2sq
 
 
-mesh = [ (g, q) | g <- [m_neutralino+100,m_neutralino+200..3000], q<- [m_neutralino+100,m_neutralino+200..3000] ]
+mesh = [ (g, q) | g <- [m_neutralino+100,m_neutralino+200..3000], q<- [m_neutralino+100,m_neutralino+200..3000], q <= 1000 ]
 
-massset_2sg = [] -- mesh
-massset_sqsg = [] -- mesh
-massset_2sq = 
-  [ (1600.0,2500.0)
-  , (1600.0,2900.0)
-  , (1600.0,3000.0)
-  , (1700.0,600.0)
-  ] 
-
-
- -- mesh
+massset_2sg = mesh
+massset_sqsg = mesh
+massset_2sq = mesh
 
 
 main :: IO () 
 main = do 
   args <- getArgs 
   let fp = args !! 0 
-      -- cmd = args !! 1 
       n1 = read (args !! 1) :: Int
       n2 = read (args !! 2) :: Int
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
@@ -250,7 +241,7 @@ main = do
   mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
-
+setN = 2 
 
 scanwork :: FilePath -> (String, (Double,Double,Double,Double,Int)) -> IO () 
 scanwork fp (cmd, (mgl,msq,msl,mneut,n)) = do
@@ -267,9 +258,9 @@ scanwork fp (cmd, (mgl,msq,msl,mneut,n)) = do
                                  , webdav_baseurl = whost } 
           param = modelparam mgl msq msl mneut
       let mjob = case cmd of 
-                   "2sg"    -> Just ("2sg_2l8j2x", NumOfEv n, SetNum 1)
-                   "sqsg" -> Just ("sqsg_2l7j2x", NumOfEv n, SetNum 1)
-                   "2sq" -> Just ("2sq_2l6j2x", NumOfEv n, SetNum 1)
+                   "2sg"    -> Just ("2sg_2l8j2x", NumOfEv n, SetNum setN)
+                   "sqsg" -> Just ("sqsg_2l7j2x", NumOfEv n, SetNum setN)
+                   "2sq" -> Just ("2sq_2l6j2x", NumOfEv n, SetNum setN)
                    _ -> Nothing
       print mjob  
       maybe (return ()) (genMultiProcess ADMXQLD111degen ssetup mprocs param wdavcfg) mjob

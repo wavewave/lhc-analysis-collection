@@ -73,6 +73,7 @@ getXSecNCount xsectyp wdavcfg wdavrdir bname = do
 xsec :: XSecType -> WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe Double) 
 xsec XSecPYTHIA wdavcfg wdavrdir bname = do  
     let fp = bname ++ "_pythia.log"
+    print fp 
     b <- doesFileExistInDAV wdavcfg wdavrdir fp
     if b 
       then do 
@@ -86,6 +87,7 @@ xsec XSecPYTHIA wdavcfg wdavrdir bname = do
       else return Nothing
 xsec XSecLHE wdavcfg wdavrdir bname = do 
     let fp = bname ++ "_unweighted_events.lhe.gz"
+    print fp 
     b <- doesFileExistInDAV wdavcfg wdavrdir fp
     if b 
       then do
@@ -102,6 +104,7 @@ xsec XSecLHE wdavcfg wdavrdir bname = do
 count :: WebDAVConfig -> WebDAVRemoteDir -> String -> IO (Maybe Int)
 count wdavcfg wdavrdir bname = do  
     let fp = bname ++ "_pgs_events.lhco.gz"
+    print fp 
     boolToMaybeM (doesFileExistInDAV wdavcfg wdavrdir fp ) $ do 
       downloadFile False wdavcfg wdavrdir fp  
       bstr <- LB.readFile fp 

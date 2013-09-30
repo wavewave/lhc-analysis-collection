@@ -27,34 +27,51 @@ import HEP.Physics.Analysis.Common.XSecNTotNum
 import HEP.Physics.Analysis.Common.Prospino
 import HEP.Util.Work 
 --
+import KFactor
 import Util
 import Debug.Trace
 
 m_neutralino :: Double 
-m_neutralino = 100
+m_neutralino = 500
 
-datalst :: [ (Double,Double) ]
-datalst = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
+-- datalst :: [ ((Double,Double), [Int]) ]
+-- datalst = [ ((1000,1000),[1]) ]
 
+datalst :: [ ((Double,Double), [Int]) ]
+datalst = [ ((1000,1000),[2]) ]
+
+datalst1of2 = datalst
+
+datalst2of2 = [] 
+
+
+{-
+datalst :: [ ((Double,Double), [Int]) ]
+datalst = [ ((g,q),[1]) | g <- [m_neutralino+100,m_neutralino+200..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
+-}
+
+{-
 datalst1of2 :: [ (Double,Double) ]
 datalst1of2 = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..1500], q <- [m_neutralino+100,m_neutralino+200..3000] ]
 
 datalst2of2 :: [ (Double,Double) ]
 datalst2of2 = [ (g,q) | g <- [1600,1700..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
-
+-}
 
 checkFiles :: DataFileClass -> String -> IO (Either String ())
 checkFiles c procname = do 
-  rs <- forM datalst (\s -> (doJob (checkFileExistInDAV c)  . createRdirBName procname) s 
-                                >>= return . maybe (show s) (const []) . head)
+  rs <- forM datalst (\((x,y),ns) -> doJob ns (checkFileExistInDAV c) (createRdirBName procname (x,y))
+                                     >>= return . maybe (show ((x,y),ns)) (const []) . head)
   let missinglst = filter (not.null) rs
       nmiss = length missinglst
   mapM_ (\x -> putStrLn ("  , " ++ x)) missinglst
   if null missinglst then return (Right ()) else return (Left (show nmiss ++ " files are missing"))
 
+
+createRdirBName :: String -> (Double, Double) -> (String,String)
 createRdirBName procname (mg,mq) = 
   let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
-      basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show m_neutralino ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set"
+      basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show m_neutralino ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set" 
   in (rdir,basename)  
 
 dirset = [ "2sg_2l8j2x"
@@ -64,9 +81,12 @@ dirset = [ "2sg_2l8j2x"
 
 luminosity = 20300 
 
-atlas_20_3_fbinv_at_8_TeV :: WebDAVConfig -> WebDAVRemoteDir -> String 
+atlas_20_3_fbinv_at_8_TeV :: String 
+                          -> WebDAVConfig 
+                          -> WebDAVRemoteDir 
+                          -> String 
                           -> EitherT String IO (CrossSectionAndCount,[(JESParam,HistEType)],[(EType,Double)],Double)
-atlas_20_3_fbinv_at_8_TeV wdavcfg wdavrdir bname = do 
+atlas_20_3_fbinv_at_8_TeV proc wdavcfg wdavrdir bname = do 
   let fp1 = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
       fp2 = bname ++ "_total_count.json" 
       kfactorfp = bname ++ "_xsecKfactor.json"
@@ -81,14 +101,19 @@ atlas_20_3_fbinv_at_8_TeV wdavcfg wdavrdir bname = do
   r2 <- (liftM LB.pack . EitherT . return . maybeToEither (fp2 ++ " is not downloaded ")) mr2 
   (xsec :: CrossSectionAndCount) <- (EitherT . return . maybeToEither (fp2 ++ " JSON cannot be decoded") . G.decode) r2  
   --
+  case proc of
+
+  {- 
   guardEitherM (kfactorfp ++ " not exist") (doesFileExistInDAV wdavcfg wdavrdir kfactorfp)
   (_,mrk) <- liftIO (downloadFile True wdavcfg wdavrdir kfactorfp)
   rk <- (liftM LB.pack . EitherT . return . maybeToEither (kfactorfp ++ " is not downloaded ")) mrk 
   liftIO$ print rk 
   (result_kfactor :: CrossSectionResult) 
-    <- (EitherT . return . maybeToEither (kfactorfp ++ " JSON cannot be decoded") .G.decode) rk
+    <- (EitherT . return . maybeToEither (kfactorfp ++ " JSON cannot be decoded") .G.decode) rk 
+  -}
   -- 
-  let kFactor = xsecKFactor result_kfactor
+  let -- kFactor = xsecKFactor result_kfactor
+      kFactor = 1 
       weight = crossSectionInPb xsec * luminosity * kFactor  / fromIntegral (numberOfEvent xsec)
       hist = map (\(x,y) -> (x,fromIntegral y * weight)) ((snd . head) result )
 
@@ -102,31 +127,33 @@ atlas_20_3_fbinv_at_8_TeV wdavcfg wdavrdir bname = do
 
 
 
-getResult f (rdir,basename) = do 
-  let nlst = [1]
-  fileWork f "config1.txt" rdir basename nlst 
+getResult f ns (rdir,basename) = fileWork f "config1.txt" rdir basename ns  
 
 
+  -- let nlst = [1]
 
 
 mainAnalysis = do
-  outh <- openFile ("xqld_neutLOSP" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
+  -- outh <- openFile ("xqld_neutLOSP" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
+  let outh = stdout 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
-    =<< forM datalst ( \(x,y) -> do
+    =<< forM datalst ( \((x,y),ns) -> do
           r <- runEitherT $ do
-            let analysis x = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName x
+            let analysis x = getResult (atlas_20_3_fbinv_at_8_TeV x) ns . createRdirBName x
                 -- simplify = fmap head . fmap catMaybes . EitherT
                 takeHist (_,_,h,_) = h
-            t_2sg  <- (fmap head . analysis "2sg_2l8j2x")    (x,y)
-            t_sqsg <- (fmap head . analysis "sqsg_2l7j2x") (x,y)
-            t_2sq  <- (fmap head . analysis "2sq_2l6j2x") (x,y)
-
-            let h_2sg  = takeHist t_2sg
-                h_sqsg = takeHist t_sqsg
-                h_2sq  = takeHist t_2sq
+            t_2sg  <- analysis "2sg_2l8j2x"  (x,y)
+            t_sqsg <- analysis "sqsg_2l7j2x" (x,y)
+            t_2sq  <- analysis "2sq_2l6j2x" (x,y)
+            {-
+            let h_2sg  = map takeHist t_2sg
+                h_sqsg = map takeHist t_sqsg
+                h_2sq  = map takeHist t_2sq
                 totalsr = mkTotalSR [ h_2sg, h_sqsg, h_2sq ]
-                r_ratio = getRFromSR totalsr
-            trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio)
+                r_ratio = getRFromSR totalsr 
+                 
+            trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio) -}
+            return (x :: Double, y :: Double, t_2sg)
           case r of 
             Left err -> error err 
             Right result -> return result
@@ -165,28 +192,20 @@ countEvent str = do
   liftIO $ putStrLn "Proceed 1 or 2 ? (1/2/others)"
   c <- liftIO $ getChar
   if c == '1' 
-    then liftIO $ forM_ datalst1of2 (getCount.createRdirBName str)
+    then liftIO $ forM_ datalst1of2 (\((x,y),ns) -> getCount ns (createRdirBName str (x,y)))
     else if c == '2' 
-           then liftIO $ forM_ datalst2of2 (getCount.createRdirBName str)
+           then liftIO $ forM_ datalst2of2 (\((x,y),ns) -> getCount ns (createRdirBName str (x,y)))
            else return ()
 
-{-
-  liftIO $ putStrLn "Proceed ? (Y/N)"
-  c <- liftIO $ getChar
 
-  liftIO $ forM_ datalst (getCount.createRdirBName str)
--}
- 
+    
 
-      
-
-getCount (rdir,basename) = do 
-  let nlst = [1]
+getCount ns (rdir,basename) = do 
   r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
          "config1.txt" 
          rdir 
          basename 
-         nlst 
+         ns 
   print r1
 
   r2 <- work 
@@ -194,7 +213,7 @@ getCount (rdir,basename) = do
          "config1.txt"
          rdir
          basename
-         nlst
+         ns
   print r2 
 
 
