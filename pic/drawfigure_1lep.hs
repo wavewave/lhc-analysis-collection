@@ -2,7 +2,7 @@ import System.Environment
 import System.Directory
 import Text.StringTemplate
 
-main = main_2sg
+main = main_2sq -- main_2sg
 
 main_2sg :: IO ()
 main_2sg = do 
@@ -10,8 +10,8 @@ main_2sg = do
   cdir <- getCurrentDirectory
   tmpl <- (directoryGroup cdir :: IO (STGroup String))
   let mneutstr = args !! 0
-      Just cntrtmpl = getStringTemplate "contour_multilep.gpl" tmpl
-      Just cmbdtmpl = getStringTemplate "combined_multilep.gpl" tmpl
+      Just cntrtmpl = getStringTemplate "contour_1lep.gpl" tmpl
+      Just cmbdtmpl = getStringTemplate "combined_1lep.gpl" tmpl
 
       simplstr_2sg = (toString . flip setManyAttrib cntrtmpl) 
                        [ ("xvar", "Gluino")
@@ -46,12 +46,12 @@ main_2sg = do
                       , ("datnameB", "simplifiedsusylep_1step_2sg_8TeV")
                       , ("modelaliasA", "Xqld")
                       , ("modelaliasB", "Simplified")
-                      , ("figurefilename", "multilep_mgmnscan")
+                      , ("figurefilename", "xqld_1lep_mgmnscan")
                       ] 
 
-  writeFile "contour_multilep_2sg_simplifiedsusy.gpl" simplstr_2sg
-  writeFile "contour_multilep_2sg_xqld.gpl" xqldstr_2sg
-  writeFile "combined_multilep_2sg.gpl" cmbdstr_2sg
+  writeFile "contour_1lep_2sg_simplifiedsusy.gpl" simplstr_2sg
+  writeFile "contour_1lep_2sg_xqld.gpl" xqldstr_2sg
+  writeFile "combined_1lep_2sg.gpl" cmbdstr_2sg
 
 
 
@@ -61,8 +61,8 @@ main_2sq = do
   cdir <- getCurrentDirectory
   tmpl <- (directoryGroup cdir :: IO (STGroup String))
   let mneutstr = args !! 0
-      Just cntrtmpl = getStringTemplate "contour_multilep.gpl" tmpl
-      Just cmbdtmpl = getStringTemplate "combined_multilep.gpl" tmpl
+      Just cntrtmpl = getStringTemplate "contour_1lep.gpl" tmpl
+      Just cmbdtmpl = getStringTemplate "combined_1lep.gpl" tmpl
 
       simplstr_2sq = (toString . flip setManyAttrib cntrtmpl) 
                        [ ("xvar", "Squark")
@@ -97,12 +97,12 @@ main_2sq = do
                       , ("datnameB", "simplifiedsusylep_1step_2sq_8TeV")
                       , ("modelaliasA", "Xqld")
                       , ("modelaliasB", "Simplified")
-                      , ("figurefilename", "multilep_mqmnscan")
+                      , ("figurefilename", "xqld_1lep_mqmnscan")
                       ] 
 
-  writeFile "contour_multilep_2sq_simplifiedsusy.gpl" simplstr_2sq
-  writeFile "contour_multilep_2sq_xqld.gpl" xqldstr_2sq
-  writeFile "combined_multilep_2sq.gpl" cmbdstr_2sq
+  writeFile "contour_1lep_2sq_simplifiedsusy.gpl" simplstr_2sq
+  writeFile "contour_1lep_2sq_xqld.gpl" xqldstr_2sq
+  writeFile "combined_1lep_2sq.gpl" cmbdstr_2sq
 
 
 
