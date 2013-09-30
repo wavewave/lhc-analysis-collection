@@ -17,6 +17,7 @@ module HEP.Util.Work where
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Either
+import Control.Monad.Trans.Reader
 -- 
 import HEP.Automation.EventGeneration.Config
 import HEP.Storage.WebDAV.Type 
@@ -79,3 +80,23 @@ fileWork task cfgfile rdir bname sets = do
         wdavrdir = WebDAVRemoteDir rdir 
         bnames = map (\x -> bname ++ show x) sets
     mapM (task wdavcfg wdavrdir) bnames 
+
+
+-- | 
+withDAVConfig :: FilePath -> EitherT String (ReaderT WebDAVConfig IO) a -> IO (Either String a) 
+withDAVConfig cfgfile task = do 
+    mcfg <- getConfig cfgfile 
+    case mcfg of 
+      Nothing -> return (Left "Error in getConfig") 
+      Just cfg -> do 
+        let priv = evgen_privatekeyfile cfg 
+            pass = evgen_passwordstore cfg 
+            wdavroot = evgen_webdavroot cfg 
+        mcr <- getCredential priv pass
+        case mcr of 
+          Nothing -> return (Left "Error in getCredential") 
+          Just cr -> do 
+            let wdavcfg = WebDAVConfig cr wdavroot 
+            runReaderT (runEitherT task) wdavcfg 
+
+

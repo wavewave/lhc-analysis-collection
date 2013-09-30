@@ -1088,14 +1088,14 @@ classifyAndGetValue (f1,f2) ev = (mergeTau
                             MultiLep1 l -> do 
                               let (nj,_) = countJetNumber e'
                               guardE "workerSoft: nj < 3" (nj >= 3)
-                              getNJets 3 e' >>= soft1L3JCheckPTJet 
+                              -- getNJets 3 e' >>= soft1L3JCheckPTJet 
                               (return . f1) e' 
                             _ -> Left "workerSoft : not single lep" 
 
         workerHard e = do let e' = (isolateLepton . preselectionHard) e 
                           l <- hardCheckNLep e' 
                           guardE "workerHard:pT_l <= 25" (pt l > 25)
-                          getNJets 3 e' >>= hardCheckPTJet Inclusive
+                          -- getNJets 3 e' >>= hardCheckPTJet Inclusive
                           (return . f2) e'
 
 
@@ -1154,3 +1154,6 @@ atlas_hist anal wdavcfg wdavrdir bname = do
 
 atlas_getMET = atlas_hist (classifyAndGetValue (missingETpT,missingETpT))
 
+atlas_get1stJetPT = atlas_hist (classifyAndGetValue (fstjetpt . view jets , fstjetpt . view jets ) )
+  where fstjetpt [] = -100
+        fstjetpt (x:xs) = pt x

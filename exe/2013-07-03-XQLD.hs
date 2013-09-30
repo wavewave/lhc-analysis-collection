@@ -319,11 +319,6 @@ mgrunsetup (NumOfEv nev) (SetNum sn) =
 
 pdir = ProcDir "Work20130702" "montecarlo/admproject/XQLDdegen/8TeV" "scan"
 
--- notgood = [] 
-
--- worksets = [ (mgl,msq,50000,50000, 10000) | (mglstr,msqstr) <- notgood, let mgl = read mglstr, let msq = read msqstr] 
-
--- worksets = [ (mgl,msq,50000,50000, 10000) | mgl <- [100,200..2000], msq <- [100,200..2000] ] 
 
 worksets :: [ (String, (Double,Double,Double,Double,Int)) ]
 worksets = set_2sg <> set_sqsg_o <> set_sqsg_n <> set_2sq_oo <> set_2sq_no <> set_2sq_nn
@@ -338,75 +333,14 @@ worksets = set_2sg <> set_sqsg_o <> set_sqsg_n <> set_2sq_oo <> set_2sq_no <> se
     set_2sq_nn = makeset "2sq_nn" massset_2sq_nn 
 
 
-mesh = [ (g, q) | g <- [100,200..3000], q <- [100,200..3000], g > 2000 || q > 2000 ]
+mesh = [ (g, q) | g <- [100,200..3000], q <- [100,200..3000] ]
 
-massset_2sg = [ (1300.0,2300.0) ]  -- mesh
-massset_sqsg_o = [] -- mesh
-massset_sqsg_n = 
-  [ (2300.0,2600.0)
-  , (2300.0,2700.0)
-  , (2300.0,2800.0)
-  , (2300.0,2900.0)
-  , (2300.0,3000.0)
-  , (2400.0,400.0)
-  , (2400.0,500.0)
-  , (2400.0,600.0)
-  , (2400.0,700.0)
-  , (2400.0,800.0)
-  , (2400.0,900.0)
-  , (2400.0,1000.0)
-  , (2400.0,1100.0)
-  , (2400.0,1200.0)
-  , (2400.0,1300.0)
-  , (2400.0,1400.0)
-  , (2400.0,1500.0)
-  ] -- mesh
-massset_2sq_oo = [] -- mesh 
-massset_2sq_no =
-  [ (800.0,2600.0)
-  , (800.0,2700.0)
-  , (800.0,2800.0)
-  , (800.0,2900.0)
-  , (800.0,3000.0)
-  , (900.0,2200.0)
-  , (900.0,2300.0)
-  , (900.0,2400.0)
-  , (900.0,2500.0)
-  , (900.0,2600.0)
-  , (900.0,2700.0)
-  , (900.0,2800.0)
-  , (900.0,2900.0)
-  , (900.0,3000.0)
-  , (1000.0,2100.0)
-  , (1000.0,2200.0)
-  , (1000.0,2300.0)
-  , (1000.0,2400.0)
-  , (1000.0,2500.0)
-  ] -- mesh
-massset_2sq_nn =
-  [ (300.0,2100.0)
-  , (300.0,2200.0)
-  , (300.0,2300.0)
-  , (300.0,2400.0)
-  , (300.0,2500.0)
-  , (300.0,2600.0)
-  , (300.0,2700.0)
-  , (300.0,2800.0)
-  , (300.0,2900.0)
-  , (300.0,3000.0)
-  , (400.0,2100.0)
-  , (400.0,2200.0)
-  , (400.0,2300.0)
-  , (400.0,2400.0)
-  , (400.0,2500.0)
-  , (400.0,2600.0)
-  , (400.0,2700.0)
-  , (400.0,2800.0)
-  , (400.0,2900.0)
-  , (400.0,3000.0)
-  , (1500.0,2400.0)
-  , (1500.0,2500.0)
-  ] -- mesh 
+massset_2sg = mesh
+massset_sqsg_o = mesh
+massset_sqsg_n = mesh
+massset_2sq_oo = mesh 
+massset_2sq_no = mesh
+massset_2sq_nn = mesh 
 
 
 
@@ -414,15 +348,14 @@ main :: IO ()
 main = do 
   args <- getArgs 
   let fp = args !! 0 
-      -- cmd = args !! 1 
       n1 = read (args !! 1) :: Int
       n2 = read (args !! 2) :: Int
-  --  fp <- (!! 0) <$> getArgs 
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  -- print (length worksets) 
-  mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
+  print (length worksets) 
+  -- mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
+setN = 2 
 
 
 scanwork :: FilePath -> (String,(Double,Double,Double,Double,Int)) -> IO () 
@@ -440,12 +373,12 @@ scanwork fp (cmd,(mgl,msq,msl,mneut,n)) = do
                                  , webdav_baseurl = whost } 
           param = modelparam mgl msq msl mneut
       let mjob = case cmd of 
-                   "2sg"    -> Just ("2sg_2l4j2x", NumOfEv 10000, SetNum 1)
-                   "2sq_oo" -> Just ("2sq_oo_2l2j2x", NumOfEv 10000, SetNum 1)
-                   "2sq_no" -> Just ("2sq_no_2l2j2x", NumOfEv 10000, SetNum 1)
-                   "2sq_nn" -> Just ("2sq_nn_2l2j2x", NumOfEv 10000, SetNum 1)
-                   "sqsg_o" -> Just ("sqsg_o_2l3j2x", NumOfEv 10000, SetNum 1)
-                   "sqsg_n" -> Just ("sqsg_n_2l3j2x", NumOfEv 10000, SetNum 1)
+                   "2sg"    -> Just ("2sg_2l4j2x", NumOfEv 10000, SetNum setN)
+                   "2sq_oo" -> Just ("2sq_oo_2l2j2x", NumOfEv 10000, SetNum setN)
+                   "2sq_no" -> Just ("2sq_no_2l2j2x", NumOfEv 10000, SetNum setN)
+                   "2sq_nn" -> Just ("2sq_nn_2l2j2x", NumOfEv 10000, SetNum setN)
+                   "sqsg_o" -> Just ("sqsg_o_2l3j2x", NumOfEv 10000, SetNum setN)
+                   "sqsg_n" -> Just ("sqsg_n_2l3j2x", NumOfEv 10000, SetNum setN)
                    _ -> Nothing
       print mjob  
       maybe (return ()) (genMultiProcess ADMXQLD111degen ssetup mprocs param wdavcfg) mjob

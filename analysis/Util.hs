@@ -4,9 +4,12 @@ module Util where
 
 import Control.Monad
 import Control.Monad.Trans 
+import Control.Monad.Trans.Either
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Reader
 import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
+import Data.Data 
 -- 
 import HEP.Storage.WebDAV.CURL
 import HEP.Storage.WebDAV.Type
@@ -37,6 +40,7 @@ checkFileExistInDAV datcls wdavcfg wdavrdir bname = do
              TotalCount -> fp2
              ChanCount -> fp1 
              Prospino -> prospinofp
+  print fp 
   b <- doesFileExistInDAV wdavcfg wdavrdir fp 
   if b then return (Just (Just ()))  else return Nothing 
 
@@ -57,9 +61,8 @@ checkFileExistInDAV_lep datcls wdavcfg wdavrdir bname = do
   if b then return (Just (Just ()))  else return Nothing 
 
 
-doJob wk (rdir,basename) = do
-  let nlst = [1]
-  Right r1 <- work wk "config1.txt" rdir basename nlst 
+doJob ns wk (rdir,basename) = do
+  Right r1 <- work wk "config1.txt" rdir basename ns 
   return r1 
 
 
@@ -79,3 +82,15 @@ fetchXSecNHist wdavcfg wdavrdir bname = do
     r2 <- liftM LB.pack (MaybeT . return $ mr2) 
     (xsec :: CrossSectionAndCount) <- MaybeT . return $ G.decode  r2  
     return (xsec,result)
+
+
+downloadAndDecodeJSON :: (Data a) => 
+                         WebDAVRemoteDir -> FilePath -> EitherT String (ReaderT WebDAVConfig IO) a 
+downloadAndDecodeJSON wdavrdir fp = do 
+  wdavcfg <- lift ask 
+  guardEitherM (fp ++ " not exist!") (liftIO (doesFileExistInDAV wdavcfg wdavrdir fp))
+  (_,mr) <- liftIO (downloadFile True wdavcfg wdavrdir fp)
+  r <-  (liftM LB.pack . EitherT . return . maybeToEither (fp ++ " is not downloaded ")) mr 
+  result <- 
+    (EitherT . return . maybeToEither (fp ++ " JSON cannot be decoded") . G.decode) r
+  return result 

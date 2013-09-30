@@ -30,10 +30,15 @@ import Util
 import Debug.Trace
 
 m_neutralino :: Double 
-m_neutralino = 500
+m_neutralino = 10 -- 500
 
 datalst :: [ (Double,Double) ]
+datalst = [ (g,q) | g <- [2500], q <- [200,300..3000] ]
+
+{-
+datalst :: [ (Double,Double) ]
 datalst = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..3000], q <- [m_neutralino+100,m_neutralino+200..3000] ]
+-}
 
 datalst1of2 :: [ (Double,Double) ]
 datalst1of2 = [ (g,q) | g <- [m_neutralino+100,m_neutralino+200..1500], q <- [m_neutralino+100,m_neutralino+200..3000] ]
@@ -101,12 +106,13 @@ getResult f (rdir,basename) = do
 
 
 mainAnalysis = do
-  outh <- openFile ("simplifiedsusy" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
+  outh <- openFile ("simplifiedsusy" ++ show m_neutralino ++ "_sqsg_8TeV_0lep_temp.dat") WriteMode 
   mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
     =<< forM datalst ( \(x,y) -> do
           r <- runEitherT $ do
             let analysis x = getResult atlas_20_3_fbinv_at_8_TeV . createRdirBName x
                 simplify = fmap head . fmap catMaybes . EitherT
+                takeXSec (x,_,_,_) = crossSectionInPb x * 20300
                 takeHist (_,_,h,_) = h
             t_2sg  <- (simplify . analysis "2sg_4j2n")  (x,y)
             t_sqsg <- (simplify . analysis "sqsg_3j2n") (x,y)
@@ -115,11 +121,20 @@ mainAnalysis = do
             let h_2sg  = takeHist t_2sg
                 h_sqsg = takeHist t_sqsg
                 h_2sq  = takeHist t_2sq
+
+                x_2sg  = takeXSec t_2sg
+                x_sqsg = takeXSec t_sqsg
+                x_2sq  = takeXSec t_2sq
+
                 totalsr = mkTotalSR [h_2sg, h_sqsg, h_2sq]
+                totalpr = x_2sg + x_sqsg + x_2sq
+                totalsrpr = multiplyScalar (1.0/totalpr) totalsr
+
                 r_ratio = getRFromSR totalsr
 
 
-            trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio)
+            -- trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio)
+            trace (show (x,y,h_2sg)) $ return (x :: Double, y :: Double, totalsrpr) 
           case r of 
             Left err -> error err 
             Right result -> return result

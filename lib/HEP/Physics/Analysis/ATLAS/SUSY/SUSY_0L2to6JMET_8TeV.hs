@@ -155,7 +155,6 @@ mkTotalSR hists = TotalSR { numAL = sumup AL
   where sumup k = (sum . mapMaybe (lookup k)) hists
 
 
-
 getRFromSR sr = 
     let r = TotalSR { numAL = g numAL 
                     , numAM = g numAM
@@ -264,7 +263,7 @@ trigger =
   iguard ((pt.snd.head) jetlst > 75) >>>= \_ ->
   iguard ((snd.phiptmet) met > 55) 
 
--- | lepton veto no electron > 20 GeV, no muon > 10 GeV
+-- | lepton veto no electron > 10 GeV, no muon > 10 GeV
 leptonVeto :: (MonadPlus m) => IxStateT m JetMergedEv JetMergedEv () 
 leptonVeto = 
   iget >>>= \(JetMerged PhyEventClassified {..}) -> 
@@ -678,16 +677,18 @@ classifyAndGet1stLepPT jes =
     mLeptonDiscardNearJet >>> 
     mMETRecalculate e >>>  
     objrecon      >>> 
+
+
     -- leptonVeto    >>> 
     metCut        >>> 
     mMoreThan2J   >>> 
     jetCut        >>> 
     classifyChannelWithOnlyJetPT >>>= \sr -> 
     iget >>>= \Ev2J {..} -> 
-                 let elst = (map snd . {- filter ((>10) <$> pt.snd) -} electronlst) remainingEvent
-                     mlst = (map snd . {- filter ((>10) <$> pt.snd) -} muonlst) remainingEvent
+                 let elst = (map snd . filter ((>10) <$> pt.snd) . electronlst) remainingEvent
+                     mlst = (map snd . filter ((>10) <$> pt.snd) . muonlst) remainingEvent
                      lolst = sortBy (flip ptcompare) (map LO_Elec elst ++ map LO_Muon mlst)
-                 in if null lolst then ireturn (0,sr) else ireturn ((pt . head) lolst, sr)
+                 in if null lolst then ireturn (-5.0,sr) else ireturn ((pt . head) lolst, sr)
 
 -- |
 classifyAndGet1stJetPT :: MonadPlus m => 
