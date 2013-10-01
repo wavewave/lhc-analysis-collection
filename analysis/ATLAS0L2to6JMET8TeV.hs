@@ -57,15 +57,23 @@ data Sim1g = Sim1g
 
 data Param a where 
   QLDNeutLOSPParam :: Int -> Int -> Int -> Param QLDNeutLOSP  
+  Sim0Param        :: Int -> Int -> Int -> Param Sim0  
 
 mkQLDNeut :: Int -> Int -> Int -> Param QLDNeutLOSP 
 mkQLDNeut = QLDNeutLOSPParam
+
+mkSim0 :: Int -> Int -> Int -> Param Sim0 
+mkSim0 = Sim0Param 
 
 data family Proc a :: * 
 
 data instance Proc QLDNeutLOSP = QLDNeutLOSPProc_2SG | QLDNeutLOSPProc_SQSG | QLDNeutLOSPProc_2SQ
 
+data instance Proc Sim0 = Sim0Proc_2SG | Sim0Proc_SQSG | Sim0Proc_2SQ
+
 deriving instance Show (Proc QLDNeutLOSP)
+
+deriving instance Show (Proc Sim0)
 
 class MGluino p where 
   mgluino :: p -> Int 
@@ -80,14 +88,28 @@ class MNeut p where
 instance MGluino (Param QLDNeutLOSP) where 
   mgluino (QLDNeutLOSPParam x _ _) = x
  
+instance MGluino (Param Sim0) where
+  mgluino (Sim0Param x _ _) = x
+
 instance MSquark (Param QLDNeutLOSP) where 
   msquark (QLDNeutLOSPParam _ x _) = x
  
+instance MSquark (Param Sim0) where
+  msquark (Sim0Param _ x _) = x
+
 instance MNeut (Param QLDNeutLOSP) where 
   mneut   (QLDNeutLOSPParam _ _ x) = x 
 
+instance MNeut (Param Sim0) where
+  mneut   (Sim0Param _ _ x) = x
+
 
 instance Show (Param QLDNeutLOSP) where 
+  show p = "(gluino=" ++ show (mgluino p) 
+           ++ ",squark=" ++ show (msquark p) 
+           ++ ",neut=" ++ show (mneut p) ++ ")"
+
+instance Show (Param Sim0) where 
   show p = "(gluino=" ++ show (mgluino p) 
            ++ ",squark=" ++ show (msquark p) 
            ++ ",neut=" ++ show (mneut p) ++ ")"
@@ -101,6 +123,11 @@ instance ProcessName QLDNeutLOSP where
   processName QLDNeutLOSPProc_SQSG = "sqsg_2l7j2x"
   processName QLDNeutLOSPProc_2SQ  = "2sq_2l6j2x"
 
+instance ProcessName Sim0 where 
+  processName Sim0Proc_2SG  = "2sg_4j2n"
+  processName Sim0Proc_SQSG = "sqsg_3j2n"
+  processName Sim0Proc_2SQ  = "2sq_2j2n"
+
 data SQCDProcess = GluinoGluino | GluinoSquark | SquarkSquark
 
 class SQCDProcessable a where 
@@ -111,6 +138,10 @@ instance SQCDProcessable QLDNeutLOSP where
   sqcdProcess QLDNeutLOSPProc_SQSG = GluinoSquark
   sqcdProcess QLDNeutLOSPProc_2SQ = SquarkSquark 
 
+instance SQCDProcessable Sim0 where 
+  sqcdProcess Sim0Proc_2SG = GluinoGluino 
+  sqcdProcess Sim0Proc_SQSG = GluinoSquark
+  sqcdProcess Sim0Proc_2SQ = SquarkSquark 
 
 -- data Param = P_QLDNeut QLDNeutLOSPParam 
 
@@ -153,12 +184,23 @@ instance CreateRdirBName QLDNeutLOSP where
         basename = "ADMXQLD111degenMG"++ show mg ++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show mn ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set" ++ show sn 
     in (wdavrdir,basename)
 
- 
+
+instance CreateRdirBName Sim0 where 
+  -- createRdirBName :: (Param Sim0, Proc Sim0, SetNum) -> (WebDAVRemoteDir,String) 
+  createRdirBName (param,proc,SetNum sn) = 
+    let procname = processName proc 
+        (mg,mq,mn) :: (Double,Double,Double) 
+           = ((,,) <$> (fromIntegral.mgluino) <*> (fromIntegral.msquark) <*> (fromIntegral.mneut)) param 
+        wdavrdir = WebDAVRemoteDir ("montecarlo/admproject/SimplifiedSUSY/8TeV/scan_" ++ procname)
+        basename = "SimplifiedSUSYMN" ++ show mn ++ "MG"++show mg++ "MSQ" ++ show mq ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set" ++ show sn 
+    in (wdavrdir,basename)
+
+
+{- 
 createRdirBNames :: (CreateRdirBName a) => ParamSet a [SetNum] -> [(WebDAVRemoteDir,String)] 
 createRdirBNames (ParamSet param procsets) = 
   concatMap (\(ProcSet x ys) -> map (\y->createRdirBName (param,x,y)) ys) procsets
-
-
+-}
 
 
 getKFactor :: (SQCDProcessable a, MGluino (Param a), MSquark (Param a)) => 
@@ -266,39 +308,31 @@ param_qldneutlosp_100 = map (map (\x->ParamSet x procset)) qparams
                   , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 1] ]
 
 
+param_sim0_100 :: [ [ParamSet Sim0 [SetNum]] ] 
+param_sim0_100 = map (map (\x->ParamSet x procset)) qparams
+  where qparams = [ [ mkSim0 g q 100 | q <- [500,600..3000] ] | g <- [500,600..3000]  ]
+        procset = [ ProcSet Sim0Proc_2SG  [SetNum 1] 
+                  , ProcSet Sim0Proc_SQSG [SetNum 1]
+                  , ProcSet Sim0Proc_2SQ  [SetNum 1] ]
+
+
+
 main :: IO ()
 main = do
   putStrLn "prepare for KFactor map" 
   kfacmap <- mkKFactorMap 
-  {- let result paramsets = do ParamSet param procsets <- paramsets 
-                            ProcSet proc _ <- procsets
-                            let mk = getKFactor kfacmap (param,proc) 
-                            return mk
-      rs = result param_qldneutlosp_100  -}
-  h <- openFile "xqld_neutLOSP100.0_sqsg_8TeV_0lep_NLO.dat" WriteMode
-  withDAVConfig "config1.txt" $ do 
-    let pass1glu x = do 
-          rs <- mapM (processParamSet kfacmap) x 
-          liftIO $ mapM_ (hPutStrLn h) (map printFormatter rs)
-    mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) param_qldneutlosp_100 
+
+  h <- openFile "sim0_neut100.0_sqsg_8TeV_0lep_NLO.dat" WriteMode
+  emsg <- withDAVConfig "config1.txt" $ do 
+            let pass1glu x = do 
+                  rs <- mapM (processParamSet kfacmap) x 
+                  liftIO $ mapM_ (hPutStrLn h) (map printFormatter rs)
+            mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) param_sim0_100 
+
+  print emsg 
 
   hClose h 
   return ()
-
-
-  {-
-    r <- prepareFiles kfacmap (head param_qldneutlosp_100)
-    let -- r'@(ParamSet p prsets) = fmap (fmap getResultFromPreResult) r 
-        -- prsets' = fmap (fmap combineResultSets) prsets 
-        r' = getResult r
-        r'' = combineMultiSets r' 
-        r''' = combineMultiProcess r'' 
-        r4 = (getRFromSR . snd) r'''
-    liftIO $ print r' 
-    liftIO $ print r'' 
-    liftIO $ print r''' 
-    liftIO $ print r4 
-   -}
 
 
 

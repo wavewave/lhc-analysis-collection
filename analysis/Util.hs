@@ -88,7 +88,7 @@ downloadAndDecodeJSON :: (Data a) =>
                          WebDAVRemoteDir -> FilePath -> EitherT String (ReaderT WebDAVConfig IO) a 
 downloadAndDecodeJSON wdavrdir fp = do 
   wdavcfg <- lift ask 
-  guardEitherM (fp ++ " not exist!") (liftIO (doesFileExistInDAV wdavcfg wdavrdir fp))
+  guardEitherM (show wdavrdir ++ ": " ++ fp ++ " not exist!") (liftIO (doesFileExistInDAV wdavcfg wdavrdir fp))
   (_,mr) <- liftIO (downloadFile True wdavcfg wdavrdir fp)
   r <-  (liftM LB.pack . EitherT . return . maybeToEither (fp ++ " is not downloaded ")) mr 
   result <- 
