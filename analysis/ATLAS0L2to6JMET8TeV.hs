@@ -19,6 +19,7 @@ import           Control.Monad.Trans.Reader
 import qualified Data.Aeson.Generic as G
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Data
+import           Data.Either (lefts,rights)
 import           Data.Foldable (foldrM)
 import           Data.Maybe 
 import qualified Data.Map as M
@@ -196,12 +197,6 @@ instance CreateRdirBName Sim0 where
     in (wdavrdir,basename)
 
 
-{- 
-createRdirBNames :: (CreateRdirBName a) => ParamSet a [SetNum] -> [(WebDAVRemoteDir,String)] 
-createRdirBNames (ParamSet param procsets) = 
-  concatMap (\(ProcSet x ys) -> map (\y->createRdirBName (param,x,y)) ys) procsets
--}
-
 
 getKFactor :: (SQCDProcessable a, MGluino (Param a), MSquark (Param a)) => 
               KFactorMap -> (Param a, Proc a) -> Maybe Double
@@ -215,7 +210,49 @@ getKFactor kfacmap (param,proc) =
   in M.lookup (mg,mq) m
 
 
+countFor1Set :: (CreateRdirBName a, Show (Param a) ) => 
+                     (Param a, Proc a) 
+                  -> SetNum  
+                  -> EitherT String (ReaderT WebDAVConfig IO) ()
+countFor1Set (param,proc) sn = do 
+  let (wdavrdir,bname) = createRdirBName (param,proc,sn)
+  wdavcfg <- lift ask 
+  liftIO (getXSecNCount XSecLHE wdavcfg wdavrdir bname) >>= liftIO . getJSONFileAndUpload wdavcfg wdavrdir bname
+  liftIO (atlas_8TeV_0L2to6J_bkgtest ([0],[0]) wdavcfg wdavrdir bname)
+  return ()
 
+countParamSet :: (CreateRdirBName a, Show (Param a) ) => 
+                 ParamSet a [SetNum] 
+              -> EitherT String (ReaderT WebDAVConfig IO) ()
+countParamSet (ParamSet param procsets) = do 
+  let countProcSet (ProcSet proc ns) = mapM_ (countFor1Set (param,proc)) ns 
+  mapM_ countProcSet procsets
+
+
+-- | 
+checkFor1Set :: (CreateRdirBName a, Show (Param a) ) => 
+                (Param a, Proc a) 
+             -> SetNum  
+             -> EitherT String (ReaderT WebDAVConfig IO) ()
+checkFor1Set (param,proc) sn = do 
+  let (wdavrdir,bname) = createRdirBName (param,proc,sn)
+      zerolepfile = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json" 
+      totalcountfile = bname ++ "_total_count.json" 
+  wdavcfg <- lift ask 
+  guardEitherM (show param ++ " not complete") $ 
+    (&&) <$> liftIO (doesFileExistInDAV wdavcfg wdavrdir zerolepfile)
+         <*> liftIO (doesFileExistInDAV wdavcfg wdavrdir totalcountfile)
+
+
+checkParamSet :: (CreateRdirBName a, Show (Param a) ) => 
+                 ParamSet a [SetNum] 
+              -> EitherT String (ReaderT WebDAVConfig IO) ()
+checkParamSet (ParamSet param procsets) = do 
+  let checkProcSet (ProcSet proc ns) = mapM_ (checkFor1Set (param,proc)) ns 
+  mapM_ checkProcSet procsets
+
+
+-- | 
 prepareFilesForSingleSet :: (CreateRdirBName a, MGluino (Param a), MSquark (Param a), SQCDProcessable a
                             , Show (Param a) ) => 
                             KFactorMap 
@@ -316,27 +353,52 @@ param_sim0_100 = map (map (\x->ParamSet x procset)) qparams
                   , ProcSet Sim0Proc_2SQ  [SetNum 1] ]
 
 
+param_sim0_10 :: [ [ParamSet Sim0 [SetNum]] ] 
+param_sim0_10 = map (map (\x->ParamSet x procset)) qparams
+  where qparams = [ [ mkSim0 g q 10 | q <- [200,300..3000] ] | g <- [200,300..3000]  ]
+        procset = [ ProcSet Sim0Proc_2SG  [SetNum 1] 
+                  , ProcSet Sim0Proc_SQSG [SetNum 1]
+                  , ProcSet Sim0Proc_2SQ  [SetNum 1] ]
 
-main :: IO ()
-main = do
+---------------
+-- NEW COUNT -- 
+---------------
+
+nc_param_qldneutlosp_100 :: [ParamSet QLDNeutLOSP [SetNum]]  
+nc_param_qldneutlosp_100 = map (\x->ParamSet x procset) qparams
+  where qparams = [ mkQLDNeut g q 100 | g <- [500,600..3000], q <- [500,600..1000] ]
+        procset = [ ProcSet QLDNeutLOSPProc_2SG  [SetNum 2] 
+                  , ProcSet QLDNeutLOSPProc_SQSG [SetNum 2]
+                  , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 2] ]
+
+
+
+
+main' :: IO ()
+main' = do
   putStrLn "prepare for KFactor map" 
   kfacmap <- mkKFactorMap 
-
-  h <- openFile "sim0_neut100.0_sqsg_8TeV_0lep_NLO.dat" WriteMode
+  h <- openFile "sim0_neut10_sqsg_8TeV_0lep_NLO.dat" WriteMode
   emsg <- withDAVConfig "config1.txt" $ do 
             let pass1glu x = do 
                   rs <- mapM (processParamSet kfacmap) x 
                   liftIO $ mapM_ (hPutStrLn h) (map printFormatter rs)
-            mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) param_sim0_100 
-
+            mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) param_sim0_10
   print emsg 
-
   hClose h 
   return ()
 
-
-
-
+main'' :: IO ()
+main'' = do 
+  emsg <- withDAVConfig "config1.txt" $ do 
+            mapM_ countParamSet nc_param_qldneutlosp_100
+  print emsg 
+  
+main :: IO ()
+main = do 
+  emsg <- mapM (\x->withDAVConfig "config1.txt" (checkParamSet x)) nc_param_qldneutlosp_100
+  mapM_ print (lefts emsg)
+  
 
 
 
