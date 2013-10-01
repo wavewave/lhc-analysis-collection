@@ -67,7 +67,6 @@ data instance Proc QLDNeutLOSP = QLDNeutLOSPProc_2SG | QLDNeutLOSPProc_SQSG | QL
 
 deriving instance Show (Proc QLDNeutLOSP)
 
-
 class MGluino p where 
   mgluino :: p -> Int 
 
@@ -115,7 +114,9 @@ instance SQCDProcessable QLDNeutLOSP where
 
 -- data Param = P_QLDNeut QLDNeutLOSPParam 
 
-data ProcSet a b = ProcSet (Proc a) [b] 
+data ProcSet a b = ProcSet { procsetProcess :: Proc a
+                           , procsetData    :: b 
+                           } 
 
 deriving instance (Show (Param a), Show (Proc a), Show b) => Show (ProcSet a b)
 deriving instance Functor (ProcSet a) 
@@ -130,12 +131,13 @@ data PreResultSet = PreResult { preresultHist :: HistEType
                               , preresultKFactor :: Double } 
                deriving (Show) 
 
-data ResultSet = Result { resultXsecNLO :: Double 
-                        , resultNumEvent :: Int 
-                        , resultNormHist :: [(EType,Double)]
-                        , resultPreresult :: PreResultSet 
-                        } 
+data ResultSet a = Result { resultXsecNLO :: Double 
+                          , resultNumEvent :: Double  
+                          , resultNormHist :: a 
+                          } 
   deriving (Show) 
+
+
 
 
 class CreateRdirBName a where
@@ -152,7 +154,7 @@ instance CreateRdirBName QLDNeutLOSP where
     in (wdavrdir,basename)
 
  
-createRdirBNames :: (CreateRdirBName a) => ParamSet a SetNum -> [(WebDAVRemoteDir,String)] 
+createRdirBNames :: (CreateRdirBName a) => ParamSet a [SetNum] -> [(WebDAVRemoteDir,String)] 
 createRdirBNames (ParamSet param procsets) = 
   concatMap (\(ProcSet x ys) -> map (\y->createRdirBName (param,x,y)) ys) procsets
 
@@ -182,7 +184,6 @@ prepareFilesForSingleSet kFacMap (param,proc) sn = do
   let (wdavrdir,bname) = createRdirBName (param,proc,sn)
       zerolepfile = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json" 
       totalcountfile = bname ++ "_total_count.json" 
-  -- 
   (hist' :: [(JESParam, HistEType)]) <- downloadAndDecodeJSON wdavrdir zerolepfile   
   let hist = (snd.head) hist'
   (xsec :: CrossSectionAndCount) <- downloadAndDecodeJSON wdavrdir totalcountfile 
@@ -190,14 +191,11 @@ prepareFilesForSingleSet kFacMap (param,proc) sn = do
   return (PreResult hist xsec kfactor) 
 
 
-
-
-
 prepareFiles :: ( CreateRdirBName a, MGluino (Param a), MSquark (Param a), SQCDProcessable a
                 , Show (Param a) ) => 
                 KFactorMap 
-                -> ParamSet a SetNum 
-                -> EitherT String (ReaderT WebDAVConfig IO) (ParamSet a PreResultSet)  
+                -> ParamSet a [SetNum] 
+                -> EitherT String (ReaderT WebDAVConfig IO) (ParamSet a [PreResultSet])  
 prepareFiles kfacmap (ParamSet param procsets) = do 
   let mkResultProcSet (ProcSet proc ns) = do  
         rs <- mapM (prepareFilesForSingleSet kfacmap (param,proc)) ns 
@@ -205,31 +203,54 @@ prepareFiles kfacmap (ParamSet param procsets) = do
   r_procsets <- mapM mkResultProcSet procsets
   return (ParamSet param r_procsets) 
 
-getResultFromPreResult :: PreResultSet -> ResultSet 
-getResultFromPreResult pre@(PreResult {..}) =  
+getResultFromPreResult :: PreResultSet -> ResultSet [(EType,Double)]
+getResultFromPreResult PreResult {..} =  
   let luminosity = 20300 
       xsecNLO = crossSectionInPb preresultXsec * preresultKFactor 
-      nev = numberOfEvent preresultXsec
-      weight = xsecNLO * luminosity / fromIntegral nev
+      nev = (fromIntegral.numberOfEvent) preresultXsec
+      weight = xsecNLO * luminosity / nev
       normhist = map (\(x,y) -> (x,fromIntegral y * weight)) preresultHist 
-  in Result xsecNLO nev normhist pre
+  in Result xsecNLO nev normhist 
 
-combineResultSets :: [ResultSet] -> ResultSet 
-combineResultSets = undefined 
+combineResultSets :: [ResultSet [(EType,Double)]] -> ResultSet (TotalSR Double) 
+combineResultSets rs = 
+  let ws = map ((*) <$> resultXsecNLO <*> resultNumEvent) rs 
+      sumw = sum ws 
+      ws_norm = map (/ sumw) ws  
+      apply_weight w Result {..} =
+        let hist' = map (\(x,y) -> (x,y*w)) resultNormHist 
+        in Result (resultXsecNLO*w) (resultNumEvent*w) hist'
+      rs' = zipWith apply_weight ws_norm rs 
+  in Result (sum (map resultXsecNLO rs')) 
+            (sum (map resultNumEvent rs')) 
+            (mkTotalSR (map resultNormHist rs'))
+
+-- | 
+getResult :: ParamSet a [PreResultSet] -> ParamSet a [ResultSet [(EType,Double)]]
+getResult = fmap (fmap getResultFromPreResult) 
+
+-- | 
+combineMultiSets :: ParamSet a [ResultSet [(EType,Double)]] -> ParamSet a (ResultSet (TotalSR Double))
+combineMultiSets = fmap combineResultSets
+
+-- | 
+combineMultiProcess :: ParamSet a (ResultSet (TotalSR Double)) -> (Param a, TotalSR Double) 
+combineMultiProcess (ParamSet param rs) = (param, (sum . map (resultNormHist . procsetData)) rs)
 
 
-{- 
+processParamSet :: (CreateRdirBName a, MGluino (Param a), MSquark (Param a), SQCDProcessable a
+                   , Show (Param a) ) =>
+                   KFactorMap 
+                -> ParamSet a [SetNum] 
+                -> EitherT String (ReaderT WebDAVConfig IO) (Param a, Double) 
+processParamSet kfacmap p = 
+  ((,) <$> fst <*> getRFromSR . snd) . combineMultiProcess . combineMultiSets . getResult 
+     <$> prepareFiles kfacmap p  
 
 
-      getratio (x,y) = do y' <- lookup x limitOfNBSM 
-                          return (y/ y') 
-      maxf (x,y) acc = do r <- getratio (x,y)
-                          return (max acc r)
-  maxratio <- (EitherT . return . maybeToEither "in atlas_xx:foldrM" . foldrM maxf 0) hist 
-
-  return (Result preresultXsec  result, nromhist, maxratio) 
--}
-
+printFormatter :: (MGluino (Param a), MSquark (Param a)) => (Param a, Double) -> String
+printFormatter (p,x) = (showdbl . mgluino) p ++ ", " ++ (showdbl . msquark) p ++ ", " ++ show x
+  where showdbl = show . fromIntegral
 
 
 
@@ -237,47 +258,47 @@ combineResultSets = undefined
 -- TEST -- 
 ----------
 
-param_qldneutlosp_100 :: [ParamSet QLDNeutLOSP SetNum] 
-param_qldneutlosp_100 = map (\x->ParamSet x procset) qparams
-  where qparams = [ mkQLDNeut g q 100  
-                    | g <- [200,300..3000], q <- [200,300..3000] ]
+param_qldneutlosp_100 :: [ [ParamSet QLDNeutLOSP [SetNum]] ] 
+param_qldneutlosp_100 = map (map (\x->ParamSet x procset)) qparams
+  where qparams = [ [ mkQLDNeut g q 100 | q <- [200,300..3000] ] | g <- [200,300..3000]  ]
         procset = [ ProcSet QLDNeutLOSPProc_2SG  [SetNum 1] 
                   , ProcSet QLDNeutLOSPProc_SQSG [SetNum 1]
                   , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 1] ]
 
 
- 
+main :: IO ()
 main = do
   putStrLn "prepare for KFactor map" 
   kfacmap <- mkKFactorMap 
-  let result paramsets = do ParamSet param procsets <- paramsets 
+  {- let result paramsets = do ParamSet param procsets <- paramsets 
                             ProcSet proc _ <- procsets
                             let mk = getKFactor kfacmap (param,proc) 
                             return mk
-      rs = result param_qldneutlosp_100 
+      rs = result param_qldneutlosp_100  -}
+  h <- openFile "xqld_neutLOSP100.0_sqsg_8TeV_0lep_NLO.dat" WriteMode
   withDAVConfig "config1.txt" $ do 
+    let pass1glu x = do 
+          rs <- mapM (processParamSet kfacmap) x 
+          liftIO $ mapM_ (hPutStrLn h) (map printFormatter rs)
+    mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) param_qldneutlosp_100 
+
+  hClose h 
+  return ()
+
+
+  {-
     r <- prepareFiles kfacmap (head param_qldneutlosp_100)
-    let r' = (fmap getResultFromPreResult) r 
+    let -- r'@(ParamSet p prsets) = fmap (fmap getResultFromPreResult) r 
+        -- prsets' = fmap (fmap combineResultSets) prsets 
+        r' = getResult r
+        r'' = combineMultiSets r' 
+        r''' = combineMultiProcess r'' 
+        r4 = (getRFromSR . snd) r'''
     liftIO $ print r' 
-
-
-{- 
-  \( ) kfacmap param proc   
-
-
-
-  let lst = concatMap createRdirBNames param_qldneutlosp_100 
-  mapM_ print lst 
--}
-
-
--- String -> (Double, Double) -> (String,String)
-{-
-procname_qld :: QLDNeutLOSPProc -> String 
-procname_qld QLDNeutLOSPProc_2SG  = "2sg_2l8j2x"
-procname_qld QLDNeutLOSPProc_SQSG = "sqsg_2l7j2x"
-procname_qld QLDNeutLOSPProc_2SQ  = "2sq_2l6j2x"
--}
+    liftIO $ print r'' 
+    liftIO $ print r''' 
+    liftIO $ print r4 
+   -}
 
 
 
@@ -285,165 +306,6 @@ procname_qld QLDNeutLOSPProc_2SQ  = "2sq_2l6j2x"
 
 
 
-{- 
-  let rdir = "montecarlo/admproject/XQLDdegen/8TeV/neutLOSP/scan_" ++ procname 
-      basename = "ADMXQLD111degenMG"++ show mg++ "MQ" ++ show mq ++ "ML50000.0MN" ++ show m_neutralino ++ "_" ++ procname ++ "_LHC8ATLAS_NoMatch_NoCut_AntiKT0.4_NoTau_Set" 
-  in (rdir,basename)  
-
-dirset = [ "2sg_2l8j2x"
-         , "sqsg_2l7j2x"
-         , "2sq_2l6j2x"
-         ]
--}
-
-
-{- 
-checkFiles :: DataFileClass -> String -> IO (Either String ())
-checkFiles c procname = do 
-  rs <- forM datalst (\((x,y),ns) -> doJob ns (checkFileExistInDAV c) (createRdirBName procname (x,y))
-                                     >>= return . maybe (show ((x,y),ns)) (const []) . head)
-  let missinglst = filter (not.null) rs
-      nmiss = length missinglst
-  mapM_ (\x -> putStrLn ("  , " ++ x)) missinglst
-  if null missinglst then return (Right ()) else return (Left (show nmiss ++ " files are missing"))
 
 
 
-
-
-atlas_20_3_fbinv_at_8_TeV :: String 
-                          -> WebDAVConfig 
-                          -> WebDAVRemoteDir 
-                          -> String 
-                          -> EitherT String IO (CrossSectionAndCount,[(JESParam,HistEType)],[(EType,Double)],Double)
-atlas_20_3_fbinv_at_8_TeV proc wdavcfg wdavrdir bname = do 
-  let fp1 = bname ++ "_ATLAS8TeV0L2to6JBkgTest.json"
-      fp2 = bname ++ "_total_count.json" 
-      kfactorfp = bname ++ "_xsecKfactor.json"
-  -- 
-  guardEitherM (fp1 ++ "not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp1)
-  (_,mr1) <- liftIO (downloadFile True wdavcfg wdavrdir fp1)
-  r1 <- (liftM LB.pack . EitherT . return . maybeToEither (fp1 ++ " is not downloaded ")) mr1 
-  (result :: [(JESParam, HistEType)]) <- (EitherT . return . maybeToEither (fp1 ++ " JSON cannot be decoded") . G.decode) r1 
-  -- 
-  guardEitherM (fp2 ++ " not exist!") (doesFileExistInDAV wdavcfg wdavrdir fp2)
-  (_,mr2) <- liftIO (downloadFile True wdavcfg wdavrdir fp2)
-  r2 <- (liftM LB.pack . EitherT . return . maybeToEither (fp2 ++ " is not downloaded ")) mr2 
-  (xsec :: CrossSectionAndCount) <- (EitherT . return . maybeToEither (fp2 ++ " JSON cannot be decoded") . G.decode) r2  
-  --
-  case proc of
-
-  {- 
-  guardEitherM (kfactorfp ++ " not exist") (doesFileExistInDAV wdavcfg wdavrdir kfactorfp)
-  (_,mrk) <- liftIO (downloadFile True wdavcfg wdavrdir kfactorfp)
-  rk <- (liftM LB.pack . EitherT . return . maybeToEither (kfactorfp ++ " is not downloaded ")) mrk 
-  liftIO$ print rk 
-  (result_kfactor :: CrossSectionResult) 
-    <- (EitherT . return . maybeToEither (kfactorfp ++ " JSON cannot be decoded") .G.decode) rk 
-  -}
-  -- 
-  let -- kFactor = xsecKFactor result_kfactor
-      kFactor = 1 
-      weight = crossSectionInPb xsec * luminosity * kFactor  / fromIntegral (numberOfEvent xsec)
-      hist = map (\(x,y) -> (x,fromIntegral y * weight)) ((snd . head) result )
-
-  let getratio (x,y) = do y' <- lookup x limitOfNBSM 
-                          return (y/ y') 
-      maxf (x,y) acc = do r <- getratio (x,y)
-                          return (max acc r)
-  maxratio <- (EitherT . return . maybeToEither "in atlas_xx:foldrM" . foldrM maxf 0) hist 
-
-  return (xsec, result, hist, maxratio) 
-
-
-
-getResult f ns (rdir,basename) = fileWork f "config1.txt" rdir basename ns  
-
-
-  -- let nlst = [1]
-
-
-mainAnalysis = do
-  -- outh <- openFile ("xqld_neutLOSP" ++ show m_neutralino ++ "_sqsg_8TeV_0lep.dat") WriteMode 
-  let outh = stdout 
-  mapM_ (\(mg,msq,r) -> hPutStrLn outh (show mg ++ ", " ++ show msq ++ ", " ++ show r))
-    =<< forM datalst ( \((x,y),ns) -> do
-          r <- runEitherT $ do
-            let analysis x = getResult (atlas_20_3_fbinv_at_8_TeV x) ns . createRdirBName x
-                -- simplify = fmap head . fmap catMaybes . EitherT
-                takeHist (_,_,h,_) = h
-            t_2sg  <- analysis "2sg_2l8j2x"  (x,y)
-            t_sqsg <- analysis "sqsg_2l7j2x" (x,y)
-            t_2sq  <- analysis "2sq_2l6j2x" (x,y)
-            {-
-            let h_2sg  = map takeHist t_2sg
-                h_sqsg = map takeHist t_sqsg
-                h_2sq  = map takeHist t_2sq
-                totalsr = mkTotalSR [ h_2sg, h_sqsg, h_2sq ]
-                r_ratio = getRFromSR totalsr 
-                 
-            trace (show (x,y)) $ return (x :: Double, y :: Double, r_ratio) -}
-            return (x :: Double, y :: Double, t_2sg)
-          case r of 
-            Left err -> error err 
-            Right result -> return result
-      )
-  hClose outh 
-
-
-mainCheck = do 
-  r <- runEitherT $ mapM_ (EitherT . checkFiles {- ChanCount -} Prospino ) $ take 1 dirset 
-  print r
-
-
-mainCount str = do 
-  -- let str = "2sq_nn_2l2j2x" 
-  r <- runEitherT (countEvent str) 
-  case r of 
-    Left err -> putStrLn err
-    Right _ -> return ()
-
-
-main = do 
-  args <- getArgs
-  case args !! 0 of 
-    "count" -> case args !! 1 of
-                 "2sg" -> mainCount "2sg_2l8j2x"
-                 "sqsg" -> mainCount "sqsg_2l7j2x" 
-                 "2sq" -> mainCount "2sq_2l6j2x" 
-    "check" -> mainCheck
-    "analysis" -> mainAnalysis
-
-
-countEvent :: String -> EitherT String IO ()
-countEvent str = do 
-  EitherT (checkFiles RawData str)
-
-  liftIO $ putStrLn "Proceed 1 or 2 ? (1/2/others)"
-  c <- liftIO $ getChar
-  if c == '1' 
-    then liftIO $ forM_ datalst1of2 (\((x,y),ns) -> getCount ns (createRdirBName str (x,y)))
-    else if c == '2' 
-           then liftIO $ forM_ datalst2of2 (\((x,y),ns) -> getCount ns (createRdirBName str (x,y)))
-           else return ()
-
-
-    
-
-getCount ns (rdir,basename) = do 
-  r1 <- work (\wdavcfg wdavrdir nm -> getXSecNCount XSecLHE wdavcfg wdavrdir nm >>= getJSONFileAndUpload wdavcfg wdavrdir nm)
-         "config1.txt" 
-         rdir 
-         basename 
-         ns 
-  print r1
-
-  r2 <- work 
-         (atlas_8TeV_0L2to6J_bkgtest ([0],[0]))
-         "config1.txt"
-         rdir
-         basename
-         ns
-  print r2 
-
--}
