@@ -28,6 +28,7 @@ r(x)= base(x-0.55)*theta(x-0.01)+1.0*theta(0.01-x)
 g(x)= 0.5*base(x-0)*theta(x-0.01)+0.2+1.0*theta(0.01-x)
 b(x)= base(x+0.15)*theta(x-0.01)+1.0*theta(0.01-x)
 
+
 set palette model RGB functions r(gray),g(gray),b(gray)
 
 plot '$datnameA$_mesh.dat' u 1:2:(\$3) with image title "", '$datnameA$_contour.dat' u 1:2 w l lt -1 lc rgb "black" lw 1.5 title "$modelaliasA$" , '$datnameB$_contour.dat' u 1:2 w l lt 2 lc rgb "black" lw 1.5 title "$modelaliasB$"

@@ -2,11 +2,17 @@ import System.Environment
 import System.Directory
 import Text.StringTemplate
 
-main = main_xudd_neutlosp100_0lep
+main = main_xqld_neutlosp100_0lep
+
+-- main_xqld_squarklosp
+
+
+
+-- main_xudd_neutlosp100_0lep
 
 -- main_xudd_squarklosp 
--- main_xqld_neutlosp500_0lep
--- main_xqld_squarklosp -- main_xqld_squarklosp_1lep -- main_xudd_squarklosp -- main_xqld_squarklosp
+
+ -- main_xqld_squarklosp_1lep -- main_xudd_squarklosp -- main_xqld_squarklosp
 
 main_xudd_neutlosp100_0lep :: IO ()
 main_xudd_neutlosp100_0lep = do 
@@ -429,7 +435,7 @@ main_xqld_neutlosp100_0lep = do
                    , ("yvar", "Squark")
                    , ("ymin", "500") 
                    , ("ymax", "3000")
-                   , ("datname", "simplifiedsusy100_0lep_sqsg_8TeV")
+                   , ("datname", "sim0_neut100.0_sqsg_8TeV_0lep_NLO")
                    ]
 
       
@@ -440,7 +446,7 @@ main_xqld_neutlosp100_0lep = do
                   , ("yvar", "Squark")
                   , ("ymin", "500") 
                   , ("ymax", "3000")
-                  , ("datname", "xqld_neutLOSP100_sqsg_8TeV_0lep")
+                  , ("datname", "xqld_neutLOSP100_sqsg_8TeV_0lep_NLO")
                   ] 
      
       
@@ -451,11 +457,11 @@ main_xqld_neutlosp100_0lep = do
                   , ("yvar", "Squark")
                   , ("ymin", "500") 
                   , ("ymax", "3000")
-                  , ("datnameA", "xqld_neutLOSP100_sqsg_8TeV_0lep")
-                  , ("datnameB", "simplifiedsusy100_0lep_sqsg_8TeV")
+                  , ("datnameA", "xqld_neutLOSP100_sqsg_8TeV_0lep_NLO")
+                  , ("datnameB", "sim0_neut100.0_sqsg_8TeV_0lep_NLO")
                   , ("modelaliasA", "Xqld")
                   , ("modelaliasB", "Simplified")
-                  , ("figurefilename", "xqld_neutLOSP100.0_0lep_sqsgscan")
+                  , ("figurefilename", "xqld_neutLOSP100_0lep_sqsgscan_NLO")
                   ] 
 
   writeFile "contour_0lep_sqsg_simplifiedsusy100.gpl" simplstr
@@ -480,7 +486,7 @@ main_xqld_squarklosp = do
                    , ("yvar", "Squark")
                    , ("ymin", "500") 
                    , ("ymax", "3000")
-                   , ("datname", "simplifiedsusy_sqsg_0lep_8TeV")
+                   , ("datname", "sim0_neut10_sqsg_8TeV_0lep_NLO" ) -- "simplifiedsusy_sqsg_0lep_8TeV")
                    ]
 
       
@@ -503,7 +509,7 @@ main_xqld_squarklosp = do
                   , ("ymin", "500") 
                   , ("ymax", "3000")
                   , ("datnameA", "xqld_squarklosp_sqsgscan_0lep_8TeV")
-                  , ("datnameB", "simplifiedsusy_sqsg_0lep_8TeV")
+                  , ("datnameB", "sim0_neut10_sqsg_8TeV_0lep_NLO" ) -- "simplifiedsusy_sqsg_0lep_8TeV")
                   , ("modelaliasA", "Xqld")
                   , ("modelaliasB", "Simplified")
                   , ("figurefilename", "xqld_squarklosp_0lep_sqsgscan")
