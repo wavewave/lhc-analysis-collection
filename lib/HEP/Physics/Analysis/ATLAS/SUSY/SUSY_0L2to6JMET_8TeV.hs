@@ -154,7 +154,7 @@ mkTotalSR hists = TotalSR { numAL = sumup AL
                           }
   where sumup k = (sum . mapMaybe (lookup k)) hists
 
-
+getRFromSR :: TotalSR Double -> Double 
 getRFromSR sr = 
     let r = TotalSR { numAL = g numAL 
                     , numAM = g numAM

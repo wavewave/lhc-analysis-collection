@@ -223,7 +223,8 @@ worksets = set_2sg <> set_sqsg <> set_2sq
     set_2sq  = makeset "2sq" massset_2sq
 
 
-mesh = [ (g, q) | g <- [m_neutralino+100,m_neutralino+200..3000], q<- [m_neutralino+100,m_neutralino+200..3000], q <= 1000 ]
+-- mesh = [ (g, q) | g <- [500, 600..3000], q<- [ 500,600..3000], q <= 1000 ]
+mesh = [ (1500.0,q) | q <- [500,600..900] ]
 
 massset_2sg = mesh
 massset_sqsg = mesh
@@ -241,7 +242,7 @@ main = do
   mapM_ (scanwork fp) (drop (n1-1) . take n2 $ worksets )
 
 
-setN = 2 
+setN = 3 
 
 scanwork :: FilePath -> (String, (Double,Double,Double,Double,Int)) -> IO () 
 scanwork fp (cmd, (mgl,msq,msl,mneut,n)) = do
