@@ -339,10 +339,20 @@ printFormatter (p,x) = (showdbl . mgluino) p ++ ", " ++ (showdbl . msquark) p ++
 
 param_qldneutlosp_100 :: [ [ParamSet QLDNeutLOSP [SetNum]] ] 
 param_qldneutlosp_100 = map (map (\x->ParamSet x procset)) qparams
-  where qparams = [ [ mkQLDNeut g q 100 | q <- [200,300..3000] ] | g <- [200,300..3000]  ]
+  where qparams = [ [ mkQLDNeut g q 100 | q <- [500,600..3000] ] | g <- [500,600..3000]  ]
         procset = [ ProcSet QLDNeutLOSPProc_2SG  [SetNum 1] 
                   , ProcSet QLDNeutLOSPProc_SQSG [SetNum 1]
                   , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 1] ]
+
+
+n_param_qldneutlosp_100 :: [ [ParamSet QLDNeutLOSP [SetNum]] ]
+n_param_qldneutlosp_100 = [ [ ParamSet (mkQLDNeut g q 100) y | q <- [500,600..3000], let y = if q <= 1000 then procset12 else procset1 ] | g <- [500,600..3000]  ]
+  where procset1  = [ ProcSet QLDNeutLOSPProc_2SG  [SetNum 1] 
+                    , ProcSet QLDNeutLOSPProc_SQSG [SetNum 1]
+                    , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 1] ]
+        procset12 = [ ProcSet QLDNeutLOSPProc_2SG  [SetNum 1, SetNum 2, SetNum 3] 
+                    , ProcSet QLDNeutLOSPProc_SQSG [SetNum 1, SetNum 2, SetNum 3]
+                    , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 1, SetNum 2, SetNum 3] ]
 
 
 param_sim0_100 :: [ [ParamSet Sim0 [SetNum]] ] 
@@ -371,6 +381,12 @@ nc_param_qldneutlosp_100 = map (\x->ParamSet x procset) qparams
                   , ProcSet QLDNeutLOSPProc_SQSG [SetNum 2]
                   , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 2] ]
 
+nc3_param_qldneutlosp_100 :: [ParamSet QLDNeutLOSP [SetNum]]  
+nc3_param_qldneutlosp_100 = map (\x->ParamSet x procset) qparams
+  where qparams = [ mkQLDNeut g q 100 | g <- [500,600..3000] , q <- [500,600..1000] ]
+        procset = [ ProcSet QLDNeutLOSPProc_2SG  [SetNum 3] 
+                  , ProcSet QLDNeutLOSPProc_SQSG [SetNum 3]
+                  , ProcSet QLDNeutLOSPProc_2SQ  [SetNum 3] ]
 
 
 
@@ -378,12 +394,13 @@ main' :: IO ()
 main' = do
   putStrLn "prepare for KFactor map" 
   kfacmap <- mkKFactorMap 
-  h <- openFile "sim0_neut10_sqsg_8TeV_0lep_NLO.dat" WriteMode
+  h <- openFile "xqld_neutLOSP100_sqsg_8TeV_0lep_NLO.dat" WriteMode
+        -- openFile "sim0_neut10_sqsg_8TeV_0lep_NLO.dat" WriteMode
   emsg <- withDAVConfig "config1.txt" $ do 
             let pass1glu x = do 
                   rs <- mapM (processParamSet kfacmap) x 
                   liftIO $ mapM_ (hPutStrLn h) (map printFormatter rs)
-            mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) param_sim0_10
+            mapM_ (\x->pass1glu x >> liftIO (hPutStr h "\n")) n_param_qldneutlosp_100  -- param_sim0_10
   print emsg 
   hClose h 
   return ()
@@ -391,12 +408,12 @@ main' = do
 main'' :: IO ()
 main'' = do 
   emsg <- withDAVConfig "config1.txt" $ do 
-            mapM_ countParamSet nc_param_qldneutlosp_100
+            mapM_ countParamSet nc3_param_qldneutlosp_100
   print emsg 
   
 main :: IO ()
 main = do 
-  emsg <- mapM (\x->withDAVConfig "config1.txt" (checkParamSet x)) nc_param_qldneutlosp_100
+  emsg <- mapM (\x->withDAVConfig "config1.txt" (checkParamSet x)) nc3_param_qldneutlosp_100
   mapM_ print (lefts emsg)
   
 
