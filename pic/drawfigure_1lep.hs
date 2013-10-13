@@ -2,7 +2,9 @@ import System.Environment
 import System.Directory
 import Text.StringTemplate
 
-main = main_2sq -- main_2sg
+main = main_2sq -- main_2sg 
+
+--  
 
 main_2sg :: IO ()
 main_2sg = do 
@@ -44,8 +46,8 @@ main_2sg = do
                       , ("ymax", "1000")
                       , ("datnameA", "xqld_neutlosp_mgmnscan_8TeV")
                       , ("datnameB", "simplifiedsusylep_1step_2sg_8TeV")
-                      , ("modelaliasA", "Xqld")
-                      , ("modelaliasB", "Simplified")
+                      , ("modelaliasA", "QLD")
+                      , ("modelaliasB", "Sim1g")
                       , ("figurefilename", "xqld_1lep_mgmnscan")
                       ] 
 
@@ -95,8 +97,8 @@ main_2sq = do
                       , ("ymax", "1000")
                       , ("datnameA", "xqld_neutlosp_mqmnscan_8TeV")
                       , ("datnameB", "simplifiedsusylep_1step_2sq_8TeV")
-                      , ("modelaliasA", "Xqld")
-                      , ("modelaliasB", "Simplified")
+                      , ("modelaliasA", "QLD")
+                      , ("modelaliasB", "Sim1q")
                       , ("figurefilename", "xqld_1lep_mqmnscan")
                       ] 
 

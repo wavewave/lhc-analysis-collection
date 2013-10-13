@@ -13,6 +13,7 @@ set key
 
 unset surface
 set view map 
+set tics front
 
 theta(x) = x<0 ? 0 : 1
 
@@ -21,9 +22,9 @@ interpolate(x,y0,x0,y1,x1) = (x-x0)*(y1-y0)/(x1-x0)+y0
 
 base(x) = (x <= -0.5) ? 0 : ( x <= -0.2 ? interpolate(x,0.0,-0.5,1.0,-0.2) : (x <= 0.2 ? 1.0 : (x <= 0.5 ? interpolate(x,1.0,0.2,0.0,0.5) : 0.0 )))
 
-r(x)= base(1.5*x-1.0)*theta(x-0.01)+1.0*theta(0.01-x)
-g(x)= 0.7*base(1.7*x-0.8)*theta(x-0.01)+0.2+1.0*theta(0.01-x)
-b(x)= base(1.2*x-0.1)*theta(x-0.01)+1.0*theta(0.01-x)
+r(x)= base(1.45*x-1.05)*theta(x-0.0001)+1.0*theta(0.0001-x)
+g(x)= 0.7*base(1.7*x-0.9)*theta(x-0.0001)+0.2+1.0*theta(0.0001-x)
+b(x)= base(1.2*x-0.1)*theta(x-0.0001)+1.0*theta(0.0001-x)
 
 set palette model RGB functions r(gray),g(gray),b(gray)
 
