@@ -489,16 +489,6 @@ getNJets _ x = Left "getNJets: asking for n /= 2,3,5,6"
 phyEventNoTau :: (PhyEventNoTau, [PhyObj Jet]) -> PhyEventNoTau
 phyEventNoTau = fst
 
-mkPhyEventNoTau :: PhyEventClassified -> PhyEventNoTau
-mkPhyEventNoTau PhyEventClassified {..} =
-    PhyEventNoTau { nt_eventId = eventid 
-                  , nt_photons = map snd photonlst
-                  , nt_electrons = map snd electronlst
-                  , nt_muons = map snd muonlst
-                  , nt_jets = (map snd . ptordering . (jetlst ++) . map ((,) <$> fst <*> tau2Jet.snd)) taulst
-                  , nt_bjets = map snd bjetlst
-                  , nt_missingET = met
-                  }
 
 
 mergeTau :: PrunedEvent -> Either String PrunedEvent

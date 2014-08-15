@@ -1,5 +1,8 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module HEP.Physics.Analysis.Common.PhyEventNoTau where
 
+import Control.Applicative
 import Control.Lens
 import Data.Default
 import Data.List (sortBy)
@@ -7,6 +10,7 @@ import Data.List (sortBy)
 import HEP.Parser.LHCOAnalysis.PhysObj
 --
 import HEP.Physics.Analysis.Common.Lens
+import HEP.Physics.Analysis.Common.Merge
 
 data PhyEventNoTau = PhyEventNoTau { nt_eventId :: Int
                                    , nt_photons :: [PhyObj Photon]
@@ -63,3 +67,15 @@ instance LensLeptons PhyEventNoTau where
     where h (LO_Elec x) (acce,accm) = (x:acce,accm)
           h (LO_Muon x) (acce,accm) = (acce,x:accm)
 
+
+
+mkPhyEventNoTau :: PhyEventClassified -> PhyEventNoTau
+mkPhyEventNoTau PhyEventClassified {..} =
+    PhyEventNoTau { nt_eventId = eventid 
+                  , nt_photons = map snd photonlst
+                  , nt_electrons = map snd electronlst
+                  , nt_muons = map snd muonlst
+                  , nt_jets = (map snd . ptordering . (jetlst ++) . map ((,) <$> fst <*> tau2Jet.snd)) taulst
+                  , nt_bjets = map snd bjetlst
+                  , nt_missingET = met
+                  }
