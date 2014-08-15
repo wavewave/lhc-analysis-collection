@@ -19,30 +19,46 @@ Library
   ghc-prof-options: -caf-all -auto-all
   Build-Depends: 
                    base>4, 
+                   -- 
+                   aeson >= 0.6, 
+                   aeson-pretty >= 0.7,
+                   attoparsec, 
+
+                   bytestring >= 0.9,
+                   conduit > 1,
+                   conduit-util >= 0.999,
+
+                   either >= 3,
+
+                   -- indexed-extras >= 0.1.1.0, 
+                   -- indexed, 
+
                    mtl>2, 
                    transformers >= 0.3,
-                   either >= 3,
                    directory, 
                    filepath,
-                   bytestring >= 0.9,
-                   attoparsec, 
                    cmdargs, 
                    hastache,
-                   text,
-                   text-format,
                    LHCOAnalysis-type, 
                    LHCOAnalysis,
                    LHEParser >= 0.999,
                    HEPUtil, 
-                   xml-types,
-                   conduit > 1,
-                   conduit-util >= 0.999,
-                   zlib-conduit >= 1,
-                   xml-conduit >= 1, 
+                   text,
+                   text-format,
+
+                   unordered-containers >= 0.2, 
+
                    vector, 
+
+                   xml-types,
+                   xml-conduit >= 1, 
+
+                   zlib >= 0.5, 
+
+                   zlib-conduit >= 1,
+
                    hmatrix, 
                    random >= 1.0,
-                   unordered-containers >= 0.2, 
                    hashable >= 1.1,
                    madgraph-auto >= 0.999,
                    madgraph-auto-model >= 0.999,
@@ -52,23 +68,23 @@ Library
                    unix,
                    containers >= 0.4, 
                    pureMD5 >= 2.1, 
-                   zlib >= 0.5, 
-                   aeson >= 0.6, 
-                   aeson-pretty >= 0.7,
-                   indexed-extras >= 0.1.1.0, 
-                   indexed, 
                    lens, 
                    data-default
                    
   Exposed-Modules: 
                    HEP.Parser.XSec
-                   HEP.Physics.Analysis.ATLAS.Common 
-                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_7TeV
-                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
-                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_1to2L2to6JMET_8TeV
-                   HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton_7TeV
-                   HEP.Physics.Analysis.Common.XSecNTotNum 
+                   -- HEP.Physics.Analysis.ATLAS.Common 
+                   -- HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_7TeV
+                   -- HEP.Physics.Analysis.ATLAS.SUSY.SUSY_0L2to6JMET_8TeV
+                   -- HEP.Physics.Analysis.ATLAS.SUSY.SUSY_1to2L2to6JMET_8TeV
+                   -- HEP.Physics.Analysis.ATLAS.SUSY.SUSY_MultiLepton_7TeV
+                   HEP.Physics.Analysis.Common.Lens
+                   HEP.Physics.Analysis.Common.Merge
+                   HEP.Physics.Analysis.Common.PhyEventNoTau
+                   HEP.Physics.Analysis.Common.PhyEventNoTauNoBJet
                    HEP.Physics.Analysis.Common.Prospino
+                   HEP.Physics.Analysis.Common.XSecNTotNum 
+
                    HEP.Util.Format
                    HEP.Util.Table 
                    HEP.Util.Work

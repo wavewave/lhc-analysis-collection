@@ -56,6 +56,7 @@ import HEP.Storage.WebDAV.Type
 import HEP.Util.Either 
 import HEP.Util.Functions (invmass)
 -- 
+import HEP.Physics.Analysis.Common.PhyEventNoTau
 import HEP.Physics.Analysis.ATLAS.Common ((#),tau2Jet, bJet2Jet, deltaRdist,mt,normalizeDphi)
 -- 
 import Prelude hiding (subtract)
@@ -398,39 +399,6 @@ guardE :: String -> Bool -> Either String ()
 guardE msg b = if b then return () else Left msg 
 
 
--------------------------------
--- Physics Object Definition --
--------------------------------
-
-class LensEventID a where
-  eventId :: Simple Lens a Int
-
-
-class LensPhotons a where
-  photons :: Simple Lens a [PhyObj Photon]
-
-class LensElectrons a where
-  electrons :: Simple Lens a [PhyObj Electron]
-
-class LensMuons a where
-  muons :: Simple Lens a [PhyObj Muon]
-
-class LensJets a where
-  jets :: Simple Lens a [PhyObj Jet]
- 
-class LensBJets a where
-  bjets :: Simple Lens a [PhyObj BJet]
-
-class LensMissingET a where
-  missingET :: Simple Lens a (PhyObj MET)
-
-class LensJetBJets a where
-   jetBJets :: Simple Lens a [JetBJetObj] 
-
-class LensLeptons a where 
-   leptons :: Simple Lens a [Lepton12Obj]
-
-
 -- a little utility
 
 -- | Z-boson mass
@@ -497,110 +465,7 @@ isBJet (JO_BJet _) = True
 
 
 
-data PhyEventNoTau = PhyEventNoTau { nt_eventId :: Int
-                                   , nt_photons :: [PhyObj Photon]
-                                   , nt_electrons :: [PhyObj Electron] 
-                                   , nt_muons :: [PhyObj Muon]
-                                   , nt_jets :: [PhyObj Jet] 
-                                   , nt_bjets :: [PhyObj BJet]
-                                   , nt_missingET :: PhyObj MET
-                                   } 
 
-instance Default PhyEventNoTau where
-  def = PhyEventNoTau 0 [] [] [] [] [] (ObjMET (0,0))
-
-instance LensEventID PhyEventNoTau where  
-  eventId = lens nt_eventId (\f a -> f { nt_eventId = a })
-
-instance LensPhotons PhyEventNoTau where
-  photons = lens nt_photons (\f a -> f { nt_photons = a })
-
-instance LensElectrons PhyEventNoTau where
-  electrons = lens nt_electrons (\f a -> f { nt_electrons = a })
-
-instance LensMuons PhyEventNoTau where
-  muons = lens nt_muons (\f a -> f { nt_muons = a })
-
-instance LensJets PhyEventNoTau where
-  jets = lens nt_jets (\f a -> f { nt_jets = a })
-
-instance LensBJets PhyEventNoTau where
-  bjets = lens nt_bjets (\f a -> f { nt_bjets = a })
-
-instance LensMissingET PhyEventNoTau where 
-  missingET = lens nt_missingET (\f a -> f { nt_missingET = a })
-
-instance LensJetBJets PhyEventNoTau where
-  jetBJets = lens (\f -> let js = (map JO_Jet . nt_jets) f
-                             bs = (map JO_BJet . nt_bjets) f 
-                         in sortBy (flip ptcompare) (js ++ bs) )
-                  (\f a -> let (js,bs) = foldr h ([],[]) a
-                           in  f { nt_jets = sortBy (flip ptcompare) js 
-                                 , nt_bjets = sortBy (flip ptcompare) bs
-                                 })
-    where h (JO_Jet x) (accj,accb) = (x:accj,accb)
-          h (JO_BJet x) (accj,accb) = (accj,x:accb)
-
-instance LensLeptons PhyEventNoTau where
-  leptons = lens (\f -> let es = (map LO_Elec . nt_electrons) f
-                            ms = (map LO_Muon . nt_muons) f 
-                        in sortBy (flip ptcompare) (es ++ ms) )
-                 (\f a -> let (es,ms) = foldr h ([],[]) a
-                          in  f { nt_electrons = sortBy (flip ptcompare) es 
-                                , nt_muons = sortBy (flip ptcompare) ms
-                                })
-    where h (LO_Elec x) (acce,accm) = (x:acce,accm)
-          h (LO_Muon x) (acce,accm) = (acce,x:accm)
-
-
--- | event that already merged taus and b-jets into jets
-data PhyEventNoTauNoBJet = PhyEventNoTauNoBJet { ntnb_eventId :: Int
-                                               , ntnb_photons :: [PhyObj Photon]
-                                               , ntnb_electrons :: [PhyObj Electron]
-                                               , ntnb_muons :: [PhyObj Muon]
-                                               , ntnb_jets :: [PhyObj Jet]
-                                               , ntnb_missingET :: PhyObj MET
-                                               }
-
-
-instance Default PhyEventNoTauNoBJet where
-  def = PhyEventNoTauNoBJet 0 [] [] [] [] (ObjMET (0,0))
-
-
-instance LensEventID PhyEventNoTauNoBJet where  
-  eventId = lens ntnb_eventId (\f a -> f { ntnb_eventId = a })
-
-instance LensPhotons PhyEventNoTauNoBJet where
-  photons = lens ntnb_photons (\f a -> f { ntnb_photons = a })
-
-instance LensElectrons PhyEventNoTauNoBJet where
-  electrons = lens ntnb_electrons (\f a -> f { ntnb_electrons = a })
-
-instance LensMuons PhyEventNoTauNoBJet where
-  muons = lens ntnb_muons (\f a -> f { ntnb_muons = a })
-
-instance LensJets PhyEventNoTauNoBJet where
-  jets = lens ntnb_jets (\f a -> f { ntnb_jets = a })
-
-
-instance LensMissingET PhyEventNoTauNoBJet where 
-  missingET = lens ntnb_missingET (\f a -> f { ntnb_missingET = a })
-
-instance LensJetBJets PhyEventNoTauNoBJet where
-  jetBJets = lens (map JO_Jet . ntnb_jets)
-                  (\f a -> f { ntnb_jets = mapMaybe (\case JO_Jet j -> Just j; _ -> Nothing) a })
-
-
-instance LensLeptons PhyEventNoTauNoBJet where
-  leptons = lens (\f -> let es = (map LO_Elec . ntnb_electrons) f
-                            ms = (map LO_Muon . ntnb_muons) f 
-                        in sortBy (flip ptcompare) (es ++ ms) )
-                 (\f a -> let (es,ms) = foldr h ([],[]) a
-                          in  f { ntnb_electrons = sortBy (flip ptcompare) es 
-                                , ntnb_muons = sortBy (flip ptcompare) ms
-                                })
-    where h (LO_Elec x) (acce,accm) = (x:acce,accm)
-          h (LO_Muon x) (acce,accm) = (acce,x:accm)
 
 
 
