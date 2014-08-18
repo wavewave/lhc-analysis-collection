@@ -78,67 +78,56 @@ eventsets = [ EventSet psetup param (rsetupgen x) | x <- [1..1000] ]
 rdir :: WebDAVRemoteDir
 rdir = WebDAVRemoteDir "newtest2"
 
+main' :: IO ()
+main' = do
+    args <- getArgs 
+    let pkey = args !! 0 
+        pswd = args !! 1
+        whost = args !! 2
+    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..5] -- ..1000] 
+    Just cr <- getCredential pkey pswd
+    let cfg = WebDAVConfig { webdav_credential = cr, webdav_baseurl = whost }
+    withFile "dummy.txt" WriteMode $ \h -> 
+      runMaybeT $ do  
+        F.forM_ fpaths $ \fpath -> do
+          b <- liftIO $ doesFileExistInDAV cfg rdir fpath
+          guard b
+          liftIO $ downloadFile False cfg rdir fpath 
+          liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
+          analysis h fpath
+    return ()
+
 main :: IO ()
-main = do
-  putStrLn "test"
-  args <- getArgs 
-  let pkey = args !! 0 
-      pswd = args !! 1
-      whost = args !! 2
-      -- rdir = WebDAVRemoteDir (args !! 3)
-      -- fpath = (args !! 4)
-  let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [282..1000] -- [1..280]
-
-  Just cr <- getCredential pkey pswd
-  let cfg = WebDAVConfig { webdav_credential = cr, webdav_baseurl = whost }
-  withFile "result282-1000.txt" WriteMode $ \h -> 
-    runMaybeT $ do  
-      F.forM_ fpaths $ \fpath -> do
-        b <- liftIO $ doesFileExistInDAV cfg rdir fpath
-        guard b
-
-        liftIO $ downloadFile False cfg rdir fpath 
-
-        liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
-
-        bstr <- liftIO $ LB.readFile fpath
-        let unzipped = decompress bstr
-            unmergedevts = parsestr unzipped
-            taumergedevts = map mkPhyEventNoTau unmergedevts
-            -- totnum = length evts 
-            -- evt = head mergedevts :: PhyEventNoTau
-            --- evt' = mergeBJetFromNoTauEv evt
-            fullmergedevts = map mergeBJetFromNoTauEv taumergedevts
-            test = (,,) <$> checkj <*> checkl <*> checkj2
-            -- pass1 :: ((Bool,Bool,Bool),Bool,(Bool,Bool)) -> Bool
-            pass1 x = view (_1._1) x
-            -- pass2 :: ((Bool,Bool,Bool),Bool,(Bool,Bool)) -> Bool
-            pass2 x = pass1 x && view (_1._2) x
-            -- pass3 :: ((Bool,Bool,Bool),Bool,(Bool,Bool)) -> Bool
-            pass3 x = pass1 x && pass2 x && view (_1._3) x
-            -- pass4 :: ((Bool,Bool,Bool),Bool,(Bool,Bool)) -> Bool
-            pass4 x = pass1 x && pass2 x && pass3 x && view _2 x
-            -- pass5 :: ((Bool,Bool,Bool),Bool,(Bool,Bool)) -> Bool
-            pass5 x = pass1 x && pass2 x && pass3 x && pass4 x && view (_3._1) x
-            -- pass6 :: ((Bool,Bool,Bool),Bool,(Bool,Bool)) -> Bool
-            pass6 x = pass1 x && pass2 x && pass3 x && pass4 x && pass5 x && view (_3._2) x
-
-            pass1evts = filter (pass1.test) fullmergedevts
-            pass2evts = filter (pass2.test) fullmergedevts
-            pass3evts = filter (pass3.test) fullmergedevts
-            pass4evts = filter (pass4.test) fullmergedevts
-            pass5evts = filter (pass5.test) fullmergedevts
-            pass6evts = filter (pass6.test) fullmergedevts
+main = runMaybeT (analysis stdout "fourtopsimpl_pgs_events.lhco.gz") >> return ()
 
 
-        -- liftIO $ mapM_ print (map (\ev->(jetpts ev,checkj ev)) fullmergedevts)  
-        -- liftIO $ mapM_ print (map (\ev->(leptonetas ev,checkl ev)) fullmergedevts)  
-        -- liftIO $ mapM_ print (map (\ev->(jetetas ev,checkj2 ev)) fullmergedevts)
-        -- liftIO $ print (over (jets. mapped) show evt')
+analysis h fpath = do
+    liftIO $ putStrLn $ "analyzing " ++ fpath 
+    bstr <- liftIO $ LB.readFile fpath
+    let unzipped = decompress bstr
+        unmergedevts = parsestr unzipped
+        taumergedevts = map mkPhyEventNoTau unmergedevts
+        -- totnum = length evts 
+        -- evt = head mergedevts :: PhyEventNoTau
+        --- evt' = mergeBJetFromNoTauEv evt
+        fullmergedevts = map mergeBJetFromNoTauEv taumergedevts
+        test = (,,) <$> checkj <*> checkl <*> checkj2
+        pass1 x = view (_1._1) x
+        pass2 x = pass1 x && view (_1._2) x
+        pass3 x = pass1 x && pass2 x && view (_1._3) x
+        pass4 x = pass1 x && pass2 x && pass3 x && view _2 x
+        pass5 x = pass1 x && pass2 x && pass3 x && pass4 x && view (_3._1) x
+        pass6 x = pass1 x && pass2 x && pass3 x && pass4 x && pass5 x && view (_3._2) x
 
-        liftIO $ IO.hPutStrLn h 
-          (fpath ++ ": " ++ show (length pass1evts,length pass2evts,length pass3evts,length pass4evts,length pass5evts,length pass6evts))
-  return ()
+        pass1evts = filter (pass1.test) fullmergedevts
+        pass2evts = filter (pass2.test) fullmergedevts
+        pass3evts = filter (pass3.test) fullmergedevts
+        pass4evts = filter (pass4.test) fullmergedevts
+        pass5evts = filter (pass5.test) fullmergedevts
+        pass6evts = filter (pass6.test) fullmergedevts
+
+    liftIO $ IO.hPutStrLn h 
+      (fpath ++ ": " ++ show (length fullmergedevts, length pass1evts,length pass2evts,length pass3evts,length pass4evts,length pass5evts,length pass6evts)) 
 
 
 
