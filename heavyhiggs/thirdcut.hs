@@ -5,6 +5,7 @@
 import qualified Codec.Zlib as Zlib
 import           Control.Applicative
 import           Control.DeepSeq
+-- import qualified Control.Foldl as Foldl
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -92,25 +93,57 @@ checkAndDownload cfg rdir fpath = do
     liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
 
 
-
 main :: IO ()
 main = do
-    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..10] -- [1..1000] 
+    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
+        prod hins = mapM_ gunzip hins
+
+    hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
+    
+    r <- PPrelude.fold (\acc _ -> acc+1) 0 id  $
+           (pipesLHCOEvent (prod hins >-> PPrelude.map T.decodeUtf8) >> return () )
+           >-> PPrelude.map (jetpts . mergeBJetFromNoTauEv . mkPhyEventNoTau)
+           >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
+       
+    print r                              
+    -- print (sum lst)
+    -- return ()
+
+
+main' :: IO ()
+main' = do
+    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
     withFile "dummy.txt" WriteMode $ \hout -> do
       lst <- ({- fmap catMaybes . -} Tr.forM fpaths) $ \fpath ->  
                withFile fpath ReadMode $ \hin -> do 
                  putStrLn fpath
-                 -- txt <- {- PB.toLazyM -}
-                 runEffect (pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8) 
-                            >-> PPrelude.map (jetpts . mergeBJetFromNoTauEv . mkPhyEventNoTau)
-                            >-> PPrelude.mapM print
-                            >-> PPrelude.drain)    --  >-> PB.count
+                 -- let testfold = Foldl.FoldM (\acc _ -> return (acc+1)) (return 0) return
+                 r <- PPrelude.fold (\acc _ -> acc+1) 0 id  ( (pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8) >> return () )
+                                             >-> PPrelude.map (jetpts . mergeBJetFromNoTauEv . mkPhyEventNoTau)
+                                             >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
+                                       )
+                 --                >-> testsum 
+                 --                >-> PPrelude.drain)    --  >-> PB.count
+                 return r 
+                 -- print r
                  -- print txt
                  {- runMaybeT $ do 
                    r' <- analysis bstr
                    r' `deepseq` return r' -- (fpath,r') -}
       -- hPutStrLn hout (show (combine3 lst))
+      print (sum lst)
       return ()
+
+countmark :: (MonadIO m) => Int -> Int -> Pipe a a m r
+countmark marker n = go n
+  where go i = do when (i `mod` marker == 0) $ do 
+                    liftIO (print i)
+                  x <- await
+                  yield x
+                  go (i+1) 
+
+
+
 
 {- 
 main1 :: IO ()
