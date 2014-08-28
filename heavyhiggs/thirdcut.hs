@@ -9,10 +9,13 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
+import qualified Data.Attoparsec.Text as PA
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Default       
 import           Data.List (foldl')
 import           Data.Maybe (catMaybes)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Traversable as Tr
 import qualified Pipes.ByteString  as PB
 import qualified Pipes.Zlib as PZ
@@ -123,8 +126,14 @@ combine3 = foldl' f (0,0,0,0,0,0,map (\x->(x,0)) [10,20..300])
 
 
 analysis :: (MonadIO m) => LB.ByteString -> MaybeT m (Int,Int,Int,Int,Int,Int,[(Double,Int)]) 
-analysis bstr = do
-    let unmergedevts = parsestr bstr
+analysis lbstr = do
+    
+    let bstr = LB.toStrict lbstr
+        txt = T.decodeUtf8 bstr
+        unmergedevts = case PA.parseOnly lhco txt of -- -- parsestr bstr
+                         Left err -> error "lhco parse error"
+                         Right evts -> evts
+
         taumergedevts = map mkPhyEventNoTau unmergedevts
         fullmergedevts = map mergeBJetFromNoTauEv taumergedevts
 

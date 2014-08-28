@@ -23,14 +23,17 @@ module HEP.Physics.Analysis.Common.XSecNTotNum where
 import           Codec.Compression.GZip 
 import           Control.Monad.Trans
 import           Control.Monad.Trans.Maybe
+-- import           Data.Attoparsec.Text
 import           Data.Aeson.Encode.Pretty (encodePretty)
 import qualified Data.Aeson.Generic as G
 import           Data.Aeson.Types
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Data
+-- import qualified Data.Text as T
+-- import qualified Data.Text.Encoding as T
 import           System.Directory  
 -- 
-import HEP.Parser.LHCOAnalysis.Parse
+import HEP.Parser.LHCOAnalysis.Parse.Old
 import HEP.Storage.WebDAV.CURL 
 import HEP.Storage.WebDAV.Type 
 import HEP.Util.Either 
