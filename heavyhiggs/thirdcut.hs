@@ -17,7 +17,9 @@ import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Traversable as Tr
+import           Pipes
 import qualified Pipes.ByteString  as PB
+import qualified Pipes.Prelude as PPrelude
 import qualified Pipes.Zlib as PZ
 import           System.IO as IO
 -- 
@@ -35,6 +37,7 @@ import HEP.Physics.Analysis.Common.Lens
 import HEP.Physics.Analysis.Common.Merge
 import HEP.Physics.Analysis.Common.PhyEventNoTau
 import HEP.Physics.Analysis.Common.PhyEventNoTauNoBJet
+import Pipes.LHCO
 
 
 mergeBJetFromNoTauEv :: PhyEventNoTau -> PhyEventNoTauNoBJet
@@ -89,18 +92,25 @@ checkAndDownload cfg rdir fpath = do
     liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
 
 
+
 main :: IO ()
 main = do
-    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
+    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..10] -- [1..1000] 
     withFile "dummy.txt" WriteMode $ \hout -> do
-      lst <- (fmap catMaybes . Tr.forM fpaths) $ \fpath ->  
+      lst <- ({- fmap catMaybes . -} Tr.forM fpaths) $ \fpath ->  
                withFile fpath ReadMode $ \hin -> do 
                  putStrLn fpath
-                 bstr <- PB.toLazyM (PZ.decompress (Zlib.WindowBits 31) (PB.fromHandle hin))   --  >-> PB.count
-                 runMaybeT $ do 
+                 -- txt <- {- PB.toLazyM -}
+                 runEffect (pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8) 
+                            >-> PPrelude.map (jetpts . mergeBJetFromNoTauEv . mkPhyEventNoTau)
+                            >-> PPrelude.mapM print
+                            >-> PPrelude.drain)    --  >-> PB.count
+                 -- print txt
+                 {- runMaybeT $ do 
                    r' <- analysis bstr
-                   r' `deepseq` return r' -- (fpath,r')
-      hPutStrLn hout (show (combine3 lst))
+                   r' `deepseq` return r' -- (fpath,r') -}
+      -- hPutStrLn hout (show (combine3 lst))
+      return ()
 
 {- 
 main1 :: IO ()
@@ -155,6 +165,8 @@ analysis lbstr = do
         assoclist = map (\x -> (x, (length . filter (ptlcut x)) pass5evts)) [10,20..300] 
     return (length fullmergedevts, length pass1evts, length pass2evts, length pass3evts, length pass4evts, length pass5evts, assoclist)
 
+
+-- pipesAnalysis :: Pipes PhyEventClassified ( ) m r 
 
 
 ptlcut :: Double -> PhyEventNoTauNoBJet -> Bool
