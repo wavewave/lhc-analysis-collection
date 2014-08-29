@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import qualified Codec.Zlib as Zlib
@@ -10,9 +11,11 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Maybe
+import           Control.Monad.Trans.State.Strict
 import qualified Data.Attoparsec.Text as PA
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Default       
+import qualified Data.Foldable as F
 import           Data.List (foldl')
 import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
@@ -96,18 +99,39 @@ checkAndDownload cfg rdir fpath = do
 main :: IO ()
 main = do
     let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
-        prod hins = mapM_ gunzip hins
-
+        -- prod hins = mapM_ gunzip hins
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
-    
-    r <- PPrelude.fold (\acc _ -> acc+1) 0 id  $
-           (pipesLHCOEvent (prod hins >-> PPrelude.map T.decodeUtf8) >> return () )
-           >-> PPrelude.map (jetpts . mergeBJetFromNoTauEv . mkPhyEventNoTau)
+    r <- flip runStateT (0,0,0,0,0,0) $ runEffect $ do
+           F.forM_ fpaths $ \fpath -> do 
+             hin <- liftIO $ openFile fpath ReadMode
+             pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
+             liftIO $ hClose hin 
+           >-> PPrelude.tee (count _1 >-> PPrelude.drain)
            >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
+           >-> PPrelude.map (filterEtaRange . mergeBJetFromNoTauEv . mkPhyEventNoTau)
+           >-> PPrelude.map ((,,) <$> checkj <*> checkl <*> htcut) 
+           >-> PPrelude.filter (view (_1._1)) >-> PPrelude.tee (count _2 >-> PPrelude.drain) -- pass1 
+           >-> PPrelude.filter (view (_1._2)) >-> PPrelude.tee (count _3 >-> PPrelude.drain) -- pass2
+           >-> PPrelude.filter (view (_1._3)) >-> PPrelude.tee (count _4 >-> PPrelude.drain) -- pass3
+           >-> PPrelude.filter (view _2)      >-> PPrelude.tee (count _5 >-> PPrelude.drain) -- pass4
+           >-> PPrelude.filter (view _3)      >-> PPrelude.tee (count _6 >-> PPrelude.drain) -- pass5
+           >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
+           >-> PPrelude.drain
        
     print r                              
     -- print (sum lst)
     -- return ()
+
+count :: Simple Lens (Int,Int,Int,Int,Int,Int) Int -> Consumer a (StateT (Int,Int,Int,Int,Int,Int) IO) ()
+count l = forever $ do await 
+                       x <- lift get 
+                       let !y = x `seq` view l x
+                           !x' = set l (y+1) x 
+                       lift (put x')
+
+  
+ -- lift (modify (over l (\(x :: Int) -> x `deepseq` x+1)))
+  -- yield r
 
 
 main' :: IO ()
@@ -119,9 +143,12 @@ main' = do
                  putStrLn fpath
                  -- let testfold = Foldl.FoldM (\acc _ -> return (acc+1)) (return 0) return
                  r <- PPrelude.fold (\acc _ -> acc+1) 0 id  ( (pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8) >> return () )
-                                             >-> PPrelude.map (jetpts . mergeBJetFromNoTauEv . mkPhyEventNoTau)
-                                             >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
-                                       )
+                                                              >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain )
+                                                              >-> PPrelude.map (filterEtaRange . mergeBJetFromNoTauEv . mkPhyEventNoTau)
+                                                              >-> PPrelude.map ((,,) <$> checkj <*> checkl <*> htcut) 
+                                                              >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
+                                                              >-> PPrelude.drain
+                                                            )
                  --                >-> testsum 
                  --                >-> PPrelude.drain)    --  >-> PB.count
                  return r 
