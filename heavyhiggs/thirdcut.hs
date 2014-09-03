@@ -99,7 +99,6 @@ checkAndDownload cfg rdir fpath = do
 main :: IO ()
 main = do
     let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
-        -- prod hins = mapM_ gunzip hins
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
     r <- flip runStateT (0,0,0,0,0,0) $ runEffect $ do
            F.forM_ fpaths $ \fpath -> do 
@@ -110,19 +109,17 @@ main = do
            >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
            >-> PPrelude.map (filterEtaRange . mergeBJetFromNoTauEv . mkPhyEventNoTau)
            >-> PPrelude.map ((,,) <$> checkj <*> checkl <*> htcut) 
-           >-> PPrelude.filter (view (_1._1)) >-> PPrelude.tee (count _2 >-> PPrelude.drain) -- pass1 
-           >-> PPrelude.filter (view (_1._2)) >-> PPrelude.tee (count _3 >-> PPrelude.drain) -- pass2
-           >-> PPrelude.filter (view (_1._3)) >-> PPrelude.tee (count _4 >-> PPrelude.drain) -- pass3
-           >-> PPrelude.filter (view _2)      >-> PPrelude.tee (count _5 >-> PPrelude.drain) -- pass4
-           >-> PPrelude.filter (view _3)      >-> PPrelude.tee (count _6 >-> PPrelude.drain) -- pass5
+           >-> PPrelude.filter (view (_1._1)) >-> PPrelude.tee (count _2) -- pass1 
+           >-> PPrelude.filter (view (_1._2)) >-> PPrelude.tee (count _3) -- pass2
+           >-> PPrelude.filter (view (_1._3)) >-> PPrelude.tee (count _4) -- pass3
+           >-> PPrelude.filter (view _2)      >-> PPrelude.tee (count _5) -- pass4
+           >-> PPrelude.filter (view _3)      >-> PPrelude.tee (count _6) -- pass5
            >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
            >-> PPrelude.drain
        
     print r                              
-    -- print (sum lst)
-    -- return ()
 
-count :: Simple Lens (Int,Int,Int,Int,Int,Int) Int -> Consumer a (StateT (Int,Int,Int,Int,Int,Int) IO) ()
+count :: Simple Lens s Int -> Consumer a (StateT s IO) ()
 count l = forever $ do await 
                        x <- lift get 
                        let !y = x `seq` view l x
@@ -130,10 +127,6 @@ count l = forever $ do await
                        lift (put x')
 
   
- -- lift (modify (over l (\(x :: Int) -> x `deepseq` x+1)))
-  -- yield r
-
-
 main' :: IO ()
 main' = do
     let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
