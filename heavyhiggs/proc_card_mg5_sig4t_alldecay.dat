@@ -1,0 +1,89 @@
+#************************************************************
+#*                        MadGraph 5                        *
+#*                                                          *
+#*                *                       *                 *
+#*                  *        * *        *                   *
+#*                    * * * * 5 * * * *                     *
+#*                  *        * *        *                   *
+#*                *                       *                 *
+#*                                                          *
+#*                                                          *
+#*         VERSION 1.5.6                 2012-12-20         *
+#*                                                          *
+#*    The MadGraph Development Team - Please visit us at    *
+#*    https://server06.fynu.ucl.ac.be/projects/madgraph     *
+#*                                                          *
+#************************************************************
+#*                                                          *
+#*               Command File for MadGraph 5                *
+#*                                                          *
+#*     run as ./bin/mg5  filename                           *
+#*                                                          *
+#************************************************************
+
+set group_subprocesses Auto
+set ignore_six_quark_processes False
+set gauge unitary
+set complex_mass_scheme False
+import model_v4 mssm
+define p = g u c d s u~ c~ d~ s~
+define j = g u c d s u~ c~ d~ s~
+define l+ = e+ mu+
+define l- = e- mu-
+define vl = ve vm vt
+define vl~ = ve~ vm~ vt~
+# Define multiparticle labels
+define p = g u c d s u~ c~ d~ s~
+define j = g u c d s u~ c~ d~ s~
+#define l+ = e+ mu+
+#define l- = e- mu-
+define la+ = e+ mu+ ta+
+define la- = e- mu- ta- 
+define vl = ve vm vt
+define vl~ = ve~ vm~ vt~
+# Specify process(es) to run
+#Note: this has to be changed for doing the 4top signature
+generate    p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @1
+#
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @2
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @3
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @4
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @5
+#
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @6
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @7
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @8
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @9
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @10
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @11
+#
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @12
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @13
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @14
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @15
+#
+add process p p > t t~ h2 , ( h2 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @16
+#
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @17
+#
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @18
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @19
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @20
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @21
+#
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j )     @22
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @23
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @24
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @25
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @26
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @27
+#
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j )     @28
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) @29
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > j j ) )     , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @30
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > j j )    , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @31
+#
+add process p p > t t~ h3 , ( h3 > t t~ , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) ) , ( t > w+ b , w+ > la+ vl ) , ( t~ > w- b~ , w- > la- vl~ ) @32
+#
+# Output processes to MadEvent directory
+output fourtop_alldecay
