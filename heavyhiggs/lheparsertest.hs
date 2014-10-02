@@ -26,7 +26,9 @@ counterProgress = ZipSink countIter <* ZipSink countMarkerIter
 
 main = do 
   putStrLn "test"
-  h1 <- newTH1F "test" "test" 100 999 1001
+  c1 <- newTCanvas "test" "test" 1024 768 
+  h1 <- newTH1F "out" "out" 100 0 3000
+  h2 <- newTH1F "in" "in" 100 0 3000
 
   withFile "unweighted_events_4toppart.lhe" ReadMode $ \ih -> do 
     let iter = do
@@ -35,24 +37,32 @@ main = do
           parseEvent =$ process 
         process = decayTopConduit
                   -- =$ CL.isolate 100 
-                  =$ getZipSink (ZipSink (tester h1 0) <* counterProgress)
+                  =$ getZipSink (ZipSink (tester (h1,h2) 0) <* counterProgress)
     r <- flip runStateT (0 :: Int) (parseXmlFile ih iter)
     putStrLn $ show r 
 
-  tfile <- newTFile "test.root" "NEW" "" 1
-  write h1 "" 0 0 
-  close tfile ""
+  -- tfile <- newTFile "test.root" "NEW" "" 1
+  -- write h1 "" 0 0 
+  -- write h2 "" 0 0
+  -- close tfile ""
+  draw h2 ""
+  draw h1 "same"
+  saveAs c1 "test.pdf" ""
 
-tester :: (MonadIO m) => TH1F -> Int -> Sink LHEventTop m Int
-tester h1 n = do
+tester :: (MonadIO m) => (TH1F,TH1F) -> Int -> Sink LHEventTop m Int
+tester (h1,h2) n = do
   ev <- await
   case ev of 
     Nothing -> return n 
     Just ev -> case matchTest ev of 
-                 Nothing -> tester h1 n     
-                 Just xs  -> do let Just (px,py,pz,e,m) = (heavyhiggsmom . mkMatchMap) xs 
-                                liftIO $ fill1 h1 (realToFrac m)
-                                tester h1 (n+1)
+                 Nothing -> tester (h1,h2) n     
+                 Just xs  -> do -- let Just (px,py,pz,e,m) = (heavyhiggsmom . mkMatchMap) xs 
+                                let match = mkMatchMap xs
+                                let Just mtt_out = invmass_out_ttbar match
+                                    Just mtt_in  = invmass_in_ttbar match
+                                liftIO $ fill1 h1 (realToFrac mtt_out)
+                                liftIO $ fill1 h2 (realToFrac mtt_in)
+                                tester (h1,h2) (n+1)
 
 {- 
 testev :: LHEvent -> IO ()
@@ -112,3 +122,19 @@ mkMatchMap = IM.fromList . concatMap (F.fold . fmap (\x -> [x]))
 
 heavyhiggsmom :: IM.IntMap PtlIDInfo -> Maybe (Double,Double,Double,Double,Double)
 heavyhiggsmom m = pup . ptlinfo <$> (IM.lookup 11 m) 
+
+invmass (p1x,p1y,p1z,p1t) (p2x,p2y,p2z,p2t) = sqrt ((p1t+p2t)^2 - ((p1x+p2x)^2 + (p1y+p2y)^2 + (p1z+p2z)^2))
+
+invmass_out_ttbar :: IM.IntMap PtlIDInfo -> Maybe Double
+invmass_out_ttbar m = do tinfo    <- IM.lookup 6 m
+                         tbarinfo <- IM.lookup 1 m
+                         let (p1x,p1y,p1z,p1t,m1) = (pup . ptlinfo) tinfo
+                             (p2x,p2y,p2z,p2t,m2) = (pup . ptlinfo) tbarinfo
+                         return $ invmass (p1x,p1y,p1z,p1t) (p2x,p2y,p2z,p2t)
+
+invmass_in_ttbar :: IM.IntMap PtlIDInfo -> Maybe Double
+invmass_in_ttbar m = do tinfo    <- IM.lookup 12 m
+                        tbarinfo <- IM.lookup 17 m
+                        let (p1x,p1y,p1z,p1t,m1) = (pup . ptlinfo) tinfo
+                            (p2x,p2y,p2z,p2t,m2) = (pup . ptlinfo) tbarinfo
+                        return $ invmass (p1x,p1y,p1z,p1t) (p2x,p2y,p2z,p2t)
