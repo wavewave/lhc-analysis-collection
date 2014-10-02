@@ -19,6 +19,8 @@ import Data.Conduit.Util.Count
 import HEP.Parser.LHE.Conduit
 import HEP.Parser.LHE.Type
 import HEP.Parser.LHE.DecayTop
+import HEP.Util.Functions (mom_2_pt_eta_phi,snd3)
+
 import HROOT
 
 counterProgress = ZipSink countIter <* ZipSink countMarkerIter
@@ -29,14 +31,16 @@ main = do
   c1 <- newTCanvas "test" "test" 1024 768 
   -- h1 <- newTH1F "out" "out" 100 0 3000
 
-  h1 <- newTH1F "jet pt" "jet pt" 100 0 500
+  h1 <- newTH1F "jet eta" "jet eta" 100 (-5) 5
   setLineColor h1 1
-  h2 <- newTH1F "bjet pt" "bjet pt" 100 0 500
+  h2 <- newTH1F "bjet eta" "bjet eta" 100 (-5) 5
   setLineColor h2 2
-  h3 <- newTH1F "bjet pt in" "bjet pt in" 100 0 500
+  h3 <- newTH1F "bjet eta in" "bjet eta in" 100 (-5) 5
   setLineColor h3 3
-  h4 <- newTH1F "bjet pt out" "bjet pt out" 100 0 500
+  h4 <- newTH1F "bjet eta out" "bjet eta out" 100 (-5) 5
   setLineColor h4 4
+  h5 <- newTH1F "lep eta out" "lep eta out" 100 (-5) 5
+  setLineColor h5 5
 
 
   withFile "unweighted_events_4toppart.lhe" ReadMode $ \ih -> do 
@@ -46,7 +50,7 @@ main = do
           parseEvent =$ process 
         process = decayTopConduit
                   -- =$ CL.isolate 100 
-                  =$ getZipSink (ZipSink (tester (h1,h2,h3,h4) 0) <* counterProgress)
+                  =$ getZipSink (ZipSink (tester (h1,h2,h3,h4,h5) 0) <* counterProgress)
     r <- flip runStateT (0 :: Int) (parseXmlFile ih iter)
     putStrLn $ show r 
 
@@ -55,35 +59,39 @@ main = do
   -- write h2 "" 0 0
   -- close tfile ""
   -- draw h1 "same"
-  draw h1 ""
-  draw h2 "same"
+  draw h2 ""
+
+  draw h1 "same"
   draw h3 "same"
   draw h4 "same"
+  draw h5 "same"
   saveAs c1 "test.pdf" ""
 
-tester :: (MonadIO m) => (TH1F,TH1F,TH1F,TH1F) -> Int -> Sink LHEventTop m Int
-tester (h1,h2,h3,h4) n = do
+tester :: (MonadIO m) => (TH1F,TH1F,TH1F,TH1F,TH1F) -> Int -> Sink LHEventTop m Int
+tester (h1,h2,h3,h4,h5) n = do
   ev <- await
   case ev of 
     Nothing -> return n 
     Just ev -> case matchTest ev of 
-                 Nothing -> tester (h1,h2,h3,h4) n     
+                 Nothing -> tester (h1,h2,h3,h4,h5) n     
                  Just xs  -> do -- let Just (px,py,pz,e,m) = (heavyhiggsmom . mkMatchMap) xs 
                                 let match = mkMatchMap xs
                                 -- let Just mtt_out = invmass_out_ttbar match
                                 --     Just mtt_in  = invmass_in_ttbar match
-                                    Just (pt1,pt2,pt3,pt4) = jetpts match
-                                    Just (bpt1,bpt2,bpt3,bpt4) = bjetpts match
-                                liftIO $ mapM_ (fill1 h1 . realToFrac) [pt1,pt2,pt3,pt4]
-                                liftIO $ mapM_ (fill1 h2 . realToFrac) [bpt1,bpt2,bpt3,bpt4]
-                                liftIO $ mapM_ (fill1 h3 . realToFrac) [bpt3,bpt4]
-                                liftIO $ mapM_ (fill1 h4 . realToFrac) [bpt1,bpt2]
+                                    Just (e1,e2,e3,e4) = jetetas match
+                                    Just (be1,be2,be3,be4) = bjetetas match
+                                    Just (l1,l2) = lepetas match
+                                liftIO $ mapM_ (fill1 h1 . realToFrac) [e1,e2,e3,e4]
+                                liftIO $ mapM_ (fill1 h2 . realToFrac) [be1,be2,be3,be4]
+                                liftIO $ mapM_ (fill1 h3 . realToFrac) [be3,be4]
+                                liftIO $ mapM_ (fill1 h4 . realToFrac) [be1,be2]
+                                liftIO $ mapM_ (fill1 h5 . realToFrac) [l1,l2]
 
 
                                 -- liftIO $ fill1 h1 (realToFrac mtt_out)
                                 
                                 -- liftIO $ fill1 h2 (realToFrac mtt_in)
-                                tester (h1,h2,h3,h4) (n+1)
+                                tester (h1,h2,h3,h4,h5) (n+1)
 
 
 smplPrint :: LHEventTop -> String
@@ -172,4 +180,49 @@ bjetpts m = do j1 <- IM.lookup 5 m
                let pt x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
                           in sqrt (px^2+py^2)
                return (pt j1, pt j2, pt j3, pt j4)
+
+
+jetEs :: IM.IntMap PtlIDInfo -> Maybe (Double,Double,Double,Double)
+jetEs m = do j1 <- IM.lookup 3 m
+             j2 <- IM.lookup 4 m
+             j3 <- IM.lookup 8 m
+             j4 <- IM.lookup 9 m
+             let energy x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
+                            in pt -- sqrt (px^2+py^2)
+             return (energy j1, energy j2, energy j3, energy j4)
+
+bjetEs :: IM.IntMap PtlIDInfo -> Maybe (Double,Double,Double,Double)
+bjetEs m = do j1 <- IM.lookup 5 m
+              j2 <- IM.lookup 10 m
+              j3 <- IM.lookup 16 m
+              j4 <- IM.lookup 21 m
+              let energy x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
+                         in pt -- sqrt (px^2+py^2)
+              return (energy j1, energy j2, energy j3, energy j4)
+
+jetetas :: IM.IntMap PtlIDInfo -> Maybe (Double,Double,Double,Double)
+jetetas m = do j1 <- IM.lookup 3 m
+               j2 <- IM.lookup 4 m
+               j3 <- IM.lookup 8 m
+               j4 <- IM.lookup 9 m
+               let eta x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
+                           in snd3 (mom_2_pt_eta_phi (pt,px,py,pz)) -- sqrt (px^2+py^2)
+               return (eta j1, eta j2, eta j3, eta j4)
+
+bjetetas :: IM.IntMap PtlIDInfo -> Maybe (Double,Double,Double,Double)
+bjetetas m = do j1 <- IM.lookup 5 m
+                j2 <- IM.lookup 10 m
+                j3 <- IM.lookup 16 m
+                j4 <- IM.lookup 21 m
+                let eta x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
+                            in snd3 (mom_2_pt_eta_phi (pt,px,py,pz)) -- sqrt (px^2+py^2)
+                return (eta j1, eta j2, eta j3, eta j4)
+
+lepetas :: IM.IntMap PtlIDInfo -> Maybe (Double,Double)
+lepetas m = do l1 <- IM.lookup 14 m
+               l2 <- IM.lookup 19 m
+               let eta x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
+                           in snd3 (mom_2_pt_eta_phi (pt,px,py,pz)) -- sqrt (px^2+py^2)
+               return (eta l1, eta l2)
   
+
