@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Control.Applicative
 import           Control.Monad.Trans
@@ -11,6 +12,7 @@ import qualified Data.IntMap as IM
 import           Data.Maybe
 import qualified Data.Text.IO as TIO
 import qualified Data.Traversable as Tr (sequenceA,traverse) 
+import           Foreign.C.Types
 import           System.IO
 import           Text.XML.Conduit.Parse.Util
 -- 
@@ -26,22 +28,33 @@ import HROOT
 counterProgress = ZipSink countIter <* ZipSink countMarkerIter
 
 
+data HistColl = HistColl { hist1 :: TH1F
+                         , hist2 :: TH1F
+                         , hist3 :: TH1F
+                         , hist4 :: TH1F
+                         , hist5 :: TH1F 
+                         , hist2d :: TH2F
+                         }
+
+prepareHist :: (CInt,CDouble,CDouble) -> IO HistColl 
+prepareHist (n,start,end) = do 
+    h1 <- newTH1F "h1" "h1" n start end
+    setLineColor h1 1
+    h2 <- newTH1F "h2" "h2" n start end
+    setLineColor h2 2
+    h3 <- newTH1F "h3" "h3" n start end
+    setLineColor h3 3
+    h4 <- newTH1F "h4" "h4" n start end
+    setLineColor h4 4
+    h5 <- newTH1F "h5" "h5" n start end
+    setLineColor h5 5
+    h2d <- newTH2F "h2d" "h2d" n start end n start end
+    return (HistColl h1 h2 h3 h4 h5 h2d)
+    
 main = do 
   putStrLn "test"
   c1 <- newTCanvas "test" "test" 1024 768 
-  -- h1 <- newTH1F "out" "out" 100 0 3000
-
-  h1 <- newTH1F "jet eta" "jet eta" 100 (-5) 5
-  setLineColor h1 1
-  h2 <- newTH1F "bjet eta" "bjet eta" 100 (-5) 5
-  setLineColor h2 2
-  h3 <- newTH1F "bjet eta in" "bjet eta in" 100 (-5) 5
-  setLineColor h3 3
-  h4 <- newTH1F "bjet eta out" "bjet eta out" 100 (-5) 5
-  setLineColor h4 4
-  h5 <- newTH1F "lep eta out" "lep eta out" 100 (-5) 5
-  setLineColor h5 5
-
+  h <- prepareHist (100,-5,5) -- (100,0,1500) 
 
   withFile "unweighted_events_4toppart.lhe" ReadMode $ \ih -> do 
     let iter = do
@@ -50,48 +63,46 @@ main = do
           parseEvent =$ process 
         process = decayTopConduit
                   -- =$ CL.isolate 100 
-                  =$ getZipSink (ZipSink (tester (h1,h2,h3,h4,h5) 0) <* counterProgress)
+                  =$ getZipSink (ZipSink (mkplot h 0) <* counterProgress)
     r <- flip runStateT (0 :: Int) (parseXmlFile ih iter)
     putStrLn $ show r 
+  -- drawTogether [hist1 h,hist2 h]
+  draw (hist2d h) ""
 
-  -- tfile <- newTFile "test.root" "NEW" "" 1
-  -- write h1 "" 0 0 
-  -- write h2 "" 0 0
-  -- close tfile ""
-  -- draw h1 "same"
-  draw h2 ""
-
-  draw h1 "same"
-  draw h3 "same"
-  draw h4 "same"
-  draw h5 "same"
   saveAs c1 "test.pdf" ""
 
-tester :: (MonadIO m) => (TH1F,TH1F,TH1F,TH1F,TH1F) -> Int -> Sink LHEventTop m Int
-tester (h1,h2,h3,h4,h5) n = do
+drawTogether :: (ITH1 a) => [a] -> IO ()
+drawTogether [] = return ()
+drawTogether (x:xs) = draw x "" >> mapM_ (\x->draw x "same") xs
+
+
+mkplot :: (MonadIO m) => HistColl -> Int -> Sink LHEventTop m Int
+mkplot h@HistColl{..} n = do
   ev <- await
   case ev of 
     Nothing -> return n 
     Just ev -> case matchTest ev of 
-                 Nothing -> tester (h1,h2,h3,h4,h5) n     
-                 Just xs  -> do -- let Just (px,py,pz,e,m) = (heavyhiggsmom . mkMatchMap) xs 
-                                let match = mkMatchMap xs
-                                -- let Just mtt_out = invmass_out_ttbar match
-                                --     Just mtt_in  = invmass_in_ttbar match
-                                    Just (e1,e2,e3,e4) = jetetas match
+                 Nothing -> mkplot h n     
+                 Just xs  -> do let match = mkMatchMap xs
+                                    -- Just (t1,t2,t3,t4) = topetas match
+                                    -- Just (e1,e2,e3,e4) = jetetas match
                                     Just (be1,be2,be3,be4) = bjetetas match
-                                    Just (l1,l2) = lepetas match
-                                liftIO $ mapM_ (fill1 h1 . realToFrac) [e1,e2,e3,e4]
-                                liftIO $ mapM_ (fill1 h2 . realToFrac) [be1,be2,be3,be4]
-                                liftIO $ mapM_ (fill1 h3 . realToFrac) [be3,be4]
-                                liftIO $ mapM_ (fill1 h4 . realToFrac) [be1,be2]
-                                liftIO $ mapM_ (fill1 h5 . realToFrac) [l1,l2]
+                                    -- Just (l1,l2) = lepetas match
+                                    Just (mout,min) = bbinvm match
 
-
-                                -- liftIO $ fill1 h1 (realToFrac mtt_out)
-                                
-                                -- liftIO $ fill1 h2 (realToFrac mtt_in)
-                                tester (h1,h2,h3,h4,h5) (n+1)
+                                -- liftIO $ (fill1 hist1 . realToFrac) mout
+                                -- liftIO $ (fill1 hist2 . realToFrac) min
+                                -- liftIO $ (fill2 hist2d  (realToFrac mout) (realToFrac min))
+                                liftIO $ (fill2 hist2d (realToFrac (abs (be1-be2))) (realToFrac (abs (be3-be4))))
+             
+                                -- liftIO $ mapM_ (fill1 hist1 . realToFrac) [be1,be2] -- [(t1-t2)] 
+                                -- liftIO $ mapM_ (fill1 hist2 . realToFrac) [be3,be4] -- [(t3-t4)]
+                                -- liftIO $ mapM_ (fill1 hist1 . realToFrac) [e1,e2,e3,e4]
+                                -- liftIO $ mapM_ (fill1 hist2 . realToFrac) [be1,be2,be3,be4]
+                                -- liftIO $ mapM_ (fill1 hist3 . realToFrac) [be3,be4]
+                                -- liftIO $ mapM_ (fill1 hist4 . realToFrac) [be1,be2]
+                                -- liftIO $ mapM_ (fill1 hist5 . realToFrac) [l1,l2]
+                                mkplot h (n+1)
 
 
 smplPrint :: LHEventTop -> String
@@ -222,7 +233,26 @@ lepetas :: IM.IntMap PtlIDInfo -> Maybe (Double,Double)
 lepetas m = do l1 <- IM.lookup 14 m
                l2 <- IM.lookup 19 m
                let eta x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
-                           in snd3 (mom_2_pt_eta_phi (pt,px,py,pz)) -- sqrt (px^2+py^2)
+                           in snd3 (mom_2_pt_eta_phi (pt,px,py,pz))
                return (eta l1, eta l2)
   
+
+topetas :: IM.IntMap PtlIDInfo -> Maybe (Double,Double,Double,Double)
+topetas m = do t1 <- IM.lookup 6 m
+               t2 <- IM.lookup 1 m
+               t3 <- IM.lookup 12 m 
+               t4 <- IM.lookup 17 m
+               let eta x = let (px,py,pz,pt,m) = (pup . ptlinfo) x 
+                           in snd3 (mom_2_pt_eta_phi (pt,px,py,pz))
+               return (eta t1, eta t2, eta t3, eta t4)
+
+bbinvm :: IM.IntMap PtlIDInfo -> Maybe (Double,Double)
+bbinvm m = do j1 <- IM.lookup 5 m
+              j2 <- IM.lookup 10 m
+              j3 <- IM.lookup 16 m
+              j4 <- IM.lookup 21 m
+              let invm x1 x2 = let (p1x,p1y,p1z,p1t,m1) = (pup . ptlinfo) x1 
+                                   (p2x,p2y,p2z,p2t,m2) = (pup . ptlinfo) x2
+                               in invmass (p1x,p1y,p1z,p1t) (p2x,p2y,p2z,p2t) 
+              return (invm j1 j2, invm j3 j4)
 
