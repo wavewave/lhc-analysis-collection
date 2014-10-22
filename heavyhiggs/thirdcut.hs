@@ -98,22 +98,28 @@ checkAndDownload cfg rdir fpath = do
 
 main :: IO ()
 main = do
-    let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
+    -- let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
+    let fpaths = ["fourtopsimpl_pgs_events.lhco.gz"]
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
-    r <- flip runStateT (0,0,0,0,0,0) $ runEffect $ do
+    r <- flip runStateT (0,0,0,0,0,0,0,0,0) $ runEffect $ do
            F.forM_ fpaths $ \fpath -> do 
              hin <- liftIO $ openFile fpath ReadMode
              pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
              liftIO $ hClose hin 
            >-> PPrelude.tee (count _1 >-> PPrelude.drain)
            >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
-           >-> PPrelude.map (filterEtaRange . mergeBJetFromNoTauEv . mkPhyEventNoTau)
-           >-> PPrelude.map ((,,) <$> checkj <*> checkl <*> htcut) 
-           >-> PPrelude.filter (view (_1._1)) >-> PPrelude.tee (count _2) -- pass1 
-           >-> PPrelude.filter (view (_1._2)) >-> PPrelude.tee (count _3) -- pass2
-           >-> PPrelude.filter (view (_1._3)) >-> PPrelude.tee (count _4) -- pass3
-           >-> PPrelude.filter (view _2)      >-> PPrelude.tee (count _5) -- pass4
-           >-> PPrelude.filter (view _3)      >-> PPrelude.tee (count _6) -- pass5
+           >-> PPrelude.map (((,) <$> filterEtaRange . mergeBJetFromNoTauEv <*> id) . mkPhyEventNoTau)
+           >-> PPrelude.map (over _2 numOfB . over _1 (\x->(checkj x, checkl x, htcut 1200 x)))
+           >-> PPrelude.filter (view (_1._1._1)) >-> PPrelude.tee (count _2) -- pass1 
+           >-> PPrelude.filter (view (_1._1._2)) >-> PPrelude.tee (count _3) -- pass2
+           >-> PPrelude.filter (view (_1._1._3)) >-> PPrelude.tee (count _4) -- pass3
+           >-> PPrelude.filter (view (_1._2))      >-> PPrelude.tee (count _5) -- pass4
+           >-> PPrelude.filter (view (_1._3))      >-> PPrelude.tee (count _6) -- pass5
+           >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (count _7) -- 1 bjets, pT_bj > 50 
+           >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (count _8) -- 2 bjets, pT_bj > 50 
+           >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (count _9) -- 3 bjets, pT_bj > 50 
+
+           -- >-> PPrelude.map (view (_1))
            >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
            >-> PPrelude.drain
        
@@ -126,6 +132,67 @@ count l = forever $ do await
                            !x' = set l (y+1) x 
                        lift (put x')
 
+
+
+ptlcut :: Double -> PhyEventNoTauNoBJet -> Bool
+ptlcut cutv ev = let lst = view leptons ev
+                     f x = abs (eta x) < 1.5 && pt x > cutv
+                 in  any f lst
+
+
+filterEtaRange :: PhyEventNoTauNoBJet -> PhyEventNoTauNoBJet
+filterEtaRange = over jets (filter (\x -> abs (eta (JO_Jet x)) < 2.5)) 
+
+jetpts :: PhyEventNoTauNoBJet -> [Double]
+jetpts = map (pt . JO_Jet) . view jets
+
+-- jetetas = map (eta . JO_Jet) . view jets
+
+checkl :: PhyEventNoTauNoBJet -> Bool
+checkl ev = let etalst = leptonetas ev
+            in (not . null . filter (\x -> abs x < 1.5)) etalst
+
+checkj :: PhyEventNoTauNoBJet -> (Bool,Bool,Bool)
+checkj ev = let ptlst = jetpts ev
+            in case ptlst of
+                [] -> (False,False,False)
+                x:xs -> 
+                  let b1 = x > 200
+                  in case xs of
+                       _:_:y:ys -> let b2 = y > 100 
+                                   in case ys of 
+                                        _:z:_zs -> let b3 = z > 50
+                                                   in (b1,b2,b3)
+                                        _ -> (b1,b2,False)
+                       _ -> (b1,False,False)
+
+
+numOfB :: PhyEventNoTau -> Int
+numOfB ev = let ptlst = (filter (> 50) . map pt . view bjets) ev
+            in length ptlst 
+
+leptonetas :: PhyEventNoTauNoBJet -> [Double]
+leptonetas = map eta . view leptons
+
+htcut :: Double -> PhyEventNoTauNoBJet -> Bool 
+htcut v ev = let ptlst = jetpts ev
+                 ht6 = sum (take 6 ptlst)
+             in ht6 > v -- 1200
+
+
+countmark :: (MonadIO m) => Int -> Int -> Pipe a a m r
+countmark marker n = go n
+  where go i = do when (i `mod` marker == 0) $ do 
+                    liftIO (print i)
+                  x <- await
+                  yield x
+                  go (i+1) 
+
+
+
+
+
+{-
   
 main' :: IO ()
 main' = do
@@ -154,13 +221,7 @@ main' = do
       print (sum lst)
       return ()
 
-countmark :: (MonadIO m) => Int -> Int -> Pipe a a m r
-countmark marker n = go n
-  where go i = do when (i `mod` marker == 0) $ do 
-                    liftIO (print i)
-                  x <- await
-                  yield x
-                  go (i+1) 
+-}
 
 
 
@@ -171,6 +232,7 @@ main1 = runMaybeT (analysis "fourtopsimpl_pgs_events.lhco.gz") >>= print
 
 -}
 
+{-
 combine :: [(String,Int,Int,Int,Int,Int,Int,[(Double,Int)])]  -> (Int,Int,Int,Int,Int,Int,[(Double,Int)])
 combine  = foldl' f (0,0,0,0,0,0,map (\x->(x,0)) [10,20..300]) 
   where f (b1,b2,b3,b4,b5,b6,acc) (_,a1,a2,a3,a4,a5,a6,lst) = 
@@ -220,44 +282,4 @@ analysis lbstr = do
 
 
 -- pipesAnalysis :: Pipes PhyEventClassified ( ) m r 
-
-
-ptlcut :: Double -> PhyEventNoTauNoBJet -> Bool
-ptlcut cutv ev = let lst = view leptons ev
-                     f x = abs (eta x) < 1.5 && pt x > cutv
-                 in  any f lst
-
-
-filterEtaRange :: PhyEventNoTauNoBJet -> PhyEventNoTauNoBJet
-filterEtaRange = over jets (filter (\x -> abs (eta (JO_Jet x)) < 2.5)) 
-
-jetpts :: PhyEventNoTauNoBJet -> [Double]
-jetpts = map (pt . JO_Jet) . view jets
-
--- jetetas = map (eta . JO_Jet) . view jets
-
-checkl :: PhyEventNoTauNoBJet -> Bool
-checkl ev = let etalst = leptonetas ev
-            in (not . null . filter (\x -> abs x < 1.5)) etalst
-
-checkj :: PhyEventNoTauNoBJet -> (Bool,Bool,Bool)
-checkj ev = let ptlst = jetpts ev
-            in case ptlst of
-                [] -> (False,False,False)
-                x:xs -> 
-                  let b1 = x > 200
-                  in case xs of
-                       _:_:y:ys -> let b2 = y > 100 
-                                   in case ys of 
-                                        _:z:_zs -> let b3 = z > 50
-                                                   in (b1,b2,b3)
-                                        _ -> (b1,b2,False)
-                       _ -> (b1,False,False)
-
-leptonetas :: PhyEventNoTauNoBJet -> [Double]
-leptonetas = map eta . view leptons
-
-htcut :: PhyEventNoTauNoBJet -> Bool 
-htcut ev = let ptlst = jetpts ev
-               ht6 = sum (take 6 ptlst)
-           in ht6 > 1200
+-}
