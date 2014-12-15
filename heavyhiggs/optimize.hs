@@ -27,6 +27,7 @@ import           Pipes
 import qualified Pipes.ByteString  as PB
 import qualified Pipes.Prelude as PPrelude
 import qualified Pipes.Zlib as PZ
+import           System.Environment
 import           System.IO as IO
 import           Text.Printf
 -- 
@@ -104,6 +105,11 @@ fourtopsimpl400 = map (\x->"data/fourtopsimpl_400_set" ++ x ++  "_pgs_events.lhc
 
 fourtopsimpl750 = map (\x->"data/fourtopsimpl_750_set" ++ x ++  "_pgs_events.lhco.gz") 
                       [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
+
+ttbarset = map (\x->"data/" ++ x ++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
+
+    -- let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
+
 
 
 data CutChoice = CutChoice { choice_ht :: Double
@@ -225,10 +231,16 @@ format CutChoice {..} (full,c1,c2,c3,le,ht,b1,b2,b3) =
 -- main = print testsets
 main :: IO ()
 main = do
-    let (m,n) = (1,340)
-    withFile "output.dat" WriteMode $ \h -> do
+    args <- getArgs
+    
+    -- let (m,n) = (1,340)
+    -- let (m,n) = (1,2)
+    let m = read (args !! 0)
+        n = read (args !! 1)
+        filename = "outputttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
+    withFile filename WriteMode $ \h -> do
       F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
-        r <- (x,) <$> work fourtopsimpl400 x
+        r <- (x,) <$> work ttbarset {- fourtopsimpl400 -} x
         let str = uncurry format r
         putStrLn str
         hPutStrLn h str
