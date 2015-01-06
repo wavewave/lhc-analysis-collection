@@ -106,6 +106,10 @@ fourtopsimpl400 = map (\x->"data/fourtopsimpl_400_set" ++ x ++  "_pgs_events.lhc
 fourtopsimpl750 = map (\x->"data/fourtopsimpl_750_set" ++ x ++  "_pgs_events.lhco.gz") 
                       [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
 
+fourtopsimpl1000 = map (\x->"data/fourtopsimpl_1000_set" ++ x ++  "_pgs_events.lhco.gz") 
+                       [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
+
+
 ttbarset = map (\x->"data/" ++ x ++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
 
     -- let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
@@ -237,10 +241,10 @@ main = do
     -- let (m,n) = (1,2)
     let m = read (args !! 0)
         n = read (args !! 1)
-        filename = "outputttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
+        filename = "output1000_" ++ show m ++ "_" ++ show n ++ ".dat"
     withFile filename WriteMode $ \h -> do
       F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
-        r <- (x,) <$> work ttbarset {- fourtopsimpl400 -} x
+        r <- (x,) <$> work fourtopsimpl1000 x
         let str = uncurry format r
         putStrLn str
         hPutStrLn h str
