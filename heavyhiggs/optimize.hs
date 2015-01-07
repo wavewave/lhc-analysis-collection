@@ -282,10 +282,11 @@ main = do
     args <- getArgs
     let m = read (args !! 0)
         n = read (args !! 1)
-        filename = "optcutlep400_" ++ show m ++ "_" ++ show n ++ ".dat"
+        filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
     withFile filename WriteMode $ \h -> do
       F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
-        r <- (x,) <$> work fourtopsimpl400 {- fourtopsimpl1000 -} x
+        putStrLn $ "generating result for cut choice = " ++ show x
+        r <- (x,) <$> work ttbarset {- fourtopsimpl1000 -} x
         let str = uncurry format r
         -- putStrLn str
         hPutStrLn h str
