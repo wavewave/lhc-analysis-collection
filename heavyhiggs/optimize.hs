@@ -144,47 +144,50 @@ data CounterState = CounterState { _counterFull :: Int
                                  , _counterBjet1 :: Int
                                  , _counterBjet2 :: Int
                                  , _counterBjet3 :: Int
+                                 , _counterL20 :: Int
+                                 , _counterL50 :: Int
                                  , _counterL100 :: Int
+                                 , _counterL200 :: Int
+                                 , _counterL300 :: Int
                                  } deriving (Show,Eq,Ord)
 
-emptyCS = CounterState 0 0 0 0 0 0 0 0 0 0
+emptyCS = CounterState 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
 makeLenses ''CounterState
                                
 
-work :: [FilePath] -> CutChoice -> IO CounterState -- (Int, Int, Int, Int, Int, Int, Int, Int, Int)
+work :: [FilePath] -> CutChoice -> IO CounterState
 work fpaths CutChoice {..} = do
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
-    (_,r) <- flip runStateT {- (0,0,0,0,0,0,0,0,0) -} emptyCS $ runEffect $ do
+    (_,r) <- flip runStateT emptyCS $ runEffect $ do
            F.forM_ fpaths $ \fpath -> do 
              hin <- liftIO $ openFile fpath ReadMode
              pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
              liftIO $ hClose hin 
-           >-> PPrelude.take 1000
+           -- >-> PPrelude.take 1000
            >-> PPrelude.tee (count counterFull >-> PPrelude.drain)
            >-> PPrelude.tee (countmark 5000 0 >-> PPrelude.drain)
            >-> PPrelude.map (((,,) <$> filterEtaRange . mergeBJetFromNoTauEv <*> id <*> id) . mkPhyEventNoTau)
            >-> PPrelude.map ( over _2 (numOfB choice_ptj56) 
                             . over _1 
                                (\x->(checkj (choice_ptj1,choice_ptj234,choice_ptj56) x, checkl x, htcut choice_ht x)))
-           >-> PPrelude.filter (view (_1._1._1)) >-> PPrelude.tee (count counterPass1) -- pass1 
-           >-> PPrelude.filter (view (_1._1._2)) >-> PPrelude.tee (count counterPass2) -- pass2
-           >-> PPrelude.filter (view (_1._1._3)) >-> PPrelude.tee (count counterPass3) -- pass3
-           >-> PPrelude.filter (view (_1._2))      >-> PPrelude.tee (count counterPass4) -- pass4
-           >-> PPrelude.filter (view (_1._3))      >-> PPrelude.tee (count counterPass5) -- pass5
-           >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (count counterBjet1) -- 1 bjets, pT_bj > 50 
-           >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (count counterBjet2) -- 2 bjets, pT_bj > 50 
-           >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (count counterBjet3) -- 3 bjets, pT_bj > 50 
+           >-> PPrelude.filter (view (_1._1._1)) >-> PPrelude.tee (count counterPass1) 
+           >-> PPrelude.filter (view (_1._1._2)) >-> PPrelude.tee (count counterPass2) 
+           >-> PPrelude.filter (view (_1._1._3)) >-> PPrelude.tee (count counterPass3) 
+           >-> PPrelude.filter (view (_1._2))      >-> PPrelude.tee (count counterPass4)
+           >-> PPrelude.filter (view (_1._3))      >-> PPrelude.tee (count counterPass5)
+           >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (count counterBjet1)
+           >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (count counterBjet2)
+           >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (count counterBjet3)
 
-           -- >-> PPrelude.map (view (_1))
            >-> PPrelude.map (over _3 (sortBy (flip compare)  . map pt . view leptons)) 
+           -- >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
 
-           >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
-
-           >-> PPrelude.filter ((>=100) . head . view _3)
-                  >-> PPrelude.tee (count counterL100)
-          
-
+           >-> PPrelude.filter ((>=20) .head . view _3) >-> PPrelude.tee (count counterL20)
+           >-> PPrelude.filter ((>=50) .head . view _3) >-> PPrelude.tee (count counterL50)           
+           >-> PPrelude.filter ((>=100) . head . view _3) >-> PPrelude.tee (count counterL100)
+           >-> PPrelude.filter ((>=200) . head . view _3) >-> PPrelude.tee (count counterL200)
+           >-> PPrelude.filter ((>=300) . head . view _3) >-> PPrelude.tee (count counterL300)
            >-> PPrelude.drain
        
     return r
@@ -257,26 +260,32 @@ countmark marker n = go n
 
 format :: CutChoice -> CounterState -> String
 format CutChoice {..} cs =
-    printf "%6.1f %6.1f %6.1f %6.1f %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d" choice_ht choice_ptj1 choice_ptj234 choice_ptj56 full c1 c2 c3 le ht b1 b2 b3 l100
+    printf "%6.1f %6.1f %6.1f %6.1f %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d" choice_ht choice_ptj1 choice_ptj234 choice_ptj56 full c1 c2 c3 le ht b1 b2 b3 l20 l50 l100 l200 l300
   where full = view counterFull cs
-        c1 = view counterPass1 cs
-        c2 = view counterPass2 cs
-        c3 = view counterPass3 cs
-        le = view counterPass4 cs
-        ht = view counterPass5 cs
-        b1 = view counterBjet1 cs
-        b2 = view counterBjet2 cs
-        b3 = view counterBjet3 cs
+        c1   = view counterPass1 cs
+        c2   = view counterPass2 cs
+        c3   = view counterPass3 cs
+        le   = view counterPass4 cs
+        ht   = view counterPass5 cs
+        b1   = view counterBjet1 cs
+        b2   = view counterBjet2 cs
+        b3   = view counterBjet3 cs
+        l20  = view counterL20 cs
+        l50  = view counterL50 cs
         l100 = view counterL100 cs
+        l200 = view counterL200 cs
+        l300 = view counterL300 cs
+
+
 main :: IO ()
 main = do
     args <- getArgs
     let m = read (args !! 0)
         n = read (args !! 1)
-        filename = "output1000_" ++ show m ++ "_" ++ show n ++ ".dat"
+        filename = "optcutlep400_" ++ show m ++ "_" ++ show n ++ ".dat"
     withFile filename WriteMode $ \h -> do
       F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
-        r <- (x,) <$> work fourtopsimpl1000 x
+        r <- (x,) <$> work fourtopsimpl400 {- fourtopsimpl1000 -} x
         let str = uncurry format r
         -- putStrLn str
         hPutStrLn h str

@@ -157,7 +157,7 @@ main = do
         m1000_3 = fmap (\(x,y,z,w)->criterion _3 _6 x w) m'
 
 
-    liftIO . F.mapM_ (putStrLn . formatprint) . take 10 . sortBy (flip compare `on` snd) $ HM.toList m1000_3
+    liftIO . F.mapM_ (putStrLn . formatprint) . sortBy (flip compare `on` snd) $ HM.toList m400_2
 
 
     --liftIO $ (mapM_ print . map normalizeInput) results_ttbar
