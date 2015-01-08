@@ -279,10 +279,14 @@ format CutChoice {..} cs =
 
 main :: IO ()
 main = do
-    args <- getArgs
-    let m = read (args !! 0)
-        n = read (args !! 1)
-        filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
+    str <- getLine 
+    let args0 : args1 : [] = words str 
+        m = read args0
+        n = read args1
+    -- args <- getArgs
+    -- let m = read (args !! 0)
+    --    n = read (args !! 1)
+    let filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
     withFile filename WriteMode $ \h -> do
       F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
         putStrLn $ "generating result for cut choice = " ++ show x
