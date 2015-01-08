@@ -279,11 +279,11 @@ format CutChoice {..} cs =
 
 main :: IO ()
 main = do
-    str <- getLine 
+    args <- getArgs
+    str <- readFile (args !! 0)
     let args0 : args1 : [] = words str 
         m = read args0
         n = read args1
-    -- args <- getArgs
     -- let m = read (args !! 0)
     --    n = read (args !! 1)
     let filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
