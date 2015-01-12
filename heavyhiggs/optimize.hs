@@ -22,6 +22,7 @@ import           Data.Default
 import qualified Data.Foldable as F
 import           Data.List (foldl',sortBy)
 import           Data.Maybe (catMaybes)
+import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Traversable as Tr
@@ -121,90 +122,123 @@ ttbarset = map (\x->"data/" ++ x ++ "_pgs_events.lhco.gz") . map (\x -> makeRunN
 data CutChoice = CutChoice { choice_ht :: Double
                            , choice_ptj1 :: Double
                            , choice_ptj234 :: Double
-                           , choice_ptj56 :: Double }
+                           , choice_ptj56 :: Double 
+                           , choice_ptl :: Double
+                           }
+
                deriving (Show,Eq,Ord)
 
 testset1 = CutChoice { choice_ht = 1500
                      , choice_ptj1 = 200
                      , choice_ptj234 = 100
-                     , choice_ptj56 = 50 } 
+                     , choice_ptj56 = 50 
+                     , choice_ptl = 0
+                     } 
 
-testsets = [ CutChoice ht j1 j234 j56 | ht <- [500,800,1000,1200,1500] 
-                                      , j1 <- [100,200,300]
-                                      , j234 <- [50,100..j1]
-                                      , j56 <- [25,50..j234] ]
+testset2 = CutChoice { choice_ht =  500
+                     , choice_ptj1 = 100
+                     , choice_ptj234 = 50
+                     , choice_ptj56 = 25 
+                     , choice_ptl = 0
+                     } 
 
 
-data CounterState = CounterState { _counterFull :: Int
-                                 , _counterPass1 :: Int
-                                 , _counterPass2 :: Int
-                                 , _counterPass3 :: Int
-                                 , _counterPass4 :: Int
-                                 , _counterPass5 :: Int
-                                 , _counterBjet1 :: Int
-                                 , _counterBjet2 :: Int
-                                 , _counterBjet3 :: Int
-                                 , _counterL20 :: Int
-                                 , _counterL50 :: Int
-                                 , _counterL100 :: Int
-                                 , _counterL200 :: Int
-                                 , _counterL300 :: Int
-                                 } deriving (Show,Eq,Ord)
+testsets = [ CutChoice ht j1 j234 j56 l | ht <- [500,800,1000,1200,1500] 
+                                        , j1 <- [100,200,300]
+                                        , j234 <- [50,100..j1]
+                                        , j56 <- [25,50..j234] 
+                                        , l <- [0,20,50,100,200,300]
+                                        ]
 
-emptyCS = CounterState 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+data CounterState1 = 
+       CounterState1      { _counterFull :: Int
+                          , _counterPass1 :: Int
+                          , _counterPass2 :: Int
+                          , _counterPass3 :: Int
+                          , _counterPass4 :: Int
+                          , _counterPass5 :: Int
+                          , _counterBjet1 :: Int
+                          , _counterBjet2 :: Int
+                          , _counterBjet3 :: Int
+                          -- , _counterL20 :: Int
+                          -- , _counterL50 :: Int
+                          -- , _counterL100 :: Int
+                          -- , _counterL200 :: Int
+                          -- , _counterL300 :: Int
+                          } deriving (Show,Eq,Ord)
 
-makeLenses ''CounterState
+emptyCS1 = CounterState1 0 0 0 0 0 0 0 0 0 
+
+makeLenses ''CounterState1
                                
+emptyCS :: [CutChoice] -> M.Map CutChoice CounterState1
+emptyCS lst = foldr (\k -> M.insert k emptyCS1) M.empty lst
 
-work :: [FilePath] -> CutChoice -> IO CounterState
-work fpaths CutChoice {..} = do
+-- CutChoice {..}
+
+work :: [FilePath] -> [CutChoice] -> IO (M.Map CutChoice CounterState1)
+work fpaths cutsets = do
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
-    (_,r) <- flip runStateT emptyCS $ runEffect $ do
+    (_,r) <- flip runStateT (emptyCS cutsets) $ runEffect $ do
            F.forM_ fpaths $ \fpath -> do 
              hin <- liftIO $ openFile fpath ReadMode
              pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
              liftIO $ hClose hin 
            -- >-> PPrelude.take 1000
-           >-> PPrelude.tee (count counterFull >-> PPrelude.drain)
            >-> PPrelude.tee (countmark 5000 0 >-> PPrelude.drain)
            >-> PPrelude.map (((,,) <$> filterEtaRange . mergeBJetFromNoTauEv <*> id <*> id) . mkPhyEventNoTau)
+           >-> (foldr1 (>->) . map (PPrelude.tee. analysis)) cutsets
+           >-> PPrelude.drain
+    return r
+  where 
+    analysis cutchoice@CutChoice {..} = 
+           PPrelude.tee (count cutchoice counterFull >-> PPrelude.drain)
            >-> PPrelude.map ( over _2 (numOfB choice_ptj56) 
                             . over _1 
-                               (\x->(checkj (choice_ptj1,choice_ptj234,choice_ptj56) x, checkl x, htcut choice_ht x)))
-           >-> PPrelude.filter (view (_1._1._1)) >-> PPrelude.tee (count counterPass1) 
-           >-> PPrelude.filter (view (_1._1._2)) >-> PPrelude.tee (count counterPass2) 
-           >-> PPrelude.filter (view (_1._1._3)) >-> PPrelude.tee (count counterPass3) 
-           >-> PPrelude.filter (view (_1._2))      >-> PPrelude.tee (count counterPass4)
-           >-> PPrelude.filter (view (_1._3))      >-> PPrelude.tee (count counterPass5)
-           >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (count counterBjet1)
-           >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (count counterBjet2)
-           >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (count counterBjet3)
+                               (\x->( checkj (choice_ptj1,choice_ptj234,choice_ptj56) x
+                                    , ptlcut choice_ptl x -- && etalcut x
+                                    , htcut choice_ht x)))
+           >-> PPrelude.filter (view (_1._1._1)) >-> PPrelude.tee (count cutchoice counterPass1) 
+           >-> PPrelude.filter (view (_1._1._2)) >-> PPrelude.tee (count cutchoice counterPass2) 
+           >-> PPrelude.filter (view (_1._1._3)) >-> PPrelude.tee (count cutchoice counterPass3) 
+           >-> PPrelude.filter (view (_1._2))      >-> PPrelude.tee (count cutchoice counterPass4)   -- eta cut
+           >-> PPrelude.filter (view (_1._3))      >-> PPrelude.tee (count cutchoice counterPass5)
+           >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (count cutchoice counterBjet1)
+           >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (count cutchoice counterBjet2)
+           >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (count cutchoice counterBjet3)
+           >-> PPrelude.drain
 
-           >-> PPrelude.map (over _3 (sortBy (flip compare)  . map pt . view leptons)) 
+           -- >-> PPrelude.map (over _3 (sortBy (flip compare)  . map pt . view leptons)) 
            -- >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
 
-           >-> PPrelude.filter ((>=20) .head . view _3) >-> PPrelude.tee (count counterL20)
-           >-> PPrelude.filter ((>=50) .head . view _3) >-> PPrelude.tee (count counterL50)           
-           >-> PPrelude.filter ((>=100) . head . view _3) >-> PPrelude.tee (count counterL100)
-           >-> PPrelude.filter ((>=200) . head . view _3) >-> PPrelude.tee (count counterL200)
-           >-> PPrelude.filter ((>=300) . head . view _3) >-> PPrelude.tee (count counterL300)
-           >-> PPrelude.drain
-       
-    return r
+           --  >-> PPrelude.filter ((>=20) .head . view _3) >-> PPrelude.tee (count counterL20)
+           -- >-> PPrelude.filter ((>=50) .head . view _3) >-> PPrelude.tee (count counterL50)           
+           --  >-> PPrelude.filter ((>=100) . head . view _3) >-> PPrelude.tee (count counterL100)
+           --  >-> PPrelude.filter ((>=200) . head . view _3) >-> PPrelude.tee (count counterL200)
+           --  >-> PPrelude.filter ((>=300) . head . view _3) >-> PPrelude.tee (count counterL300)
 
-count :: Simple Lens s Int -> Consumer a (StateT s IO) ()
-count l = forever $ do await 
-                       x <- lift get 
-                       let !y = x `seq` view l x
-                           !x' = set l (y+1) x 
-                       lift (put x')
-
-
+-- count :: Simple Lens s Int -> Consumer a (StateT s IO) ()
+count :: CutChoice -> Simple Lens CounterState1 Int -> Consumer a (StateT (M.Map CutChoice CounterState1) IO) ()
+count c l = forever $ do await 
+                         m <- lift get
+                         let mx = M.lookup c m
+                         case mx of
+                           Nothing -> error "no map"
+                           Just x -> do
+                             let !y = x `seq` view l x
+                                 !x' = set l (y+1) x 
+                                 newm = M.update (const (Just x')) c m
+                             lift (put newm)
 
 ptlcut :: Double -> PhyEventNoTauNoBJet -> Bool
 ptlcut cutv ev = let lst = view leptons ev
                      f x = abs (eta x) < 1.5 && pt x > cutv
                  in  any f lst
+
+
+-- etalcut :: Double -> PhyEventNoTauNoBJet -> Bool
+-- etalcut ev = let etalst = leptonetas ev
+--              in (not . null . filter (\x -> abs x < 1.5)) etalst
 
 
 filterEtaRange :: PhyEventNoTauNoBJet -> PhyEventNoTauNoBJet
@@ -215,9 +249,6 @@ jetpts = map (pt . JO_Jet) . view jets
 
 -- jetetas = map (eta . JO_Jet) . view jets
 
-checkl :: PhyEventNoTauNoBJet -> Bool
-checkl ev = let etalst = leptonetas ev
-            in (not . null . filter (\x -> abs x < 1.5)) etalst
 
 checkj :: (Double,Double,Double) -> PhyEventNoTauNoBJet -> (Bool,Bool,Bool)
 checkj (j1,j234,j56) ev = 
@@ -258,9 +289,9 @@ countmark marker n = go n
 
 
 
-format :: CutChoice -> CounterState -> String
+format :: CutChoice -> CounterState1 -> String
 format CutChoice {..} cs =
-    printf "%6.1f %6.1f %6.1f %6.1f %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d" choice_ht choice_ptj1 choice_ptj234 choice_ptj56 full c1 c2 c3 le ht b1 b2 b3 l20 l50 l100 l200 l300
+    printf "%6.1f %6.1f %6.1f %6.1f %6.1f %7d %7d %7d %7d %7d %7d %7d %7d %7d" choice_ht choice_ptj1 choice_ptj234 choice_ptj56 choice_ptl full c1 c2 c3 le ht b1 b2 b3
   where full = view counterFull cs
         c1   = view counterPass1 cs
         c2   = view counterPass2 cs
@@ -270,29 +301,37 @@ format CutChoice {..} cs =
         b1   = view counterBjet1 cs
         b2   = view counterBjet2 cs
         b3   = view counterBjet3 cs
-        l20  = view counterL20 cs
-        l50  = view counterL50 cs
-        l100 = view counterL100 cs
-        l200 = view counterL200 cs
-        l300 = view counterL300 cs
+        -- l20  = view counterL20 cs
+        -- l50  = view counterL50 cs
+        -- l100 = view counterL100 cs
+        -- l200 = view counterL200 cs
+        -- l300 = view counterL300 cs
 
-
-main :: IO ()
-main = do
+{-
+main' :: IO ()
+main'  = do
     str <- getLine 
     let args0 : args1 : [] = words str 
         m = read args0
         n = read args1
-    -- args <- getArgs
-    -- let m = read (args !! 0)
-    --    n = read (args !! 1)
     let filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
     withFile filename WriteMode $ \h -> do
       F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
         putStrLn $ "generating result for cut choice = " ++ show x
-        r <- (x,) <$> work ttbarset {- fourtopsimpl1000 -} x
+        r <- (x,) <$> work fourtopsimpl1000 x
         let str = uncurry format r
-        -- putStrLn str
         hPutStrLn h str
+-}
 
+        -- ttbarset
 
+main :: IO ()
+main = do
+    -- let filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
+    ($ stdout) $ \h -> do
+        -- putStrLn $ "generating result for cut choice = " ++ show x
+        -- r <- (x,) <$> 
+        r <- work fourtopsimpl1000 testsets -- [testset1,testset2]
+        -- let str = uncurry format r
+        mapM_ (hPutStrLn h . uncurry format) (M.toAscList r)
+  
