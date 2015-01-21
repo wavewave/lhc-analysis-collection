@@ -2,15 +2,19 @@
 \usepackage{longtable}
 \begin{document}
 
-\begin{longtable}{|c|c|c|c|c|r|r|r|r|r|r|r|r|r|}
+\begin{longtable}{ccccc|rrrrrrrrr}
+\hline
 \hline
 ~~$H_T$~~ & ~~$p_T^{j_1}$~~ & ~~$p_T^{j_{234}}$~~ & ~~$p_T^{j_{56}}$~~ & ~~$p_T^{\ell}$~~ & 
 ~~full~~ & ~~cut1~~ & ~~cut2~~ & ~~cut3~~ & ~~cut $\eta^{\ell}$~~ & ~~cut $H_T$~~ & $n_b \geq 1$ & $n_b \geq 2$ & $n_b \geq 3$ \\
+\hline
 \hline
 \endfirsthead
 \hline
+\hline
 ~~$H_T$~~ & ~~$p_T^{j_1}$~~ & ~~$p_T^{j_{234}}$~~ & ~~$p_T^{j_{56}}$~~ & ~~$p_T^{\ell}$~~ & 
 ~~full~~ & ~~cut1~~ & ~~cut2~~ & ~~cut3~~ & ~~cut $\eta^{\ell}$~~ & ~~cut $H_T$~~ & $n_b \geq 1$ & $n_b \geq 2$ & $n_b \geq 3$ \\
+\hline
 \hline
 \endhead
 \hline

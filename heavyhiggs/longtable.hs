@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import           Data.Data
+import           Data.List
+import           Data.List.Split
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TLIO
 import           Text.Hastache
@@ -14,7 +16,11 @@ main :: IO ()
 main = do
   str <- readFile "optcutlep1000.dat" 
   let ls = lines str
-  let tblcnts = TL.pack (concatMap (renderOne.parseOne.words) ls)
+      rs :: [String] = map (renderOne.parseOne.words) ls
+      rs' :: [[String]] = chunksOf 6 rs
+      rs'' :: String = (concat . concat . intersperse ["\\hline"]) rs'
+      -- rs'' = (concat . 
+  let tblcnts = TL.pack rs''
   
   txt <- hastacheFile defaultConfig "longtable.tex.hastache" (mkGenericContext (Info tblcnts))
   TLIO.putStrLn txt
