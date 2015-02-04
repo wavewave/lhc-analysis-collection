@@ -21,7 +21,8 @@ import qualified Data.Attoparsec.Text as PA
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Data.Default       
 import qualified Data.Foldable as F
-import           Data.List (foldl',sortBy,sort)
+import           Data.List (foldl',sortBy,sort, intercalate)
+import           Data.List.Split
 import           Data.Maybe (catMaybes,fromJust,isJust)
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -35,6 +36,8 @@ import           System.Environment
 import           System.IO as IO
 import           Text.Printf
 -- 
+import HEP.Automation.EventGeneration.Config
+import qualified HEP.Automation.EventGeneration.Work as EV
 import HEP.Automation.MadGraph.Model
 import HEP.Automation.MadGraph.Model.SM
 import HEP.Automation.MadGraph.SetupType
@@ -50,7 +53,8 @@ import HEP.Physics.Analysis.Common.Merge
 import HEP.Physics.Analysis.Common.PhyEventNoTau
 import HEP.Physics.Analysis.Common.PhyEventNoTauNoBJet
 import Pipes.LHCO
-
+--
+import qualified HeavyHiggs
 
 mergeBJetFromNoTauEv :: PhyEventNoTau -> PhyEventNoTauNoBJet
 mergeBJetFromNoTauEv ev =
@@ -116,9 +120,6 @@ fourtopsimpl1000 = map (\x->"data/fourtopsimpl_1000_set" ++ x ++  "_pgs_events.l
 
 ttbarset = map (\x->"data/" ++ x ++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
 
-    -- let fpaths = map (++ "_pgs_events.lhco.gz") . map (\x -> makeRunName psetup param (rsetupgen x)) $ [1..1000] 
-
-
 
 data CutChoice = CutChoice { choice_ht :: Double
                            , choice_ptj1 :: Double
@@ -176,19 +177,14 @@ data CounterState1 =
                           , _counterBjet1 :: Int
                           , _counterBjet2 :: Int
                           , _counterBjet3 :: Int
-                          -- , _counterL20 :: Int
-                          -- , _counterL50 :: Int
-                          -- , _counterL100 :: Int
-                          -- , _counterL200 :: Int
-                          -- , _counterL300 :: Int
                           } deriving (Show,Eq,Ord)
 
 emptyCS1 = CounterState1 0 0 0 0 0 0 0 0 0 
 
 makeLenses ''CounterState1
                                
-emptyCS :: [CutChoice] -> M.Map CutChoice CounterState1
-emptyCS lst = foldr (\k -> M.insert k emptyCS1) M.empty lst
+-- emptyCS :: [CutChoice] -> M.Map CutChoice CounterState1
+-- emptyCS lst = foldr (\k -> M.insert k emptyCS1) M.empty lst
 
 -- CutChoice {..}
 data TotalCS = TotalCS { _fullNum :: Int
@@ -206,8 +202,8 @@ data TotalCS = TotalCS { _fullNum :: Int
 
 makeLenses ''TotalCS
 
-emptyTCS :: CCO -> [CutChoice] -> TotalCS
-emptyTCS ccos lst = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 (emptyCS lst)
+emptyTCS :: CCO -> TotalCS
+emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty -- emptyCS 
   where j1j234 = do
           cco <- ccos
           let j1 = fst cco
@@ -271,10 +267,10 @@ mkChoices ccos  = [CutChoice h j1 j234 j56 l | (j1,j234,j56,l,h) <- j1j234j56lh 
           return (j1,j234,j56,l,h)
 
 
-work :: [FilePath] -> CCO -> [CutChoice] -> IO TotalCS -- (M.Map CutChoice CounterState1)
-work fpaths ccos cutsets = do
+work :: [FilePath] -> CCO -> IO TotalCS -- (M.Map CutChoice CounterState1)
+work fpaths ccos = do
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
-    (_,r) <- flip runStateT (emptyTCS ccos cutsets) $ runEffect $ do
+    (_,r) <- flip runStateT (emptyTCS ccos) $ runEffect $ do
            F.forM_ fpaths $ \fpath -> do 
              hin <- liftIO $ openFile fpath ReadMode
              pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
@@ -323,36 +319,9 @@ work fpaths ccos cutsets = do
      
     
 
-{-           PPrelude.map ( over _2 (numOfB choice_ptj56) 
-                       . over _1 (\x->( checkj (choice_ptj1,choice_ptj234,choice_ptj56) x
-                                      , ptlcut choice_ptl x -- && etalcut x
-                                      , htcut choice_ht x)))
-           >-> PPrelude.filter (view (_1._1._1)) >-> PPrelude.tee (countm cutchoice counterPass1)
-           >-> PPrelude.filter (view (_1._1._2)) >-> PPrelude.tee (countm cutchoice counterPass2)
-           >-> PPrelude.filter (view (_1._1._3)) >-> PPrelude.tee (countm cutchoice counterPass3)
-           >-> PPrelude.filter (view (_1._2))      >-> PPrelude.tee (countm cutchoice counterPass4)   -- eta cut
-           >-> PPrelude.filter (view (_1._3))      >-> PPrelude.tee (countm cutchoice counterPass5)
-           >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (countm cutchoice counterBjet1)
-           >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (countm cutchoice counterBjet2)
-           >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (countm cutchoice counterBjet3)
--}
-           -- >-> PPrelude.map (over _3 (sortBy (flip compare)  . map pt . view leptons)) 
-           -- >-> PPrelude.tee (PPrelude.print >-> PPrelude.drain)
-
-           --  >-> PPrelude.filter ((>=20) .head . view _3) >-> PPrelude.tee (count counterL20)
-           -- >-> PPrelude.filter ((>=50) .head . view _3) >-> PPrelude.tee (count counterL50)           
-           --  >-> PPrelude.filter ((>=100) . head . view _3) >-> PPrelude.tee (count counterL100)
-           --  >-> PPrelude.filter ((>=200) . head . view _3) >-> PPrelude.tee (count counterL200)
-           --  >-> PPrelude.filter ((>=300) . head . view _3) >-> PPrelude.tee (count counterL300)
-
--- count :: Simple Lens s Int -> Consumer a (StateT s IO) ()
 count :: Simple Lens TotalCS Int -> Consumer a (StateT TotalCS IO) ()
 count l = forever $ do await 
                        m <- lift get
-                       -- let mx = M.lookup c m
-                       -- case mx of
-                       --   Nothing -> error "no map"
-                       --  Just x -> do
                        let !y = m `seq` view l m
                            !m' = set l (y+1) m 
                        lift (put m')
@@ -388,20 +357,11 @@ ptlcut cutv ev = let lst = view leptons ev
                      f x = abs (eta x) < 1.5 && pt x > cutv
                  in  any f lst
 
-
--- etalcut :: Double -> PhyEventNoTauNoBJet -> Bool
--- etalcut ev = let etalst = leptonetas ev
---              in (not . null . filter (\x -> abs x < 1.5)) etalst
-
-
 filterEtaRange :: PhyEventNoTauNoBJet -> PhyEventNoTauNoBJet
 filterEtaRange = over jets (filter (\x -> abs (eta (JO_Jet x)) < 2.5)) 
 
 jetpts :: PhyEventNoTauNoBJet -> [Double]
 jetpts = map (pt . JO_Jet) . view jets
-
--- jetetas = map (eta . JO_Jet) . view jets
-
 
 checkj :: (Double,Double,Double) -> PhyEventNoTauNoBJet -> (Bool,Bool,Bool)
 checkj (j1,j234,j56) ev = 
@@ -473,49 +433,43 @@ format cut@CutChoice {..} tcs =
         Just c3 = view (cut3Map.at (choice_ptj1,choice_ptj234,choice_ptj56)) tcs
         Just le = view (cut4Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl)) tcs
         Just ht = view (cut5Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl,choice_ht)) tcs
-        -- c1   = view counterPass1 cs
-        -- c2   = view counterPass2 cs
-        -- c3   = view counterPass3 cs
-        -- le   = 0 :: Int -- view counterPass4 cs
-        -- ht   = 0 :: Int -- view counterPass5 cs
         Just b1 = view (b1Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl,choice_ht)) tcs
         Just b2 = view (b2Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl,choice_ht)) tcs
         Just b3 = view (b3Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl,choice_ht)) tcs
-        -- l20  = view counterL20 cs
-        -- l50  = view counterL50 cs
-        -- l100 = view counterL100 cs
-        -- l200 = view counterL200 cs
-        -- l300 = view counterL300 cs
 
-{-
-main' :: IO ()
-main'  = do
-    str <- getLine 
-    let args0 : args1 : [] = words str 
-        m = read args0
-        n = read args1
-    let filename = "optcutlepttbar_" ++ show m ++ "_" ++ show n ++ ".dat"
-    withFile filename WriteMode $ \h -> do
-      F.forM_ ((take (n-m+1) . drop (m-1)) testsets) $ \x -> do
-        putStrLn $ "generating result for cut choice = " ++ show x
-        r <- (x,) <$> work fourtopsimpl1000 x
-        let str = uncurry format r
-        hPutStrLn h str
--}
 
-        -- ttbarset
 
 main :: IO ()
 main = do
-    let filename = "optcutlep1000.dat"
+    args <- getArgs
+    let massparam :: Double = read (args !! 0)
+    --  let massparam = 400 
+        set1 = map (massparam,) [1..10]
+         
+    ws1 <- HeavyHiggs.getWSetup (massparam,1)
+  
+    let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
+        rname' = (intercalate "_" . init . splitOn "_") rname
+
+    let filename = rname' ++ "_cut_count.dat"
     withFile filename WriteMode $ \h -> do
-        -- putStrLn $ "generating result for cut choice = " ++ show x
-        -- r <- (x,) <$> 
-        tcs <- work fourtopsimpl1000 testj1 [testset1,testset2]  -- testsets
-        -- let str = uncurry format r
-        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) -- . M.toAscList . view cutStateMap $ r
-        -- hPutStrLn h (show (view fullNum tcs))
-        -- hPutStrLn h (show (view cut1Map tcs))
-        -- hPutStrLn h (show (view cut2Map tcs))
-        -- hPutStrLn h (show (view cut3Map tcs))
-        -- hPutStrLn h (show (view cut4Map tcs))
+        sets <- mapM prepare set1
+        tcs <- work sets testj1
+        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
+
+
+
+prepare :: (Double,Int) -> IO FilePath
+prepare (mass,set) = do
+  let pkey = "/home/wavewave/temp/priv.txt"
+      pswd = "/home/wavewave/temp/cred.txt"
+  Just cr <- getCredential pkey pswd
+  let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
+      wdavcfg = WebDAVConfig cr whost
+  ws <- HeavyHiggs.getWSetup (mass,set)
+  EV.download wdavcfg ws "_pgs_events.lhco.gz" 
+ 
+  let rname = makeRunName (ws_psetup ws) (ws_param ws) (ws_rsetup ws)
+      fname = rname ++ "_pgs_events.lhco.gz"
+ 
+  return fname
