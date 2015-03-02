@@ -122,7 +122,7 @@ formatprint ((ht,j1,j234,j56),(eff,nsig)) = printf "%6d %6d %6d %6d   %.1f   %4d
 main :: IO ()
 main = do 
   putStrLn "test"
-  bstr_ttbar <- B.readFile "result/cutopt20150106_ttbar012.txt" 
+  bstr_ttbar1 <- B.readFile "result/cutopt20150106_ttbar012.txt" 
   bstr_400 <- B.readFile "result/cutopt20150106_4top400.txt" 
   bstr_750 <- B.readFile "result/cutopt20150106_4top750.txt" 
   bstr_1000 <- B.readFile "result/cutopt20150106_4top1000.txt"
