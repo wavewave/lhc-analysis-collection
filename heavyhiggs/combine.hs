@@ -16,7 +16,7 @@ data EffXsec = EffXsec { mass :: Int
                        , xsec :: Double }
              deriving (Show)
 
-sigfile n = "HeavyHiggsMHH"++show n++".0_fourtop_LHC14ATLAS_NoMatch_DefCut_Cone0.4_WithTau_cut_count.dat"
+sigfile n = "HeavyHiggsMHH"++show n++".0_2t2b_innertop_LHC14ATLAS_NoMatch_DefCut_Cone0.4_WithTau_cut_count.dat"
 
 bkgfile n = "SM_tt012j_LHC14ATLAS_MLM_DefCut_AntiKT0.4_WithTau_set" ++ (show (n*1000 +1)) ++ "to" ++ (show ((n+1)*1000)) ++ "_cut_count.dat"
 
@@ -58,11 +58,9 @@ brief (x1,x2,x3,x4,x5,y1,y2,y3,y4,y5,y6,y7,y8,y9) = (integerize x1,integerize x2
 
 bkg :: Double -> Double -> IO [(Int,Int,Int,Int,Int,Double,Double,Double)]
 bkg lum xsec = do
-    -- str <- readFile (bkgfile n)
     ls <- getCombinedBkg
-    let rs = map (brief . normalize (xsec,lum) . adjust) ls --  . adjust . parseOptOne . words) ls
+    let rs = map (brief . normalize (xsec,lum) . adjust) ls
     return rs
-    -- return (averageAll lst)
 
 -- getCombinedBkg :: IO [(Int,Int,Int,Int,Int,Int,Int,Int)]
 getCombinedBkg = do
@@ -161,55 +159,57 @@ findrow tanb m = let lst = [400,450..1000]
                              Just v -> v
                  in map f lst
 
-
-main1 = do
-  let xsecLO_ttbar = 6.50e5
-      kfac_ttbar = 1.5
-      lum = 1000
-  bkgtbl <- bkg lum (xsecLO_ttbar*kfac_ttbar)
-  -- mapM_ print bkgtbl
-  str <- readFile "feynhiggs_mA_tanb_scan.dat"
-  let ls = (map effXsec . map parseline . map words . lines) str 
-  tbl <- {- HM.fromList . -} map tupling3to2 <$> mapM (work bkgtbl lum) ls
-  -- print tbl 
-  mapM_ (\((x,y),z)-> putStrLn (show x ++ " " ++ show y ++ " " ++ show z) >> hFlush stdout) tbl 
+{- 
+-}
 
 triple :: [String] -> ((Int,Int),Double)
 triple [x1,x2,x3] = ((read x1,read x2),read x3)
 
 --                tanb 400   450   500   550    600  650   700   750   800   850   900   950   1000
 format tanb [x40,x45,x50,x55,x60,x65,x70,x75,x80,x85,x90,x95,x100] = 
-
   printf " %4d  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f"     tanb x40 x45 x50 x55 x60 x65 x70 x75 x80 x85 x90 x85 x100
 
-main2 = do 
-  str <- readFile "mA_tanb_sig_new.dat"
-  let ls = lines str
-      tbl = HM.fromList (map (triple . words) ls)
-  mapM_ (\x -> putStrLn . format x $ findrow x tbl) [1..50]
-  -- print $ findrow 1 tbl
-  
-
-
-
+{- 
+-}
 
 --   mapM_ (\(ma,tb,sig) -> putStrLn (printf " %4d  %4d   %.6f" ma tb sig))
 
 detailPrint :: (Int,Int,[(Double,(Int,Int,Int,Int,Int),BJetChoice)]) -> IO ()
 detailPrint (m,tb,lst) = do 
-    let filename = "mA" ++ show m ++ "tanb" ++ show tb ++ "_sigoversqrtb_cutresult.dat"
+    let filename = "HeavyHiggs2T2BInnerTop_mA" ++ show m ++ "tanb" ++ show tb ++ "_sigoversqrtb_cutresult.dat"
     withFile filename WriteMode $ \h -> do
       mapM_ (hPutStrLn h . myformatting) lst 
       hFlush h
   where myformatting (soverrtbkg,(ht,j1,j234,j56,l),bjet) = 
           printf " %10.7e  %5d  %5d  %5d  %5d  %5d  %s " soverrtbkg ht j1 j234 j56 l (show bjet)
 
-main = do
+
+mkBestSoverSqrtBkg = do
   let xsecLO_ttbar = 6.50e5
       kfac_ttbar = 1.5
       lum = 1000
   bkgtbl <- bkg lum (xsecLO_ttbar*kfac_ttbar)
-  str <- readFile "feynhiggs_mA_tanb_scan.dat"
+  -- mapM_ print bkgtbl
+  str <- readFile "HeavyHiggs2T2BInnerTop_feynhiggs_mA_tanb_scan.dat"
+  let ls = (map effXsec . map parseline . map words . lines) str 
+  tbl <- {- HM.fromList . -} map tupling3to2 <$> mapM (work bkgtbl lum) ls
+  -- print tbl 
+  mapM_ (\((x,y),z)-> putStrLn (show x ++ " " ++ show y ++ " " ++ show z) >> hFlush stdout) tbl 
+
+
+formatBestSoverSqrtBkg = do 
+  str <- readFile "HeavyHiggs2T2BInnerTop_mA_tanb_sig.dat"
+  let ls = lines str
+      tbl = HM.fromList (map (triple . words) ls)
+  mapM_ (\x -> putStrLn . format x $ findrow x tbl) [1..50]
+  -- print $ findrow 1 tbl
+
+mkDetailSort = do
+  let xsecLO_ttbar = 6.50e5
+      kfac_ttbar = 1.5
+      lum = 1000
+  bkgtbl <- bkg lum (xsecLO_ttbar*kfac_ttbar)
+  str <- readFile "HeavyHiggs2T2BInnerTop_feynhiggs_mA_tanb_scan.dat"
   let ls = (map effXsec . map parseline . map words . lines) str 
   mapM_ (detailPrint <=< work2 bkgtbl lum) ls
 
@@ -218,3 +218,4 @@ main = do
   -- mapM_ (\((x,y),z)-> putStrLn (show x ++ " " ++ show y ++ " " ++ show z) >> hFlush stdout) tbl 
 
 
+main = formatBestSoverSqrtBkg -- mkBestSoverSqrtBkg -- mkDetailSort   

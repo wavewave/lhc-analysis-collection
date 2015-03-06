@@ -38,7 +38,7 @@ import           Text.Printf
 import HEP.Automation.EventGeneration.Config
 import qualified HEP.Automation.EventGeneration.Work as EV
 import HEP.Automation.MadGraph.Model
-import HEP.Automation.MadGraph.Model.SM
+-- import HEP.Automation.MadGraph.Model.SM
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
 import HEP.Automation.MadGraph.Util
@@ -54,7 +54,9 @@ import HEP.Physics.Analysis.Common.PhyEventNoTauNoBJet
 import Pipes.LHCO
 --
 import qualified HeavyHiggs
+import qualified HeavyHiggs2T2B
 import qualified SM
+
 
 mergeBJetFromNoTauEv :: PhyEventNoTau -> PhyEventNoTauNoBJet
 mergeBJetFromNoTauEv ev =
@@ -392,29 +394,29 @@ format cut@CutChoice {..} tcs =
 
 
 
-main' :: IO ()
-main' = do
+main :: IO ()
+main = do
     args <- getArgs
     let massparam :: Double = read (args !! 0)
     --  let massparam = 400 
         set1 = map (massparam,) [1..10]
          
-    ws1 <- HeavyHiggs.getWSetup (massparam,1)
+    ws1 <- HeavyHiggs2T2B.getWSetup (massparam,1)
   
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
     let filename = rname' ++ "_cut_count.dat"
     withFile filename WriteMode $ \h -> do
-        sets <- mapM (prepare HeavyHiggs.getWSetup) set1
+        sets <- mapM (prepare HeavyHiggs2T2B.getWSetup) set1
         tcs <- work sets testj1
         mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
 
 
 
-main :: IO ()
-main = do
-    --  let massparam = 400 
+main' :: IO ()
+main' = do
+
     let set1 = [9001..10000] \\ [9005,9036,9045,9086,9087,9090,9108,9131,9133,9148,9188,9212,9218,9264,9265,9312,9328,9357,9428,9458,9472,9502,9535,9553,9583,9588,9598,9616,9630,9638,9677,9696,9706,9718,9751,9753,9781,9804]
                 -- [8001..9000] \\ [8052,8073,8083,8090,8103,8167,8186,8260,8272,8300,8313,8319,8325,8332,8341,8361,8378,8408,8503,8505,8543,8548,8562,8574,8594,8634,8679,8683,8770,8789,8807,8811,8821,8863,8874,8886,8949,8954,8967]
                 -- [7001..8000] \\ [7001,7016,7031,7094,7097,7121,7279,7307,7343,7443,7485,7495,7502,7505,7522,7533,7699,7730,7748,7832,7883,7916,7933,7945]
@@ -422,7 +424,6 @@ main = do
 
                 -- [5001..6000] \\ [5075,5085,5129,5186,5472,5489,5510,5515,5546,5772,5802,5803,5923]
                 -- [1001..2000] Data.List.\\ [1059, 1061, 1064, 1065, 1213, 1802, 1805]
-
          
     ws1 <- SM.getWSetup 1
   
@@ -444,7 +445,7 @@ prepare getwsetup x = do
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
       wdavcfg = WebDAVConfig cr whost
   ws <- getwsetup x
-  -- EV.download wdavcfg ws "_pgs_events.lhco.gz" 
+  EV.download wdavcfg ws "_pgs_events.lhco.gz" 
  
   let rname = makeRunName (ws_psetup ws) (ws_param ws) (ws_rsetup ws)
       fname = rname ++ "_pgs_events.lhco.gz"

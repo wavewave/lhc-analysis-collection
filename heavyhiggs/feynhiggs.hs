@@ -57,8 +57,8 @@ dummyResult = HiggsResult dummyBRXS dummyBRXS
 higgsResult :: A.Parser HiggsResult
 higgsResult = do brHtt <- branchRatio_HH_t_t
                  brAtt <- branchRatio_A0_t_t 
-                 xsttH <- xsec_t_t_HH
-		 xsttA <- xsec_t_t_A0
+                 xsttH <- xsec_b_b_HH
+		 xsttA <- xsec_b_b_A0
                  return (HiggsResult (BRXSec brHtt xsttH) (BRXSec brAtt xsttA))
 
 
@@ -83,7 +83,7 @@ branchRatio_A0_t_t = do
     A.skipSpace
     A.double
 
-
+{-
 xsec_t_t_HH :: A.Parser Double
 xsec_t_t_HH = do
     A.manyTill A.anyChar (A.try (A.string "| prod:t-t-HH"))
@@ -99,6 +99,25 @@ xsec_t_t_A0 = do
     A.char '='
     A.skipSpace
     A.double
+-}
+
+xsec_b_b_HH :: A.Parser Double
+xsec_b_b_HH = do
+    A.manyTill A.anyChar (A.try (A.string "| prod:b-b-HH"))
+    A.skipSpace
+    A.char '='
+    A.skipSpace
+    A.double
+
+xsec_b_b_A0 :: A.Parser Double
+xsec_b_b_A0 = do
+    A.manyTill A.anyChar (A.try (A.string "| prod:b-b-A0"))
+    A.skipSpace
+    A.char '='
+    A.skipSpace
+    A.double
+
+
     
 testinput = HiggsInput { higgsTanbeta = 1
                    , higgsMA = 500
