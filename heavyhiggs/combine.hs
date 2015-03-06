@@ -2,7 +2,10 @@ module Main where
 
 import           Control.Applicative
 import           Control.Lens
+import           Control.Monad
+import           Data.Function (on)
 import qualified Data.Traversable as T
+import           Data.List (sortBy)
 import           Data.List.Split
 import qualified Data.HashMap.Strict as HM
 import           Text.Printf
@@ -70,32 +73,6 @@ getCombinedBkg = do
       return rs
     return (sumAll lst)
 
-    -- 
-
-
-    -- zipWith 
-
-    -- let (a,b,c,d,e,_,_,_) = head lst
-    --     (sum1,sum2,sum3) = (sum  . map (\(_,_,_,_,_,x,y,z)->(x,y,z))) lst 
-    -- return (head lst) -- (a,b,c,d,e,sum1,sum2,sum3)
-
-
-    -- return (head lst)
-    -- print $ concatMap getcutnum rs
-{-
-averageAll :: [[(Int,Int,Int,Int,Int,Double,Double,Double)]] -> [(Int,Int,Int,Int,Int,Double,Double,Double)]
-averageAll xs | any null xs =  []
-              | otherwise = let ys = map head xs
-                                rest = map tail xs
-                                (a,b,c,d,e,_,_,_) =  head ys
-                                sum1 = average (map (view _6) ys)
-                                sum2 = average (map (view _7) ys)
-                                sum3 = average (map (view _8) ys)
-                            in (a,b,c,d,e,sum1,sum2,sum3): averageAll rest
-  where average xs = sum xs / fromIntegral (length xs)
-
--}
-
 sumAll :: (Num a) => [[(Double,Double,Double,Double,Double,a,a,a,a,a,a,a,a,a)]] 
        -> [(Double,Double,Double,Double,Double,a,a,a,a,a,a,a,a,a)]
 sumAll xs | any null xs =  []
@@ -157,9 +134,21 @@ work bkgtbl lum (EffXsec m tb xsec) = do
     let ls = lines str
         rs = map (brief . normalize (xsec,lum) . parseOptOne . words) ls
     let r = maximum . map maximum3 . map sigoversqrtbkg . map snd . joinTable bkgtbl $ rs
-    -- print m 
     return (m,tb,r)
-    -- print $ concatMap getcutnum rs
+
+data BJetChoice = BJet1 | BJet2 | BJet3 deriving Show
+
+work2 :: [(Int,Int,Int,Int,Int,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,[(Double,(Int,Int,Int,Int,Int),BJetChoice)])
+work2 bkgtbl lum (EffXsec m tb xsec) = do 
+    str <- readFile (sigfile m)
+    let ls = lines str
+        rs = map (brief . normalize (xsec,lum) . parseOptOne . words) ls
+        bkgsigtbl = joinTable bkgtbl rs
+    let f x = let bkgsig = snd x
+                  (ssqrtb1,ssqrtb2,ssqrtb3) = sigoversqrtbkg bkgsig
+               in [(ssqrtb1,fst x,BJet1),(ssqrtb2,fst x,BJet2),(ssqrtb3,fst x,BJet3)]
+        results = sortBy (flip compare `on` (view _1)) . concatMap f $ bkgsigtbl
+    return (m,tb,results)
 
 
 tupling3to2 (a,b,c) = ((a,b),c)
@@ -193,7 +182,7 @@ format tanb [x40,x45,x50,x55,x60,x65,x70,x75,x80,x85,x90,x95,x100] =
 
   printf " %4d  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f  %.6f"     tanb x40 x45 x50 x55 x60 x65 x70 x75 x80 x85 x90 x85 x100
 
-main = do 
+main2 = do 
   str <- readFile "mA_tanb_sig_new.dat"
   let ls = lines str
       tbl = HM.fromList (map (triple . words) ls)
@@ -206,5 +195,26 @@ main = do
 
 --   mapM_ (\(ma,tb,sig) -> putStrLn (printf " %4d  %4d   %.6f" ma tb sig))
 
+detailPrint :: (Int,Int,[(Double,(Int,Int,Int,Int,Int),BJetChoice)]) -> IO ()
+detailPrint (m,tb,lst) = do 
+    let filename = "mA" ++ show m ++ "tanb" ++ show tb ++ "_sigoversqrtb_cutresult.dat"
+    withFile filename WriteMode $ \h -> do
+      mapM_ (hPutStrLn h . myformatting) lst 
+      hFlush h
+  where myformatting (soverrtbkg,(ht,j1,j234,j56,l),bjet) = 
+          printf " %10.7e  %5d  %5d  %5d  %5d  %5d  %s " soverrtbkg ht j1 j234 j56 l (show bjet)
+
+main = do
+  let xsecLO_ttbar = 6.50e5
+      kfac_ttbar = 1.5
+      lum = 1000
+  bkgtbl <- bkg lum (xsecLO_ttbar*kfac_ttbar)
+  str <- readFile "feynhiggs_mA_tanb_scan.dat"
+  let ls = (map effXsec . map parseline . map words . lines) str 
+  mapM_ (detailPrint <=< work2 bkgtbl lum) ls
+
+  -- tbl <- {- HM.fromList . -} map tupling3to2 <$> mapM (work2 bkgtbl lum) ls
+  -- print tbl 
+  -- mapM_ (\((x,y),z)-> putStrLn (show x ++ " " ++ show y ++ " " ++ show z) >> hFlush stdout) tbl 
 
 

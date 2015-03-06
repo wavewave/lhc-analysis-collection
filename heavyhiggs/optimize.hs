@@ -9,7 +9,6 @@
 import qualified Codec.Zlib as Zlib
 import           Control.Applicative
 import           Control.DeepSeq
--- import qualified Control.Foldl as Foldl
 import           Control.Lens
 import           Control.Lens.Prism (_Just)
 import           Control.Lens.TH
@@ -78,19 +77,6 @@ checkAndDownload cfg rdir fpath = do
     liftIO $ downloadFile False cfg rdir fpath 
     liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
 
-{- 
-fourtopsimpl400 = map (\x->"data/fourtopsimpl_400_set" ++ x ++  "_pgs_events.lhco.gz") 
-                      [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
-
-fourtopsimpl750 = map (\x->"data/fourtopsimpl_750_set" ++ x ++  "_pgs_events.lhco.gz") 
-                      [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
-
-fourtopsimpl1000 = map (\x->"data/fourtopsimpl_1000_set" ++ x ++  "_pgs_events.lhco.gz") 
-                       [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
-
-
-ttbarset = map (\x->"data/" ++ x ++ "_pgs_events.lhco.gz") . map (\x -> makeRunName SM.psetup SMParam (SM.rsetupgen x)) $ [1..1000] 
--}
 
 data CutChoice = CutChoice { choice_ht :: Double
                            , choice_ptj1 :: Double
@@ -154,10 +140,6 @@ emptyCS1 = CounterState1 0 0 0 0 0 0 0 0 0
 
 makeLenses ''CounterState1
                                
--- emptyCS :: [CutChoice] -> M.Map CutChoice CounterState1
--- emptyCS lst = foldr (\k -> M.insert k emptyCS1) M.empty lst
-
--- CutChoice {..}
 data TotalCS = TotalCS { _fullNum :: Int
                        , _cut1Map :: M.Map Double Int
                        , _cut2Map :: M.Map (Double,Double) Int
@@ -174,7 +156,7 @@ data TotalCS = TotalCS { _fullNum :: Int
 makeLenses ''TotalCS
 
 emptyTCS :: CCO -> TotalCS
-emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty -- emptyCS 
+emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty
   where j1j234 = do
           cco <- ccos
           let j1 = fst cco
@@ -238,7 +220,7 @@ mkChoices ccos  = [CutChoice h j1 j234 j56 l | (j1,j234,j56,l,h) <- j1j234j56lh 
           return (j1,j234,j56,l,h)
 
 
-work :: [FilePath] -> CCO -> IO TotalCS -- (M.Map CutChoice CounterState1)
+work :: [FilePath] -> CCO -> IO TotalCS
 work fpaths ccos = do
     hins <- mapM (\fpath -> openFile fpath ReadMode) fpaths  
     (_,r) <- flip runStateT (emptyTCS ccos) $ runEffect $ do
@@ -440,7 +422,7 @@ main = do
 
                 -- [5001..6000] \\ [5075,5085,5129,5186,5472,5489,5510,5515,5546,5772,5802,5803,5923]
                 -- [1001..2000] Data.List.\\ [1059, 1061, 1064, 1065, 1213, 1802, 1805]
-               
+
          
     ws1 <- SM.getWSetup 1
   
