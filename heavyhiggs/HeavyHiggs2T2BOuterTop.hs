@@ -1,4 +1,4 @@
-module HeavyHiggs2T2B where
+module HeavyHiggs2T2BOuterTop where
 
 import Control.Applicative
 import System.Directory
@@ -36,11 +36,11 @@ getScriptSetup = do
 processSetup :: ProcessSetup HeavyHiggs
 processSetup = PS {  
     model = HeavyHiggs
-  , process = MGProc [] [ "p p > b b~ h2, (h2 > t t~)"
-                        , "p p > b b~ h3, (h3 > t t~)"
+  , process = MGProc [] [ "p p > t t~ h2, (h2 > b b~)"
+                        , "p p > t t~ h3, (h3 > b b~)"
                         ]
-  , processBrief = "2t2b_innertop" 
-  , workname   = "2t2b_innertop"
+  , processBrief = "2t2b_outertop" 
+  , workname   = "2t2b_outertop"
   , hashSalt = HashSalt Nothing
   }
 
@@ -69,7 +69,7 @@ getWSetup (mass,n) = WS <$> getScriptSetup
                         <*> pure processSetup 
                         <*> pure (pset mass) 
                         <*> pure (rsetup n)
-                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/2t2b_innertop")
+                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/2t2b_outertop")
 
 genset = [ (mass,n) | mass <- [400,450,500,550,600,650,700,750,800,850,900,950,1000],
                       n <- [1..10] ]

@@ -54,7 +54,8 @@ import HEP.Physics.Analysis.Common.PhyEventNoTauNoBJet
 import Pipes.LHCO
 --
 import qualified HeavyHiggs
-import qualified HeavyHiggs2T2B
+import qualified HeavyHiggs2T2BInnerTop
+import qualified HeavyHiggs2T2BOuterTop
 import qualified SM
 
 
@@ -394,21 +395,21 @@ format cut@CutChoice {..} tcs =
 
 
 
-main :: IO ()
-main = do
+main0 :: IO ()
+main0 = do
     args <- getArgs
     let massparam :: Double = read (args !! 0)
     --  let massparam = 400 
         set1 = map (massparam,) [1..10]
          
-    ws1 <- HeavyHiggs2T2B.getWSetup (massparam,1)
+    ws1 <- HeavyHiggs2T2BOuterTop.getWSetup (massparam,1)
   
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
     let filename = rname' ++ "_cut_count.dat"
     withFile filename WriteMode $ \h -> do
-        sets <- mapM (prepare HeavyHiggs2T2B.getWSetup) set1
+        sets <- mapM (prepare HeavyHiggs2T2BOuterTop.getWSetup) set1
         tcs <- work sets testj1
         mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
 

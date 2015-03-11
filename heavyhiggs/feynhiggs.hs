@@ -55,13 +55,13 @@ dummyBRXS = BRXSec 0 0
 dummyResult = HiggsResult dummyBRXS dummyBRXS
 
 higgsResult :: A.Parser HiggsResult
-higgsResult = do brHtt <- branchRatio_HH_t_t
-                 brAtt <- branchRatio_A0_t_t 
-                 xsttH <- xsec_b_b_HH
-		 xsttA <- xsec_b_b_A0
-                 return (HiggsResult (BRXSec brHtt xsttH) (BRXSec brAtt xsttA))
+higgsResult = do brHbb <- branchRatio_HH_b_b  -- t_t
+                 brAbb <- branchRatio_A0_b_b  -- t_t 
+                 xsttH <- xsec_t_t_HH         -- b_b
+		 xsttA <- xsec_t_t_A0         -- b_b
+                 return (HiggsResult (BRXSec brHbb xsttH) (BRXSec brAbb xsttA))
 
-
+{- 
 branchRatio_HH_t_t :: A.Parser Double
 branchRatio_HH_t_t = do
     A.manyTill A.anyChar (A.try (A.string "%| HH-t-t"))
@@ -72,7 +72,6 @@ branchRatio_HH_t_t = do
     A.skipSpace
     A.double
 
-
 branchRatio_A0_t_t :: A.Parser Double
 branchRatio_A0_t_t = do
     A.manyTill A.anyChar (A.try (A.string "%| A0-t-t"))
@@ -82,8 +81,29 @@ branchRatio_A0_t_t = do
     A.double
     A.skipSpace
     A.double
+-}
 
-{-
+branchRatio_HH_b_b :: A.Parser Double
+branchRatio_HH_b_b = do
+    A.manyTill A.anyChar (A.try (A.string "%| HH-b-b"))
+    A.skipSpace
+    A.char '='
+    A.skipSpace
+    A.double
+    A.skipSpace
+    A.double
+
+branchRatio_A0_b_b :: A.Parser Double
+branchRatio_A0_b_b = do
+    A.manyTill A.anyChar (A.try (A.string "%| A0-b-b"))
+    A.skipSpace
+    A.char '='
+    A.skipSpace
+    A.double
+    A.skipSpace
+    A.double
+
+
 xsec_t_t_HH :: A.Parser Double
 xsec_t_t_HH = do
     A.manyTill A.anyChar (A.try (A.string "| prod:t-t-HH"))
@@ -99,8 +119,8 @@ xsec_t_t_A0 = do
     A.char '='
     A.skipSpace
     A.double
--}
 
+{- 
 xsec_b_b_HH :: A.Parser Double
 xsec_b_b_HH = do
     A.manyTill A.anyChar (A.try (A.string "| prod:b-b-HH"))
@@ -116,12 +136,12 @@ xsec_b_b_A0 = do
     A.char '='
     A.skipSpace
     A.double
-
+-}
 
     
 testinput = HiggsInput { higgsTanbeta = 1
-                   , higgsMA = 500
-                   , higgsLumi = 100 }
+                       , higgsMA = 500
+                       , higgsLumi = 100 }
 
 scansets= [ HiggsInput tb ma 100 | ma <- [400,450,500,550,600,650,700,750,800,850,900,950,1000],
                                    tb <- [1..50] ]
