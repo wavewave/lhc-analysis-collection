@@ -89,7 +89,7 @@ data CutChoice = CutChoice { choice_ht :: Double
                            }
 
                deriving (Show,Eq,Ord)
-
+{- 
 testset1 = CutChoice { choice_ht = 1500
                      , choice_ptj1 = 200
                      , choice_ptj234 = 100
@@ -103,14 +103,15 @@ testset2 = CutChoice { choice_ht =  500
                      , choice_ptj56 = 25 
                      , choice_ptl = 0
                      } 
-
-
-testsets = [ CutChoice ht j1 j234 j56 l | ht <- [500,800,1000,1200,1500] 
-                                        , j1 <- [100,200,300]
-                                        , j234 <- [50,100..j1]
-                                        , j56 <- [25,50..j234] 
-                                        , l <- [0,20,50,100,200,300]
+-}
+{- 
+testsets = [ CutChoice ht j1 j234 j56 l | ht <- [500] -- [500,800,1000,1200,1500] 
+                                        , j1 <- [100] -- [100,200,300]
+                                        , j234 <- [50] -- [50,100..j1]
+                                        , j56 <- [-1,50] -- [25,50..j234] 
+                                        , l <- [0] -- [0,20,50,100,200,300]
                                         ]
+-}
 --            j1       j234     j56      ptl      ht
 type CCO = [(Double,[(Double,[(Double,[(Double,[Double])])])])]
 
@@ -121,11 +122,11 @@ testcco1 = (100,[(50,[(25,[(0,[500])])])])
 testcco2 = (200,[(50,[(25,[(0,[500])])])])
 
 
-testht = [500,800,1000,1200,1500]
-testl = map (\x->(x,testht)) [0,20,50,100,200,300]
-testj56 j234 = map (\x->(x,testl)) [25,50..j234]
-testj234 j1 = map (\x->(x,testj56 x)) [50,100..j1]
-testj1 = map (\x->(x,testj234 x)) [100,200,300]
+testht = [500] -- [500,800,1000,1200,1500]
+testl = map (\x->(x,testht)) [0] -- [0,20,50,100,200,300]
+testj56 j234 = map (\x->(x,testl)) [-1, 25] -- [25,50..j234]
+testj234 j1 = map (\x->(x,testj56 x)) [50] -- [50,100..j1]
+testj1 = map (\x->(x,testj234 x)) [100] -- [100,200,300]
 
 data CounterState1 = 
        CounterState1      { _counterFull :: Int
@@ -349,11 +350,13 @@ checkj234 j234 (x1,ptlst) =
       _ -> Nothing
 
 
-checkj56 :: Double -> (Double,Double,Double,Double,[Double]) -> Maybe (Double,Double,Double,Double,Double,Double,[Double])
-checkj56 j56 (x1,x2,x3,x4,ptlst) = 
-    case ptlst of
-      x5:x6:xs -> if x6 > j56 then Just (x1,x2,x3,x4,x5,x6,xs) else Nothing
-      _ -> Nothing
+checkj56 :: Double -> (Double,Double,Double,Double,[Double]) 
+         -> Maybe (Double,Double,Double,Double,Maybe (Double,Double),[Double])
+checkj56 j56 (x1,x2,x3,x4,ptlst) 
+  | j56 < 0 = Just (x1,x2,x3,x4,Nothing,ptlst)
+  | otherwise = case ptlst of
+                  x5:x6:xs -> if x6 > j56 then Just (x1,x2,x3,x4,Just (x5,x6),xs) else Nothing
+                  _ -> Nothing
 
 
 numOfB :: Double -> PhyEventNoTau -> Int
@@ -395,21 +398,21 @@ format cut@CutChoice {..} tcs =
 
 
 
-main0 :: IO ()
-main0 = do
+main :: IO ()
+main = do
     args <- getArgs
     let massparam :: Double = read (args !! 0)
     --  let massparam = 400 
         set1 = map (massparam,) [1..10]
          
-    ws1 <- HeavyHiggs2T2BOuterTop.getWSetup (massparam,1)
+    ws1 <- HeavyHiggs2T2BInnerTop.getWSetup (massparam,1)
   
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
     let filename = rname' ++ "_cut_count.dat"
     withFile filename WriteMode $ \h -> do
-        sets <- mapM (prepare HeavyHiggs2T2BOuterTop.getWSetup) set1
+        sets <- mapM (prepare HeavyHiggs2T2BInnerTop.getWSetup) set1
         tcs <- work sets testj1
         mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
 
@@ -446,7 +449,7 @@ prepare getwsetup x = do
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
       wdavcfg = WebDAVConfig cr whost
   ws <- getwsetup x
-  EV.download wdavcfg ws "_pgs_events.lhco.gz" 
+  -- EV.download wdavcfg ws "_pgs_events.lhco.gz" 
  
   let rname = makeRunName (ws_psetup ws) (ws_param ws) (ws_rsetup ws)
       fname = rname ++ "_pgs_events.lhco.gz"
