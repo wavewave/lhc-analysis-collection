@@ -442,9 +442,8 @@ main = do
     let filename = resultdir </> rname' ++ "_set1to1000_cut_count_incHT" ++ show (round ht) ++  ".dat"
     withFile filename WriteMode $ \h -> do
         sets <- map (eventdir </>) <$> mapM (prepare SM.getWSetup) set1
-        mapM_ putStrLn sets
-        -- tcs <- work sets (testj1 ht)
-        -- mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
+        tcs <- work sets (testj1 ht)
+        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
 
 
 prepare :: (Model b) => (a -> IO (WorkSetup b)) -> a -> IO FilePath
