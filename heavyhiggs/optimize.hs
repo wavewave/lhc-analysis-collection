@@ -32,6 +32,7 @@ import qualified Pipes.ByteString  as PB
 import qualified Pipes.Prelude as PPrelude
 import qualified Pipes.Zlib as PZ
 import           System.Environment
+import           System.FilePath
 import           System.IO as IO
 import           Text.Printf
 -- 
@@ -71,15 +72,12 @@ mergeBJetFromNoTauEv ev =
      . set photons (view photons ev)
      . set missingET (view missingET ev) ) def
 
-
-
 checkAndDownload :: WebDAVConfig -> WebDAVRemoteDir -> FilePath -> MaybeT IO ()
 checkAndDownload cfg rdir fpath = do
     b <- liftIO $ doesFileExistInDAV cfg rdir fpath
     guard b
     liftIO $ downloadFile False cfg rdir fpath 
     liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
-
 
 data CutChoice = CutChoice { choice_ht :: Double
                            , choice_ptj1 :: Double
@@ -122,11 +120,11 @@ testcco1 = (100,[(50,[(25,[(0,[500])])])])
 testcco2 = (200,[(50,[(25,[(0,[500])])])])
 
 
-testht = [500] -- [500,800,1000,1200,1500]
-testl = map (\x->(x,testht)) [0] -- [0,20,50,100,200,300]
-testj56 j234 = map (\x->(x,testl)) [-1, 25] -- [25,50..j234]
-testj234 j1 = map (\x->(x,testj56 x)) [50] -- [50,100..j1]
-testj1 = map (\x->(x,testj234 x)) [100] -- [100,200,300]
+testht ht = [ht] -- [400,450..800]
+testl ht = map (\x->(x,testht ht)) [0,5..20]
+testj56 ht j234 = map (\x->(x,testl ht)) ((-1):[20,30..if j234 > 80 then 80 else j234])
+testj234 ht j1 = map (\x->(x,testj56 ht x)) [30,40..if j1 > 90 then 90 else j1]
+testj1 ht = map (\x->(x,testj234 ht x)) [70,80..180]
 
 data CounterState1 = 
        CounterState1      { _counterFull :: Int
@@ -196,8 +194,6 @@ emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty
           let l = fst ls
           h <- snd ls
           return (j1,j234,j56,l,h)
-
-
 
         m1 = foldr (\k->M.insert k 0) M.empty (map fst ccos)
         m2 = foldr (\k->M.insert k 0) M.empty j1j234
@@ -368,7 +364,7 @@ leptonetas = map eta . view leptons
 
 htcut :: Double -> PhyEventNoTauNoBJet -> Bool 
 htcut v ev = let ptlst = jetpts ev
-                 ht6 = sum (take 6 ptlst)
+                 ht6 = sum ptlst -- (take 6 ptlst)
              in ht6 > v
 
 
@@ -397,9 +393,9 @@ format cut@CutChoice {..} tcs =
         Just b3 = view (b3Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl,choice_ht)) tcs
 
 
-
-main :: IO ()
-main = do
+{- 
+main' :: IO ()
+main' = do
     args <- getArgs
     let massparam :: Double = read (args !! 0)
     --  let massparam = 400 
@@ -410,18 +406,27 @@ main = do
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
-    let filename = rname' ++ "_cut_count.dat"
+    let filename = rname' ++ "_cut_count_incHT.dat"
     withFile filename WriteMode $ \h -> do
         sets <- mapM (prepare HeavyHiggs2T2BInnerTop.getWSetup) set1
         tcs <- work sets testj1
         mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
 
+-}
 
+eventdir = "/afs/cern.ch/work/i/ikim/event"
 
-main' :: IO ()
-main' = do
+resultdir = "/afs/cern.ch/work/i/ikim/result"
 
-    let set1 = [9001..10000] \\ [9005,9036,9045,9086,9087,9090,9108,9131,9133,9148,9188,9212,9218,9264,9265,9312,9328,9357,9428,9458,9472,9502,9535,9553,9583,9588,9598,9616,9630,9638,9677,9696,9706,9718,9751,9753,9781,9804]
+main :: IO ()
+main = do
+    args <- getArgs
+    let ht :: Double = read (args !! 0)
+    let set1 = [1..1000]
+
+                -- [3001..4000]
+               -- [2001..3000]
+               -- [9001..10000] \\ [9005,9036,9045,9086,9087,9090,9108,9131,9133,9148,9188,9212,9218,9264,9265,9312,9328,9357,9428,9458,9472,9502,9535,9553,9583,9588,9598,9616,9630,9638,9677,9696,9706,9718,9751,9753,9781,9804]
                 -- [8001..9000] \\ [8052,8073,8083,8090,8103,8167,8186,8260,8272,8300,8313,8319,8325,8332,8341,8361,8378,8408,8503,8505,8543,8548,8562,8574,8594,8634,8679,8683,8770,8789,8807,8811,8821,8863,8874,8886,8949,8954,8967]
                 -- [7001..8000] \\ [7001,7016,7031,7094,7097,7121,7279,7307,7343,7443,7485,7495,7502,7505,7522,7533,7699,7730,7748,7832,7883,7916,7933,7945]
                 -- [6001..7000] \\ [6038,6164,6206,6236,6277,6363,6399,6428,6452,6520,6536,6581,6833,6892,6895,6897,6900,6914,6919]
@@ -434,17 +439,18 @@ main' = do
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
-    let filename = rname' ++ "_set9001to10000_cut_count.dat"
+    let filename = resultdir </> rname' ++ "_set1to1000_cut_count_incHT" ++ show (round ht) ++  ".dat"
     withFile filename WriteMode $ \h -> do
-        sets <- mapM (prepare SM.getWSetup) set1
-        tcs <- work sets testj1
-        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
+        sets <- map (eventdir </>) <$> mapM (prepare SM.getWSetup) set1
+        mapM_ putStrLn sets
+        -- tcs <- work sets (testj1 ht)
+        -- mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
 
 
 prepare :: (Model b) => (a -> IO (WorkSetup b)) -> a -> IO FilePath
 prepare getwsetup x = do
-  let pkey = "/home/wavewave/temp/priv.txt"
-      pswd = "/home/wavewave/temp/cred.txt"
+  let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
+      pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
       wdavcfg = WebDAVConfig cr whost
