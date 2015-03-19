@@ -1,4 +1,4 @@
-module HeavyHiggs where
+module HeavyHiggs4T where
 
 import Control.Applicative
 import System.Directory

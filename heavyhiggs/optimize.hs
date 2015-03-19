@@ -54,7 +54,7 @@ import HEP.Physics.Analysis.Common.PhyEventNoTau
 import HEP.Physics.Analysis.Common.PhyEventNoTauNoBJet
 import Pipes.LHCO
 --
-import qualified HeavyHiggs
+import qualified HeavyHiggs4T
 import qualified HeavyHiggs2T2BInnerTop
 import qualified HeavyHiggs2T2BOuterTop
 import qualified SM
@@ -125,6 +125,14 @@ testl ht = map (\x->(x,testht ht)) [0,5..20]
 testj56 ht j234 = map (\x->(x,testl ht)) ((-1):[20,30..if j234 > 80 then 80 else j234])
 testj234 ht j1 = map (\x->(x,testj56 ht x)) [30,40..if j1 > 90 then 90 else j1]
 testj1 ht = map (\x->(x,testj234 ht x)) [70,80..180]
+
+{- 
+testht = [400,450..800]
+testl = map (\x->(x,testht)) [0,5..20]
+testj56 j234 = map (\x->(x,testl)) ((-1):[20,30..if j234 > 80 then 80 else j234])
+testj234 j1 = map (\x->(x,testj56 x)) [30,40..if j1 > 90 then 90 else j1]
+testj1 = map (\x->(x,testj234 x)) [70,80..180]
+-}
 
 data CounterState1 = 
        CounterState1      { _counterFull :: Int
@@ -393,31 +401,33 @@ format cut@CutChoice {..} tcs =
         Just b3 = view (b3Map.at (choice_ptj1,choice_ptj234,choice_ptj56,choice_ptl,choice_ht)) tcs
 
 
-{- 
-main' :: IO ()
-main' = do
+
+main :: IO ()
+main = do
     args <- getArgs
     let massparam :: Double = read (args !! 0)
+        ht :: Double = read (args !! 1)
     --  let massparam = 400 
         set1 = map (massparam,) [1..10]
          
-    ws1 <- HeavyHiggs2T2BInnerTop.getWSetup (massparam,1)
-  
+    ws1 <- -- HeavyHiggs2T2BInnerTop.getWSetup (massparam,1)
+           HeavyHiggs4T.getWSetup (massparam,1)
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
-    let filename = rname' ++ "_cut_count_incHT.dat"
+    let filename = resultdir </> rname' ++ "_cut_count_incHT" ++ show (round ht) ++ ".dat"
     withFile filename WriteMode $ \h -> do
-        sets <- mapM (prepare HeavyHiggs2T2BInnerTop.getWSetup) set1
-        tcs <- work sets testj1
-        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
+        sets <- map (eventdir </>) <$> mapM (prepare HeavyHiggs4T.getWSetup) set1
+        tcs <- work sets (testj1 ht)
+        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
 
--}
+
 
 eventdir = "/afs/cern.ch/work/i/ikim/event"
 
 resultdir = "/afs/cern.ch/work/i/ikim/result"
 
+{- 
 main :: IO ()
 main = do
     args <- getArgs
@@ -444,7 +454,7 @@ main = do
         sets <- map (eventdir </>) <$> mapM (prepare SM.getWSetup) set1
         tcs <- work sets (testj1 ht)
         mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
-
+-}
 
 prepare :: (Model b) => (a -> IO (WorkSetup b)) -> a -> IO FilePath
 prepare getwsetup x = do
