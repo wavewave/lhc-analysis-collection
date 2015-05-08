@@ -87,37 +87,8 @@ data CutChoice = CutChoice { choice_ht :: Double
                            }
 
                deriving (Show,Eq,Ord)
-{- 
-testset1 = CutChoice { choice_ht = 1500
-                     , choice_ptj1 = 200
-                     , choice_ptj234 = 100
-                     , choice_ptj56 = 50 
-                     , choice_ptl = 0
-                     } 
-
-testset2 = CutChoice { choice_ht =  500
-                     , choice_ptj1 = 100
-                     , choice_ptj234 = 50
-                     , choice_ptj56 = 25 
-                     , choice_ptl = 0
-                     } 
--}
-{- 
-testsets = [ CutChoice ht j1 j234 j56 l | ht <- [500] -- [500,800,1000,1200,1500] 
-                                        , j1 <- [100] -- [100,200,300]
-                                        , j234 <- [50] -- [50,100..j1]
-                                        , j56 <- [-1,50] -- [25,50..j234] 
-                                        , l <- [0] -- [0,20,50,100,200,300]
-                                        ]
--}
 --            j1       j234     j56      ptl      ht
 type CCO = [(Double,[(Double,[(Double,[(Double,[Double])])])])]
-
-testcco :: CCO
-testcco = [testcco1,testcco2]
-
-testcco1 = (100,[(50,[(25,[(0,[500])])])])
-testcco2 = (200,[(50,[(25,[(0,[500])])])])
 
 
 testht ht = [ht] -- [400,450..800]
@@ -458,13 +429,13 @@ main = do
 
 prepare :: (Model b) => (a -> IO (WorkSetup b)) -> a -> IO FilePath
 prepare getwsetup x = do
-  let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
-      pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
+  let pkey = "/repos/priv.txt" -- "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
+      pswd = "/repos/cred.txt" -- "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
       wdavcfg = WebDAVConfig cr whost
   ws <- getwsetup x
-  -- EV.download wdavcfg ws "_pgs_events.lhco.gz" 
+  EV.download wdavcfg ws "_pgs_events.lhco.gz" 
  
   let rname = makeRunName (ws_psetup ws) (ws_param ws) (ws_rsetup ws)
       fname = rname ++ "_pgs_events.lhco.gz"
