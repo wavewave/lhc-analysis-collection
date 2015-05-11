@@ -87,7 +87,7 @@ getWSetup (sqrts,n) = WS <$> getScriptSetup
 genset = [ (sqrts,n) | sqrts <- [366,368..550] {- [350,352..550] -} {-  ,420..1000] -} ,  n <- [1] ]
 
 preparedir = do
-  workdir <- getEnv "WORKDIR" 
+  workdir <- getCurrentDirectory -- getEnv "WORKDIR" 
   let mcrootdir = workdir </> "montecarlo"
       sandboxdir = workdir </> "montecarlo/sandbox"
       mcrundir   = workdir </> "montecarlo/mcrun"
