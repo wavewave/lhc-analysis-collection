@@ -20,6 +20,7 @@ data PhyEventNoTau = PhyEventNoTau { nt_eventId :: Int
                                    , nt_bjets :: [PhyObj BJet]
                                    , nt_missingET :: PhyObj MET
                                    } 
+                   deriving (Show)
 
 instance Default PhyEventNoTau where
   def = PhyEventNoTau 0 [] [] [] [] [] (ObjMET (0,0))

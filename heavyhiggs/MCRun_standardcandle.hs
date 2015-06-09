@@ -12,11 +12,8 @@ import System.Process
 -- 
 import HEP.Automation.EventGeneration.Config
 import qualified HEP.Automation.EventGeneration.Work as EV
--- import HEP.Automation.MadGraph.Card
 import HEP.Automation.MadGraph.Model
-import HEP.Automation.MadGraph.Model.HEFTNLO
--- import HEP.Automation.MadGraph.Model.ADMXQLD211
--- import HEP.Automation.MadGraph.Model.HeavyHiggs
+import HEP.Automation.MadGraph.Model.SM
 import HEP.Automation.MadGraph.Run
 import HEP.Automation.MadGraph.SetupType
 import HEP.Automation.MadGraph.Type
@@ -30,7 +27,6 @@ import qualified Paths_madgraph_auto_model as PModel
 getScriptSetup :: IO ScriptSetup
 getScriptSetup = do 
   workdir <- getEnv "WORKDIR" 
-  -- homedir <- getHomeDirectory
 
   mdldir <- (</> "template") <$> PModel.getDataDir
   rundir <- (</> "template") <$> PMadGraph.getDataDir 
@@ -47,44 +43,44 @@ getScriptSetup = do
        }
 
 -- | 
-processSetup :: ProcessSetup HEFTNLO
+processSetup :: ProcessSetup SM
 processSetup = PS {  
-    model = HEFTNLO
-  , process = MGProc [] [ "g g > h1 > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft_onlypseudo" 
-  , workname   = "ttbarheft_onlypseudo"
+    model = SM
+  , process = MGProc [] [ "e+ e- > j j QED=2" ]
+  , processBrief = "eejj" 
+  , workname   = "eejj"
   , hashSalt = HashSalt Nothing
   }
 
 -- | 
-pset :: (Double,Double,Double,Double) -> ModelParam HEFTNLO
-pset (mh,wh,ma,wa) = HEFTNLOParam mh wh ma wa
+pset :: ModelParam SM
+pset = SMParam
 
 -- | 
 rsetup :: Double -> Int -> RunSetup
 rsetup sqrts n = 
-    RS { numevent = 10000
+    RS { numevent = 100000
        , machine = Parton (0.5*sqrts) ATLAS -- LHC14 ATLAS
        , rgrun   = Fixed 
        , rgscale = 200.0
        , match   = NoMatch
        , cut     = NoCut -- DefCut 
-       , pythia  = NoPYTHIA --  RunPYTHIA 
+       , pythia  = RunPYTHIA 
        , lhesanitizer = [] 
-       , pgs     = NoPGS -- RunPGS (Cone 0.4, WithTau)
+       , pgs     = RunPGS (Cone 0.4, WithTau)
        , uploadhep = NoUploadHEP
        , setnum  = n
        } 
 
 -- | 
-getWSetup :: (Double,Int) -> IO (WorkSetup HEFTNLO)
+getWSetup :: (Double,Int) -> IO (WorkSetup SM)
 getWSetup (sqrts,n) = WS <$> getScriptSetup 
                         <*> pure processSetup 
-                        <*> pure (pset (2000,10,400,11.82))
+                        <*> pure pset
                         <*> pure (rsetup sqrts n)
-                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test")
+                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/standardcandle")
 
-genset = [ (sqrts,n) | sqrts <- [370,374..510],  n <- [1] ]
+genset = [ (sqrts,n) | sqrts <- [200,400..3000],  n <- [1] ]
 
 preparedir = do
   workdir <- getEnv "WORKDIR" 
@@ -102,8 +98,8 @@ preparedir = do
 main :: IO ()
 main = do 
   preparedir
-  let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
-      pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
+  let pkey = "/home/wavewave/temp/madgraph/priv.txt"
+      pswd = "/home/wavewave/temp/madgraph/cred.txt"
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
   let wdavcfg = WebDAVConfig cr whost
@@ -111,7 +107,7 @@ main = do
   mapM_ (work wdavcfg <=< getWSetup) genset
 
 -- | 
-work :: WebDAVConfig -> (WorkSetup HEFTNLO) -> IO ()
+work :: WebDAVConfig -> (WorkSetup SM) -> IO ()
 work wdavcfg wsetup = do 
   r <- flip runReaderT wsetup . runErrorT $ do 
        WS ssetup psetup _ rs _ <- ask                  

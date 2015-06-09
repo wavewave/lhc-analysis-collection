@@ -56,15 +56,15 @@ getScriptSetup = do
 processSetup :: ProcessSetup HEFTNLO
 processSetup = PS {  
     model = HEFTNLO
-  , process = MGProc [] [ "g g > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft" 
-  , workname   = "ttbarheft"
+  , process = MGProc [] [ "g g > h1 > t t~ QED=2 HIG=1 HIW=1" ]
+  , processBrief = "ttbarheft_onlypseudo" 
+  , workname   = "ttbarheft_onlypseudo"
   , hashSalt = HashSalt Nothing
   }
 
--- | 
-pset :: (Double,Double) -> ModelParam HEFTNLO
-pset (m,w) = HEFTNLOParam m w
+-- |
+pset :: (Double,Double,Double,Double) -> ModelParam HEFTNLO
+pset (mh,wh,ma,wa) = HEFTNLOParam mh wh ma wa
 
 -- | 
 rsetup :: Double -> Int -> RunSetup
@@ -83,14 +83,14 @@ rsetup sqrts n =
        } 
 
 -- | 
-getWSetup :: (Double,Int) -> IO (WorkSetup HEFTNLO)
-getWSetup (sqrts,n) = WS <$> getScriptSetup 
+getWSetup :: (Double,Double) -> (Double,Int) -> IO (WorkSetup HEFTNLO)
+getWSetup (m,gamma) (sqrts,n) = WS <$> getScriptSetup 
                         <*> pure processSetup 
-                        <*> pure (pset (400,3.3))
+                        <*> pure (pset (2000,10,m,gamma))
                         <*> pure (rsetup sqrts n)
                         <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test")
 
-genset = [ (sqrts,n) | sqrts <- [350,352..550] {-  ,420..1000] -} ,  n <- [1] ]
+genset = [ (sqrts,n) | sqrts <- [370,374..850],  n <- [1] ]
 
 rdir :: WebDAVRemoteDir
 rdir = WebDAVRemoteDir "newtest2"
@@ -102,9 +102,9 @@ checkAndDownload cfg rdir fpath = do
     liftIO $ downloadFile False cfg rdir fpath 
     liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
 
-readxsec :: Handle -> Double -> IO ()
-readxsec h sqrts = do
-  ws1 <- getWSetup (sqrts,1)
+readxsec :: Handle -> (Double,Double) -> Double -> IO ()
+readxsec h (m,gamma) sqrts = do
+  ws1 <- getWSetup (m,gamma) (sqrts,1)
   let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
   let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
       pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
@@ -118,6 +118,8 @@ readxsec h sqrts = do
     hPutStrLn h (show sqrts ++ " " ++ show r)
 
 main = do
-  withFile "myresult.dat" WriteMode $ \h -> do
-    mapM_ (readxsec h) [350,352..488]
+  let (m,gamma) = (400,11.82) -- (400,2.97)-- (500,11.1) -- (400,3.3) -- (500,11.1)
+      filename = "xsecptn_only_MA" ++ show m ++ "GA" ++ show gamma ++ ".dat"
+  withFile filename WriteMode $ \h -> do
+    mapM_ (readxsec h (m,gamma)) [350,352..550] -- [350,354..600]
 
