@@ -101,7 +101,7 @@ prepare sqrts = do
       rname = makeRunName psetup pset (rsetup sqrts 1)
       fname = rname ++ "_pgs_events.lhco.gz"
   runMaybeT $ do 
-    checkAndDownload wdavcfg rdir fname
+    -- checkAndDownload wdavcfg rdir fname
     return fname
 
 parseLHCO fpath = do 
@@ -126,19 +126,29 @@ fileName n =
                          n <- [200,400..3000], let rname = makeRunName psetup pset (rsetup (fromIntegral n) 1) ] 
 -}
 
+ptrange e eta = let pt0 = e / cosh eta
+                in (pt0*0.5, pt0*1.5)
+
 analysis1File :: Handle -> Int -> IO ()
 analysis1File hdl n = do
     Just fname <- prepare (fromIntegral n) -- 200
-    h1 <- HROOT.newTH1F "h025" "h025" 100 0 200
-    h2 <- HROOT.newTH1F "h073" "h073" 100 0 200
-    h3 <- HROOT.newTH1F "h120" "h120" 100 0 200
-    h4 <- HROOT.newTH1F "h170" "h170" 100 0 200
-    h5 <- HROOT.newTH1F "h220" "h220" 100 0 200
-    f1 <- HROOT.newTF1 "f025" "gaus" 0 1000
-    f2 <- HROOT.newTF1 "f073" "gaus" 0 1000
-    f3 <- HROOT.newTF1 "f120" "gaus" 0 1000
-    f4 <- HROOT.newTF1 "f170" "gaus" 0 1000
-    f5 <- HROOT.newTF1 "f220" "gaus" 0 1000
+    let e = fromIntegral n * 0.5
+        (pt1_025,pt2_025) = ptrange e 0.25
+        (pt1_073,pt2_073) = ptrange e 0.73
+        (pt1_120,pt2_120) = ptrange e 1.20
+        (pt1_170,pt2_170) = ptrange e 1.70
+        (pt1_220,pt2_220) = ptrange e 2.20
+         
+    h1 <- HROOT.newTH1F "h025" "h025" 100 pt1_025 pt2_025
+    h2 <- HROOT.newTH1F "h073" "h073" 100 pt1_073 pt2_073
+    h3 <- HROOT.newTH1F "h120" "h120" 100 pt1_120 pt2_120
+    h4 <- HROOT.newTH1F "h170" "h170" 100 pt1_170 pt2_170
+    h5 <- HROOT.newTH1F "h220" "h220" 100 pt1_220 pt2_220
+    f1 <- HROOT.newTF1 "f025" "gaus" 0 2000
+    f2 <- HROOT.newTF1 "f073" "gaus" 0 2000
+    f3 <- HROOT.newTF1 "f120" "gaus" 0 2000
+    f4 <- HROOT.newTF1 "f170" "gaus" 0 2000
+    f5 <- HROOT.newTF1 "f220" "gaus" 0 2000
 
     runEffect $ 
       parseLHCO fname 
@@ -151,7 +161,12 @@ analysis1File hdl n = do
       >-> PPrelude.tee (PPrelude.filter (etaSlice 1.7  0.05) >-> record h4 _2 >-> PPrelude.drain)
       >-> PPrelude.tee (PPrelude.filter (etaSlice 2.2  0.05) >-> record h5 _2 >-> PPrelude.drain)
       >-> PPrelude.drain
-    mapM_ (\(h,f) -> HROOT.fit h f "" "" 0 200) [ (h1,f1), (h2,f2), (h3,f3), (h4,f4), (h5,f5) ]
+    mapM_ (\(h,f,x1,x2) -> HROOT.fit h f "" "" x1 x2) 
+      [ (h1,f1,pt1_025,pt2_025)
+      , (h2,f2,pt1_073,pt2_073)
+      , (h3,f3,pt1_120,pt2_120)
+      , (h4,f4,pt1_170,pt2_170)
+      , (h5,f5,pt1_220,pt2_220) ]
     (mean1,sigma1) <- (,) <$> getMean f1 <*> getSigma f1
     (mean2,sigma2) <- (,) <$> getMean f2 <*> getSigma f2
     (mean3,sigma3) <- (,) <$> getMean f3 <*> getSigma f3
