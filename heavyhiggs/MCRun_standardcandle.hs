@@ -60,7 +60,7 @@ pset = SMParam
 rsetup :: Double -> Int -> RunSetup
 rsetup sqrts n = 
     RS { numevent = 100000
-       , machine = Parton (0.5*sqrts) ATLAS -- LHC14 ATLAS
+       , machine = Parton (0.5*sqrts) Tevatron -- ATLAS -- LHC14 ATLAS
        , rgrun   = Fixed 
        , rgscale = 200.0
        , match   = NoMatch
@@ -80,7 +80,7 @@ getWSetup (sqrts,n) = WS <$> getScriptSetup
                         <*> pure (rsetup sqrts n)
                         <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/standardcandle")
 
-genset = [ (sqrts,n) | sqrts <- [200,400..3000],  n <- [1] ]
+genset = [ (sqrts,n) | sqrts <- [100,200..1500],  n <- [1] ]
 
 preparedir = do
   workdir <- getEnv "WORKDIR" 
