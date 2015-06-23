@@ -81,36 +81,39 @@ checkAndDownload cfg rdir fpath = do
     liftIO $ downloadFile False cfg rdir fpath 
     liftIO $ putStrLn $ fpath ++ " is successfully downloaded"
 
-data CutChoice = CutChoice { choice_ptj1 :: Double
-                           , choice_ptj2 :: Double
+data CutChoice = CutChoice { choice_ptj1  :: Double
+                           , choice_ptj2  :: Double
                            , choice_ptj34 :: Double
-                           , choice_ptl :: Double
-                           , choice_deta :: Double
+                           , choice_ptl   :: Double
+                           , choice_ht    :: Double
+                           , choice_deta  :: Double
                            }
 
                deriving (Show,Eq,Ord)
---            j1       j2       j34      ptl     deta
-type CCO = [(Double,[(Double,[(Double,[(Double,[Double])])])])]
+--            j1       j2       j34      ptl      hT      deta
+type CCO = [(Double,[(Double,[(Double,[(Double,[(Double,[Double])])])])])]
 
 
 -- testht     = [500,1000,1500] -- [400,500..800]
 
 testdeta   = [0, 1.5, 3.0, 4.5] 
-testl      = map (\x->(x,testdeta)) [0,5..20]
-testj34 j2 = map (\x->(x,testl)) [20,30..if j2 > 80 then 80 else j2]
-testj2  j1 = map (\x->(x,testj34 x)) [30,40..if j1 > 90 then 90 else j1]
-testj1     = map (\x->(x,testj2 x)) [70,80..180]
+testh      = map (\x->(x,testdeta)) [500,1000,1500]
+testl      = map (\x->(x,testh)) [0,10..40]
+testj34 j2 = map (\x->(x,testl)) [20,40..if j2 > 100 then 100 else j2]
+testj2  j1 = map (\x->(x,testj34 x)) [20,40..if j1 > 100 then 100 else j1]
+testj1     = map (\x->(x,testj2 x)) [50,100..300]
 
 data CounterState1 = 
-       CounterState1      { _counterFull :: Int
-                          , _counterPass1 :: Int
-                          , _counterPass2 :: Int
-                          , _counterPass3 :: Int
-                          , _counterPass4 :: Int
-                          , _counterPass5 :: Int
-                          , _counterBjet1 :: Int
-                          , _counterBjet2 :: Int
-                          , _counterBjet3 :: Int
+       CounterState1      { _counterFull :: !Int
+                          , _counterPass1 :: !Int
+                          , _counterPass2 :: !Int
+                          , _counterPass3 :: !Int
+                          , _counterPass4 :: !Int
+                          , _counterPass5 :: !Int
+                          , _counterPass6 :: !Int
+                          , _counterBjet1 :: !Int
+                          , _counterBjet2 :: !Int
+                          , _counterBjet3 :: !Int
                           } deriving (Show,Eq,Ord)
 
 emptyCS1 = CounterState1 0 0 0 0 0 0 0 0 0 
@@ -123,9 +126,10 @@ data TotalCS = TotalCS { _fullNum :: Int
                        , _cut3Map :: M.Map (Double,Double,Double) Int
                        , _cut4Map :: M.Map (Double,Double,Double,Double) Int
                        , _cut5Map :: M.Map (Double,Double,Double,Double,Double) Int
-                       , _b1Map :: M.Map (Double,Double,Double,Double,Double) Int
-                       , _b2Map :: M.Map (Double,Double,Double,Double,Double) Int
-                       , _b3Map :: M.Map (Double,Double,Double,Double,Double) Int
+                       , _cut6Map :: M.Map (Double,Double,Double,Double,Double,Double) Int
+                       , _b1Map :: M.Map (Double,Double,Double,Double,Double,Double) Int
+                       , _b2Map :: M.Map (Double,Double,Double,Double,Double,Double) Int
+                       , _b3Map :: M.Map (Double,Double,Double,Double,Double,Double) Int
                        , _cutStateMap :: M.Map CutChoice CounterState1 
                        }
              deriving (Show,Eq,Ord)
@@ -133,7 +137,7 @@ data TotalCS = TotalCS { _fullNum :: Int
 makeLenses ''TotalCS
 
 emptyTCS :: CCO -> TotalCS
-emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty
+emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 m6 mb1 mb2 mb3 M.empty
   where j1j2 = do
           cco <- ccos
           let j1 = fst cco
@@ -158,7 +162,7 @@ emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty
           ls <- snd j34s
           let l = fst ls           
           return (j1,j2,j34,l)
-        j1j2j34ldeta = do
+        j1j2j34lh = do
           cco <- ccos
           let j1 = fst cco
           j2s <- snd cco
@@ -167,21 +171,37 @@ emptyTCS ccos = TotalCS 0 m1 m2 m3 m4 m5 mb1 mb2 mb3 M.empty
           let j34 = fst j34s
           ls <- snd j34s
           let l = fst ls           
-          deta <- snd ls
-          return (j1,j2,j34,l,deta)
+          hs <- snd ls
+          let h = fst hs
+          return (j1,j2,j34,l,h)
+        j1j2j34lhdeta = do
+          cco <- ccos
+          let j1 = fst cco
+          j2s <- snd cco
+          let j2 = fst j2s
+          j34s <- snd j2s
+          let j34 = fst j34s
+          ls <- snd j34s
+          let l = fst ls           
+          hs <- snd ls
+          let h = fst hs
+          deta <- snd hs
+          return (j1,j2,j34,l,h,deta)
+
 
         m1 = foldr (\k->M.insert k 0) M.empty (map fst ccos)
         m2 = foldr (\k->M.insert k 0) M.empty j1j2
         m3 = foldr (\k->M.insert k 0) M.empty j1j2j34
         m4 = foldr (\k->M.insert k 0) M.empty j1j2j34l
-        m5 = foldr (\k->M.insert k 0) M.empty j1j2j34ldeta
-        mb1 = m5
-        mb2 = m5
-        mb3 = m5 
+        m5 = foldr (\k->M.insert k 0) M.empty j1j2j34lh
+        m6 = foldr (\k->M.insert k 0) M.empty j1j2j34lhdeta
+        mb1 = m6
+        mb2 = m6
+        mb3 = m6 
 
    
 mkChoices :: CCO -> [CutChoice] 
-mkChoices ccos  = [CutChoice j1 j2 j34 l deta | (j1,j2,j34,l,deta) <- j1j2j34ldeta ]
+mkChoices ccos  = [CutChoice j1 j2 j34 l h deta | (j1,j2,j34,l,h,deta) <- j1j2j34ldeta ]
   where j1j2j34ldeta = do
           cco <- ccos
           let j1 = fst cco
@@ -191,9 +211,10 @@ mkChoices ccos  = [CutChoice j1 j2 j34 l deta | (j1,j2,j34,l,deta) <- j1j2j34lde
           let j34 = fst j34s
           ls <- snd j34s
           let l = fst ls           
-          deta <- snd ls
-          return (j1,j2,j34,l,deta)
-
+          hs <- snd ls
+          let h = fst hs
+          deta <- snd hs
+          return (j1,j2,j34,l,h,deta)
 
 work :: [FilePath] -> CCO -> IO TotalCS
 work fpaths ccos = do
@@ -209,7 +230,7 @@ work fpaths ccos = do
              hin <- liftIO $ openFile fpath ReadMode
              pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
              liftIO $ hClose hin 
-           >-> PPrelude.take 1000
+           -- >-> PPrelude.take 100
            >-> PPrelude.tee (countmark 100 0 >-> PPrelude.drain)
            >-> PPrelude.map (((,,) <$> filterEtaRange . mergeBJetFromNoTauEv <*> id <*> id) . mkPhyEventNoTau)
            >-> analysisL0 tcsref ccos
@@ -237,18 +258,23 @@ work fpaths ccos = do
       >-> PPrelude.filter (isJust.view _2) >-> PPrelude.tee (countM1 ref (cut3Map.at (j1,j2,j34)))
       >-> foldr1 (>->) (map (PPrelude.tee . analysisL4 ref j1 j2 j34) ls)
       >-> PPrelude.drain
-    analysisL4 ref j1 j2 j34 (l,detas) = 
+    analysisL4 ref j1 j2 j34 (l,hs) = 
       PPrelude.map (\(ev,r)->(ev,(ptlcut l . view _1) ev))
       >-> PPrelude.filter (view _2) >-> PPrelude.tee (countM1 ref (cut4Map.at (j1,j2,j34,l)))
-      >-> foldr1 (>->) (map (PPrelude.tee . analysisL5 ref j1 j2 j34 l) detas)
+      >-> foldr1 (>->) (map (PPrelude.tee . analysisL5 ref j1 j2 j34 l) hs)
       >-> PPrelude.drain
-    analysisL5 ref j1 j2 j34 l deta = 
+    analysisL5 ref j1 j2 j34 l (h,detas) =  
+      PPrelude.map (\(ev,r)->(ev,(htcut h . view _1) ev))
+      >-> PPrelude.filter (view _2) >-> PPrelude.tee (countM1 ref (cut5Map.at (j1,j2,j34,l,h)))
+      >-> foldr1 (>->) (map (PPrelude.tee . analysisL6 ref j1 j2 j34 l h) detas)
+      >-> PPrelude.drain
+    analysisL6 ref j1 j2 j34 l h deta =  
       PPrelude.map (\(ev,r)->(ev,(detacut deta . view _1) ev))
-      >-> PPrelude.filter (view _2) >-> PPrelude.tee (countM1 ref (cut5Map.at (j1,j2,j34,l,deta)))
+      >-> PPrelude.filter (view _2) >-> PPrelude.tee (countM1 ref (cut6Map.at (j1,j2,j34,l,h,deta)))
       >-> PPrelude.map (\(ev,r)->(ev, numOfB (view _2 ev)))
-      >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (countM1 ref (b1Map.at (j1,j2,j34,l,deta)))
-      >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (countM1 ref (b2Map.at (j1,j2,j34,l,deta)))
-      >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (countM1 ref (b3Map.at (j1,j2,j34,l,deta)))
+      >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (countM1 ref (b1Map.at (j1,j2,j34,l,h,deta)))
+      >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (countM1 ref (b2Map.at (j1,j2,j34,l,h,deta)))
+      >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (countM1 ref (b3Map.at (j1,j2,j34,l,h,deta)))
       >-> PPrelude.drain
      
     
@@ -257,12 +283,12 @@ count :: IORef TotalCS -> Simple Lens TotalCS Int -> Consumer a IO ()
 count ref l = forever $ do 
                 await 
                 m <- lift (readIORef ref)
-                let !y = m `seq` view l m
+                let !y = view l m
                     !m' = set l (y+1) m 
-                lift (writeIORef ref m')
+                lift (writeIORef ref m') 
                 -- lift (put m')
 
-
+{-
 countm :: IORef TotalCS -> CutChoice -> Simple Lens CounterState1 Int -> Consumer a IO ()
 countm ref c l = forever $ do 
                    await 
@@ -272,19 +298,20 @@ countm ref c l = forever $ do
                    case mx of
                      Nothing -> error "no map"
                      Just x -> do
-                       let !y = m `seq` view l x
+                       let !y = view l x
                        let !x' = set l (y+1) x 
                            m' = M.update (const (Just x')) c m
-                       lift (writeIORef ref (set cutStateMap m' tcs))
+                       lift (writeIORef ref (set cutStateMap m' tcs)) 
+-}
 
 countM1 :: IORef TotalCS -> Simple Lens TotalCS (Maybe Int) -> Consumer a IO ()
 countM1 ref l = forever $ do 
                   await 
                   tcs <- lift (readIORef ref)
-                  let mx = view l tcs 
+                  let !mx = view l tcs 
                   case mx of
                     Nothing -> error "no map"
-                    Just x -> do
+                    Just !x -> do
                       let !tcs' = set l (Just (x+1)) tcs 
                       lift (writeIORef ref tcs')
 
@@ -341,14 +368,11 @@ detacut c e = let deta = deltaeta e
               in deta > c
 
 
-{- 
+
 htcut :: Double -> PhyEventNoTauNoBJet -> Bool 
 htcut v ev = let ptlst = jetpts ev
-                 ht6 = sum ptlst -- (take 6 ptlst)
+                 ht6 = sum (take 6 ptlst)
              in ht6 > v
--}
-
-
 
 
 
@@ -364,17 +388,19 @@ countmark marker n = go n
 
 format :: CutChoice -> TotalCS -> String
 format cut@CutChoice {..} tcs =
-    printf "%6.1f %6.1f %6.1f %6.1f %6.1f %7d %7d %7d %7d %7d %7d %7d %7d %7d" choice_ptj1 choice_ptj2 choice_ptj34 choice_ptl choice_deta full c1 c2 c3 le ht b1 b2 b3
+    printf "%6.1f %6.1f %6.1f %6.1f %6.1f %6.1f   %7d %7d %7d %7d %7d %7d %7d %7d %7d %7d" choice_ptj1 choice_ptj2 choice_ptj34 choice_ptl choice_ht choice_deta full c1 c2 c3 le ht deta b1 b2 b3
   where Just cs = view (cutStateMap.at cut) tcs
         full = view fullNum tcs
         Just c1 = view (cut1Map.at choice_ptj1) tcs
         Just c2 = view (cut2Map.at (choice_ptj1,choice_ptj2)) tcs
         Just c3 = view (cut3Map.at (choice_ptj1,choice_ptj2,choice_ptj34)) tcs
         Just le = view (cut4Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl)) tcs
-        Just ht = view (cut5Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_deta)) tcs
-        Just b1 = view (b1Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_deta)) tcs
-        Just b2 = view (b2Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_deta)) tcs
-        Just b3 = view (b3Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_deta)) tcs
+        Just ht = view (cut5Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_ht)) tcs
+        Just deta = view (cut6Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_ht,choice_deta)) tcs
+
+        Just b1 = view (b1Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_ht,choice_deta)) tcs
+        Just b2 = view (b2Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_ht,choice_deta)) tcs
+        Just b3 = view (b3Map.at (choice_ptj1,choice_ptj2,choice_ptj34,choice_ptl,choice_ht,choice_deta)) tcs
 
 
 
@@ -393,9 +419,12 @@ main = do
 
     let filename = resultdir </> rname' ++ "_cut_count_wdeta.dat"
     withFile filename WriteMode $ \h -> do
-        sets <- map (eventdir </>) <$> mapM (prepare HeavyHiggs2T2BInnerTop.getWSetup) set1
-        tcs <- work sets testj1
-        mapM_ (hPutStrLn h . flip format tcs) (mkChoices testj1) -- (sort (mkChoices testj1)) 
+      sets <- map (eventdir </>) <$> mapM (prepare HeavyHiggs2T2BInnerTop.getWSetup) set1
+      tcs <- work sets testj1
+      hPutStrLn h "====================================================================================================================================="
+      hPutStrLn h " pt_j1     j2    j34   pt_l   H_T    deta  ||  full   cutj1   cutj2  cutj34    cutl   cutHT cutdeta   bjet1   bjet2   bjet3   "
+      hPutStrLn h "-------------------------------------------------------------------------------------------------------------------------------------"
+      mapM_ (hPutStrLn h . flip format tcs) (mkChoices testj1) -- (sort (mkChoices testj1)) 
 
 
 
