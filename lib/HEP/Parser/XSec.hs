@@ -26,7 +26,8 @@ p_xsec_lhe = do
   (try (do string "  Integrated weight (pb)  :" 
            skipSpace
            str <- manyTill anyChar (char '\n')
-           return (read ('0':str))
+           let (x:xs) = str
+           if x == '-' then return (read (x:'0':xs)) else return (read ('0':str))
        )
  
    <|> p_xsec_lhe )

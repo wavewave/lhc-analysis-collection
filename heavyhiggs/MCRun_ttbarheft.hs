@@ -4,6 +4,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader 
 import Control.Monad.Error
+import Data.List ((\\))
 import System.Directory
 import System.Environment
 import System.FilePath 
@@ -50,9 +51,9 @@ getScriptSetup = do
 processSetup :: ProcessSetup HEFTNLO
 processSetup = PS {  
     model = HEFTNLO
-  , process = MGProc [] [ "g g > h1 > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft_onlypseudo" 
-  , workname   = "ttbarheft_onlypseudo"
+  , process = MGProc [] [ "g g > t t~ QED=2 HIG=1 HIW=1" ]
+  , processBrief = "ttbarheft_full" 
+  , workname   = "ttbarheft_full"
   , hashSalt = HashSalt Nothing
   }
 
@@ -82,9 +83,9 @@ getWSetup (sqrts,n) = WS <$> getScriptSetup
                         <*> pure processSetup 
                         <*> pure (pset (2000,10,400,11.82))
                         <*> pure (rsetup sqrts n)
-                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test")
+                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test_fake")
 
-genset = [ (sqrts,n) | sqrts <- [370,374..510],  n <- [1] ]
+genset = [ (sqrts,n) | sqrts <- ([370,374..510] {- [370,371..510] \\ [370,374..510] -}) ,  n <- [1] ]
 
 preparedir = do
   workdir <- getEnv "WORKDIR" 
@@ -102,8 +103,8 @@ preparedir = do
 main :: IO ()
 main = do 
   preparedir
-  let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
-      pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
+  let pkey = "/home/wavewave/temp/madgraph/priv.txt"
+      pswd = "/home/wavewave/temp/madgraph/cred.txt"
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
   let wdavcfg = WebDAVConfig cr whost
@@ -119,6 +120,8 @@ work wdavcfg wsetup = do
            wn = workname psetup  
        b <- liftIO $ (doesDirectoryExist (wb </> wn))
        when (not b) $ createWorkDir ssetup psetup
+
+       liftIO $ prepareMatrix1f (wb </> wn)
        cardPrepare           
        generateEvents   
        case (lhesanitizer rs, pythia rs) of
@@ -139,3 +142,9 @@ work wdavcfg wsetup = do
     Right _ -> do EV.uploadEventFull NoUploadHEP wdavcfg wsetup 
                   EV.uploadJSON wdavcfg wsetup 
   return () 
+
+prepareMatrix1f :: FilePath -> IO ()
+prepareMatrix1f fp = do
+  let matrix1f = "/home/wavewave/temp/madgraph/matrix1.f"
+  b <- doesFileExist matrix1f
+  when b $ copyFile "/home/wavewave/temp/madgraph/matrix1.f" (fp </> "SubProcesses" </> "P0_gg_ttx" </> "matrix1.f") 

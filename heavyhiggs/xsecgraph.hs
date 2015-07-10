@@ -56,9 +56,9 @@ getScriptSetup = do
 processSetup :: ProcessSetup HEFTNLO
 processSetup = PS {  
     model = HEFTNLO
-  , process = MGProc [] [ "g g > h1 > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft_onlypseudo" 
-  , workname   = "ttbarheft_onlypseudo"
+  , process = MGProc [] [ "g g > t t~ QED=2 HIG=1 HIW=1" ]
+  , processBrief = "ttbarheft_full" 
+  , workname   = "ttbarheft_full"
   , hashSalt = HashSalt Nothing
   }
 
@@ -88,9 +88,8 @@ getWSetup (m,gamma) (sqrts,n) = WS <$> getScriptSetup
                         <*> pure processSetup 
                         <*> pure (pset (2000,10,m,gamma))
                         <*> pure (rsetup sqrts n)
-                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test")
+                        <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test_fake")
 
-genset = [ (sqrts,n) | sqrts <- [370,374..850],  n <- [1] ]
 
 rdir :: WebDAVRemoteDir
 rdir = WebDAVRemoteDir "newtest2"
@@ -106,12 +105,12 @@ readxsec :: Handle -> (Double,Double) -> Double -> IO ()
 readxsec h (m,gamma) sqrts = do
   ws1 <- getWSetup (m,gamma) (sqrts,1)
   let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
-  let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
-      pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
+  let pkey = "/home/wavewave/temp/madgraph/priv.txt"
+      pswd = "/home/wavewave/temp/madgraph/cred.txt"
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
       wdavcfg = WebDAVConfig cr whost
-      wdavrdir = WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test"
+      wdavrdir = WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test_fake"
   mr <- xsec XSecLHE wdavcfg wdavrdir rname
   F.forM_ mr $ \r -> do
     print (sqrts,r)
@@ -119,7 +118,7 @@ readxsec h (m,gamma) sqrts = do
 
 main = do
   let (m,gamma) = (400,11.82) -- (400,2.97)-- (500,11.1) -- (400,3.3) -- (500,11.1)
-      filename = "xsecptn_only_MA" ++ show m ++ "GA" ++ show gamma ++ ".dat"
+      filename = "xsecptn_resonanceonly_MA" ++ show m ++ "GA" ++ show gamma ++ ".dat"
   withFile filename WriteMode $ \h -> do
-    mapM_ (readxsec h (m,gamma)) [350,352..550] -- [350,354..600]
+    mapM_ (readxsec h (m,gamma)) [370,374..510] --  [370,371..510] -- [370,378..510] -- [350,354..600]
 
