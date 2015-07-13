@@ -52,8 +52,8 @@ processSetup :: ProcessSetup HEFTNLO
 processSetup = PS {  
     model = HEFTNLO
   , process = MGProc [] [ "g g > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft_full" 
-  , workname   = "ttbarheft_full"
+  , processBrief = "ttbarheft_scalar_fullfinal" 
+  , workname   = "ttbarheft_scalar_fullfinal"
   , hashSalt = HashSalt Nothing
   }
 
@@ -77,15 +77,18 @@ rsetup sqrts n =
        , setnum  = n
        } 
 
+mass = 500
+width = 11.08
+
 -- | 
 getWSetup :: (Double,Int) -> IO (WorkSetup HEFTNLO)
 getWSetup (sqrts,n) = WS <$> getScriptSetup 
                         <*> pure processSetup 
-                        <*> pure (pset (2000,10,400,11.82))
+                        <*> pure (pset (mass, width,2000,10)) 
                         <*> pure (rsetup sqrts n)
                         <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test_fake")
 
-genset = [ (sqrts,n) | sqrts <- ([370,374..510] {- [370,371..510] \\ [370,374..510] -}) ,  n <- [1] ]
+genset = [ (sqrts,n) | sqrts <- [451,455..651] {- [502,506..702] -} ,  n <- [1] ]
 
 preparedir = do
   workdir <- getEnv "WORKDIR" 

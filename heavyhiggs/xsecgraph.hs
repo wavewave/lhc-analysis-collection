@@ -57,8 +57,8 @@ processSetup :: ProcessSetup HEFTNLO
 processSetup = PS {  
     model = HEFTNLO
   , process = MGProc [] [ "g g > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft_full" 
-  , workname   = "ttbarheft_full"
+  , processBrief = "ttbarheft_scalar_fullfinal" 
+  , workname   = "ttbarheft_scalar_fullfinal"
   , hashSalt = HashSalt Nothing
   }
 
@@ -86,7 +86,7 @@ rsetup sqrts n =
 getWSetup :: (Double,Double) -> (Double,Int) -> IO (WorkSetup HEFTNLO)
 getWSetup (m,gamma) (sqrts,n) = WS <$> getScriptSetup 
                         <*> pure processSetup 
-                        <*> pure (pset (2000,10,m,gamma))
+                        <*> pure (pset (m,gamma,2000,10) {- (2000,10,m,gamma) -})
                         <*> pure (rsetup sqrts n)
                         <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test_fake")
 
@@ -117,8 +117,8 @@ readxsec h (m,gamma) sqrts = do
     hPutStrLn h (show sqrts ++ " " ++ show r)
 
 main = do
-  let (m,gamma) = (400,11.82) -- (400,2.97)-- (500,11.1) -- (400,3.3) -- (500,11.1)
-      filename = "xsecptn_resonanceonly_MA" ++ show m ++ "GA" ++ show gamma ++ ".dat"
+  let (m,gamma) = (500,11.08) -- (400,2.97) -- (600,28.88) -- (400,11.82) -- (500,11.1) -- (400,3.3) -- (500,11.1)
+      filename = "xsecptn_fullfinal_MH" ++ show m ++ "GH" ++ show gamma ++ ".dat"
   withFile filename WriteMode $ \h -> do
-    mapM_ (readxsec h (m,gamma)) [370,374..510] --  [370,371..510] -- [370,378..510] -- [350,354..600]
+    mapM_ (readxsec h (m,gamma)) [451,455..651]  {- [370,374..510]  -} {- [502,506..702] -} 
 
