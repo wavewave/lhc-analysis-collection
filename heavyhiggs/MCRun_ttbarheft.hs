@@ -51,9 +51,13 @@ getScriptSetup = do
 processSetup :: ProcessSetup HEFTNLO
 processSetup = PS {  
     model = HEFTNLO
-  , process = MGProc [] [ "g g > t t~ QED=2 HIG=1 HIW=1" ]
-  , processBrief = "ttbarheft_scalar_fullfinal" 
-  , workname   = "ttbarheft_scalar_fullfinal"
+  , process = MGProc [] [ "p p > t t~ / a z w+ w- QCD=99 QED=99 HIG=1 HIW=1 , (t > w+ b , w+ > u d~ ) , ( t~ > w- b~, w- > u~ d) " 
+                        , "p p > t t~ j / a z w+ w- QCD=99 QED=99 HIG=1 HIW=1, (t > w+ b, w+ > u d~ ), ( t~ > w- b~, w- > u~ d) "
+                        , "p p > t t~ j j / a z w+ w- QCD=99 QED=99 HIG=1 HIW=1, (t > w+ b, w+ > u d~ ), ( t~ > w- b~, w- > u~ d) "
+ 
+                        ]
+  , processBrief = "ttbarheft_decay_hadsimple" 
+  , workname   = "ttbarheft_decay_hadsimple"
   , hashSalt = HashSalt Nothing
   }
 
@@ -65,12 +69,12 @@ pset (mh,wh,ma,wa) = HEFTNLOParam mh wh ma wa
 rsetup :: Double -> Int -> RunSetup
 rsetup sqrts n = 
     RS { numevent = 10000
-       , machine = Parton (0.5*sqrts) ATLAS -- LHC14 ATLAS
+       , machine = LHC14 ATLAS -- Parton (0.5*sqrts) ATLAS -- 
        , rgrun   = Fixed 
        , rgscale = 200.0
-       , match   = NoMatch
-       , cut     = NoCut -- DefCut 
-       , pythia  = NoPYTHIA --  RunPYTHIA 
+       , match   = MLM -- NoMatch
+       , cut     = DefCut -- NoCut --  
+       , pythia  = RunPYTHIA -- NoPYTHIA --   
        , lhesanitizer = [] 
        , pgs     = NoPGS -- RunPGS (Cone 0.4, WithTau)
        , uploadhep = NoUploadHEP

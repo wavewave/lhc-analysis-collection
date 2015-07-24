@@ -50,9 +50,12 @@ getScriptSetup = do
 processSetup :: ProcessSetup SM
 processSetup = PS {  
     model = SM
-  , process = MGProc [] [ "g g > t t~ QED=0" ]
-  , processBrief = "ttbarQCD" 
-  , workname   = "ttbarQCD"
+  , process = MGProc [] [ "p p > t t~ QED=0" 
+                        , "p p > t t~ j QED=0"
+                        , "p p > t t~ j j QED=0"
+                        ]
+  , processBrief = "pptt012j" 
+  , workname   = "pptt012j"
   , hashSalt = HashSalt Nothing
   }
 
@@ -61,30 +64,31 @@ pset :: ModelParam SM
 pset = SMParam
 
 -- | 
-rsetup :: Double -> Int -> RunSetup
-rsetup sqrts n = 
+rsetup :: {- Double -> Int -> -} RunSetup
+rsetup {- sqrts n  -} = 
     RS { numevent = 10000
-       , machine = Parton (0.5*sqrts) ATLAS -- LHC14 ATLAS
+       , machine = LHC14 ATLAS -- Parton (0.5*sqrts) ATLAS -- LHC14 ATLAS
        , rgrun   = Auto 
        , rgscale = 200.0
-       , match   = NoMatch
-       , cut     = NoCut -- DefCut 
-       , pythia  = NoPYTHIA --  RunPYTHIA 
+       , match   = MLM -- NoMatch
+       , cut     = DefCut -- NoCut -- DefCut 
+       , pythia  = RunPYTHIA -- NoPYTHIA --  RunPYTHIA 
        , lhesanitizer = [] 
-       , pgs     = NoPGS -- RunPGS (Cone 0.4, WithTau)
+       , pgs     = NoPGS -- RunPGS (Cone 0.4, WithTau) -- NoPGS
        , uploadhep = NoUploadHEP
-       , setnum  = n
+       , setnum  = 1 -- n
        } 
 
 -- | 
-getWSetup :: (Double,Int) -> IO (WorkSetup SM)
-getWSetup (sqrts,n) = WS <$> getScriptSetup 
+getWSetup :: {- (Double,Int) -> -} IO (WorkSetup SM)
+getWSetup {- (sqrts,n) -} = WS <$> getScriptSetup 
                         <*> pure processSetup 
                         <*> pure pset
-                        <*> pure (rsetup sqrts n)
+                        <*> pure rsetup -- pure (rsetup sqrts n)
                         <*> pure (WebDAVRemoteDir "montecarlo/HeavyHiggs/interfere_test")
 
-genset = [ (sqrts,n) | sqrts <- [350,360..850] {-  ,420..1000] -} ,  n <- [1] ]
+-- genset = [ (sqrts,n) | sqrts <- [350,360..850] {-  ,420..1000] -} ,  n <- [1] ]
+
 
 preparedir = do
   workdir <- getEnv "WORKDIR" 
@@ -101,14 +105,15 @@ preparedir = do
 
 main :: IO ()
 main = do 
-  preparedir
-  let pkey = "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
-      pswd = "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
+  -- preparedir
+  let pkey = "/home/wavewave/temp/madgraph/priv.txt"
+      pswd = "/home/wavewave/temp/madgraph/cred.txt"
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
   let wdavcfg = WebDAVConfig cr whost
   updateGlobalLogger "MadGraphAuto" (setLevel DEBUG)
-  mapM_ (work wdavcfg <=< getWSetup) genset
+  -- mapM_ 
+  (work wdavcfg =<< getWSetup) -- genset
 
 -- | 
 work :: WebDAVConfig -> (WorkSetup SM) -> IO ()
@@ -129,7 +134,9 @@ work wdavcfg wsetup = do
          (_:_, RunPYTHIA) -> do 
            sanitizeLHE
            runPYTHIA
-           runPGS           
+           case pgs rs of
+             RunPGS _ -> runPGS           
+             _ -> return ()
            runClean         
          (_:_, NoPYTHIA) -> do 
            sanitizeLHE
