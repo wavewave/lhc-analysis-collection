@@ -16,9 +16,9 @@ data EffXsec = EffXsec { mass :: Int
                        , xsec :: Double }
              deriving (Show)
 
-sigfile n = "HeavyHiggsMHH"++show n++".0_2t2b_outertop_LHC14ATLAS_NoMatch_DefCut_Cone0.4_WithTau_cut_count.dat"
+sigfile n = "HeavyHiggsMHH"++show n++".0_fourtop_LHC14ATLAS_NoMatch_DefCut_Cone0.4_WithTau_cut_count_add1.dat"
 
-bkgfile n = "SM_tt012j_LHC14ATLAS_MLM_DefCut_AntiKT0.4_WithTau_set" ++ (show (n*1000 +1)) ++ "to" ++ (show ((n+1)*1000)) ++ "_cut_count.dat"
+bkgfile n = "SM_tt012j_LHC14ATLAS_MLM_DefCut_AntiKT0.4_WithTau_set" ++ (show (n*1000 +1)) ++ "to" ++ (show ((n+1)*1000)) ++ "_cut_count_add1.dat"
 
 parseline :: [String] -> (Int,Int,Double,Double,Double,Double,Double,Double,Double)
 parseline [a,b,c,d,e,f,g,h,i] = (read a,read b,read c,read d,read e,read f,read g,read h,read i)
@@ -51,12 +51,12 @@ normalize (xsec,lum) (x1,x2,x3,x4,x5,y1,y2,y3,y4,y5,y6,y7,y8,y9) =
   where n = xsec*lum
 
 
-brief (x1,x2,x3,x4,x5,y1,y2,y3,y4,y5,y6,y7,y8,y9) = (integerize x1,integerize x2,integerize x3,integerize x4,integerize x5,y7,y8,y9)
+brief (x1,x2,x3,x4,x5,y1,y2,y3,y4,y5,y6,y7,y8,y9) = (integerize x1,integerize x2,integerize x3,integerize x4,integerize x5,y6,y7,y8,y9)
 
 
 
 
-bkg :: Double -> Double -> IO [(Int,Int,Int,Int,Int,Double,Double,Double)]
+bkg :: Double -> Double -> IO [(Int,Int,Int,Int,Int,Double,Double,Double,Double)]
 bkg lum xsec = do
     ls <- getCombinedBkg
     let rs = map (brief . normalize (xsec,lum) . adjust) ls
@@ -67,7 +67,7 @@ getCombinedBkg = do
     lst <- T.forM [0..9] $ \n -> do
       str <- readFile (bkgfile n)
       let ls = lines str
-          rs = map (parseOptOne . words) ls
+          rs = map (parseOptOne . words) . drop 3 $ ls
       return rs
     return (sumAll lst)
 
@@ -105,11 +105,11 @@ adjust (x1,x2,x3,x4,x5,y1,y2,y3,y4,y5,y6,y7,y8,y9) = (x1,x2,x3,x4,x5,adj y1,adj 
               | otherwise = n
 
 
-tupling :: (Int,Int,Int,Int,Int,Double,Double,Double) -> ((Int,Int,Int,Int,Int),(Double,Double,Double))
-tupling (x1,x2,x3,x4,x5,y7,y8,y9) = ((x1,x2,x3,x4,x5),(y7,y8,y9))
+tupling :: (Int,Int,Int,Int,Int,Double,Double,Double,Double) -> ((Int,Int,Int,Int,Int),(Double,Double,Double,Double))
+tupling (x1,x2,x3,x4,x5,y6,y7,y8,y9) = ((x1,x2,x3,x4,x5),(y6,y7,y8,y9))
 
-joinTable :: [(Int,Int,Int,Int,Int,Double,Double,Double)] -> [(Int,Int,Int,Int,Int,Double,Double,Double)] 
-          -> [((Int,Int,Int,Int,Int),((Double,Double,Double),(Double,Double,Double)))]
+joinTable :: [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] -> [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] 
+          -> [((Int,Int,Int,Int,Int),((Double,Double,Double,Double),(Double,Double,Double,Double)))]
 joinTable tbl1 tbl2 = map f lst2
   where 
     lst1 = map tupling tbl1 
@@ -120,31 +120,31 @@ joinTable tbl1 tbl2 = map f lst2
                 Just v0 -> (k,(v0,v))
 
 
-sigoversqrtbkg ((b1,b2,b3),(s1,s2,s3)) = (sbf b1 s1, sbf b2 s2, sbf b3 s3)
+sigoversqrtbkg ((b0,b1,b2,b3),(s0,s1,s2,s3)) = (sbf b0 s0, sbf b1 s1, sbf b2 s2, sbf b3 s3)
   where sbf b s = s / sqrt b
 
-maximum3 (x,y,z) = maximum [x,y,z]
+maximum4 (x,y,z,w) = maximum [x,y,z,w]
 
 
-work :: [(Int,Int,Int,Int,Int,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,Double)
+work :: [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,Double)
 work bkgtbl lum (EffXsec m tb xsec) = do 
     str <- readFile (sigfile m)
     let ls = lines str
-        rs = map (brief . normalize (xsec,lum) . parseOptOne . words) ls
-    let r = maximum . map maximum3 . map sigoversqrtbkg . map snd . joinTable bkgtbl $ rs
+        rs = map (brief . normalize (xsec,lum) . parseOptOne . words) . drop 3 $ ls
+    let r = maximum . map maximum4 . map sigoversqrtbkg . map snd . joinTable bkgtbl $ rs
     return (m,tb,r)
 
-data BJetChoice = BJet1 | BJet2 | BJet3 deriving Show
+data BJetChoice = BJet0 | BJet1 | BJet2 | BJet3 deriving Show
 
-work2 :: [(Int,Int,Int,Int,Int,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,[(Double,(Int,Int,Int,Int,Int),BJetChoice)])
+work2 :: [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,[(Double,(Int,Int,Int,Int,Int),BJetChoice)])
 work2 bkgtbl lum (EffXsec m tb xsec) = do 
     str <- readFile (sigfile m)
     let ls = lines str
-        rs = map (brief . normalize (xsec,lum) . parseOptOne . words) ls
+        rs = map (brief . normalize (xsec,lum) . parseOptOne . words) . drop 3 $ ls
         bkgsigtbl = joinTable bkgtbl rs
     let f x = let bkgsig = snd x
-                  (ssqrtb1,ssqrtb2,ssqrtb3) = sigoversqrtbkg bkgsig
-               in [(ssqrtb1,fst x,BJet1),(ssqrtb2,fst x,BJet2),(ssqrtb3,fst x,BJet3)]
+                  (ssqrtb0,ssqrtb1,ssqrtb2,ssqrtb3) = sigoversqrtbkg bkgsig
+               in [(ssqrtb0,fst x,BJet0),(ssqrtb1,fst x,BJet1),(ssqrtb2,fst x,BJet2),(ssqrtb3,fst x,BJet3)]
         results = sortBy (flip compare `on` (view _1)) . concatMap f $ bkgsigtbl
     return (m,tb,results)
 
@@ -176,7 +176,8 @@ format tanb [x40,x45,x50,x55,x60,x65,x70,x75,x80,x85,x90,x95,x100] =
 
 detailPrint :: (Int,Int,[(Double,(Int,Int,Int,Int,Int),BJetChoice)]) -> IO ()
 detailPrint (m,tb,lst) = do 
-    let filename = "HeavyHiggs2T2BOuterTop_mA" ++ show m ++ "tanb" ++ show tb ++ "_sigoversqrtb_cutresult.dat"
+    putStrLn $ "detailPrint : " ++ (show m) ++ " " ++ (show tb)
+    let filename = "HeavyHiggs4T_mA" ++ show m ++ "tanb" ++ show tb ++ "_sigoversqrtb_cutresult.dat"
     withFile filename WriteMode $ \h -> do
       mapM_ (hPutStrLn h . myformatting) lst 
       hFlush h
@@ -184,21 +185,34 @@ detailPrint (m,tb,lst) = do
           printf " %10.7e  %5d  %5d  %5d  %5d  %5d  %s " soverrtbkg ht j1 j234 j56 l (show bjet)
 
 
+mkBestSoverSqrtBkg' = do
+    let lst = [(m,tb) | m <- [400,450..1000], tb <- [1..50] ]
+    mapM_ worker lst
+  where
+    worker (m,tb) = do 
+
+    let filename = "HeavyHiggs4T_mA" ++ show m ++ "tanb" ++ show tb ++ "_sigoversqrtb_cutresult.dat"
+    withFile filename ReadMode $ \h -> do
+      l <- hGetLine h  
+      let xs = words l 
+      putStrLn (show m ++ " " ++ show tb ++ " " ++ (head xs))
+
+{- 
 mkBestSoverSqrtBkg = do
   let xsecLO_ttbar = 6.50e5
       kfac_ttbar = 1.5
       lum = 1000
   bkgtbl <- bkg lum (xsecLO_ttbar*kfac_ttbar)
   -- mapM_ print bkgtbl
-  str <- readFile "HeavyHiggs2T2BOuterTop_feynhiggs_mA_tanb_scan.dat"
+  str <- readFile "HeavyHiggs4T_feynhiggs_mA_tanb_scan.dat"
   let ls = (map effXsec . map parseline . map words . lines) str 
   tbl <- {- HM.fromList . -} map tupling3to2 <$> mapM (work bkgtbl lum) ls
   -- print tbl 
   mapM_ (\((x,y),z)-> putStrLn (show x ++ " " ++ show y ++ " " ++ show z) >> hFlush stdout) tbl 
-
+-}
 
 formatBestSoverSqrtBkg = do 
-  str <- readFile "HeavyHiggs2T2BOuterTop_mA_tanb_sig.dat"
+  str <- readFile "HeavyHiggs4T_mA_tanb_sig.dat"
   let ls = lines str
       tbl = HM.fromList (map (triple . words) ls)
   mapM_ (\x -> putStrLn . format x $ findrow x tbl) [1..50]
@@ -209,7 +223,7 @@ mkDetailSort = do
       kfac_ttbar = 1.5
       lum = 1000
   bkgtbl <- bkg lum (xsecLO_ttbar*kfac_ttbar)
-  str <- readFile "HeavyHiggs2T2BOuterTop_feynhiggs_mA_tanb_scan.dat"
+  str <- readFile "HeavyHiggs4T_feynhiggs_mA_tanb_scan.dat"
   let ls = (map effXsec . map parseline . map words . lines) str 
   mapM_ (detailPrint <=< work2 bkgtbl lum) ls
 
@@ -218,7 +232,6 @@ mkDetailSort = do
   -- mapM_ (\((x,y),z)-> putStrLn (show x ++ " " ++ show y ++ " " ++ show z) >> hFlush stdout) tbl 
 
 
-main = mkDetailSort
-
--- formatBestSoverSqrtBkg    
--- mkBestSoverSqrtBkg 
+main = -- mkDetailSort
+       -- mkBestSoverSqrtBkg'
+       formatBestSoverSqrtBkg    

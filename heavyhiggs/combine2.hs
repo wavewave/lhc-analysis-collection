@@ -63,12 +63,12 @@ normalize (xsec,lum) (x1,x2,x3,x4,x5,x6,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10) =
   where n = xsec*lum
 
 
-brief (x1,x2,x3,x4,x5,x6,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10) = (integerize x1,integerize x2,integerize x3,integerize x4,integerize x5,x6,y8,y9,y10)
+brief (x1,x2,x3,x4,x5,x6,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10) = (integerize x1,integerize x2,integerize x3,integerize x4,integerize x5,x6,y7,y8,y9,y10)
 
 
 
 
-bkg :: Double -> Double -> IO [(Int,Int,Int,Int,Int,Double, Double,Double,Double)]
+bkg :: Double -> Double -> IO [(Int,Int,Int,Int,Int,Double, Double,Double,Double,Double)]
 bkg lum xsec = do
     ls <- getCombinedBkg
     let rs = map (brief . normalize (xsec,lum) . adjust) ls
@@ -124,11 +124,12 @@ adjust (x1,x2,x3,x4,x5,x6,y1,y2,y3,y4,y5,y6,y7,y8,y9,y10) = (x1,x2,x3,x4,x5,x6,a
               | otherwise = n
 
 
-tupling :: (Int,Int,Int,Int,Int,Double  ,Double,Double,Double) -> ((Int,Int,Int,Int,Int,Double),(Double,Double,Double))
-tupling (x1,x2,x3,x4,x5,x6,y7,y8,y9) = ((x1,x2,x3,x4,x5,x6),(y7,y8,y9))
+tupling :: (Int,Int,Int,Int,Int,Double  ,Double,Double,Double,Double) -> ((Int,Int,Int,Int,Int,Double),(Double,Double,Double,Double))
+tupling (x1,x2,x3,x4,x5,x6,y7,y8,y9,y10) = ((x1,x2,x3,x4,x5,x6),(y7,y8,y9,y10))
 
-joinTable :: [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] -> [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] 
-          -> [((Int,Int,Int,Int,Int,Double),((Double,Double,Double),(Double,Double,Double)))]
+joinTable :: [(Int,Int,Int,Int,Int,Double, Double,Double,Double,Double)] 
+          -> [(Int,Int,Int,Int,Int,Double, Double,Double,Double,Double)] 
+          -> [((Int,Int,Int,Int,Int,Double),((Double,Double,Double,Double),(Double,Double,Double,Double)))]
 joinTable tbl1 tbl2 = map f lst2
   where 
     lst1 = map tupling tbl1 
@@ -139,18 +140,18 @@ joinTable tbl1 tbl2 = map f lst2
                 Just v0 -> (k,(v0,v))
 
 
-sigoversqrtbkg ((b1,b2,b3),(s1,s2,s3)) = (sbf b1 s1, sbf b2 s2, sbf b3 s3)
+sigoversqrtbkg ((b0,b1,b2,b3),(s0,s1,s2,s3)) = (sbf b0 s0, sbf b1 s1, sbf b2 s2, sbf b3 s3)
   where sbf b s = s / sqrt b
 
-maximum3 (x,y,z) = maximum [x,y,z]
+maximum4 (x,y,z,w) = maximum [x,y,z,w]
 
 
-work :: [(Int,Int,Int,Int,Int,Double,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,Double)
+work :: [(Int,Int,Int,Int,Int,Double, Double,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,Double)
 work bkgtbl lum (EffXsec m tb xsec) = do 
     rlst0 <- parse1file (sigfile0 m)
     rlst1 <- parse1file (sigfile1 m)
     let rs = map (brief . normalize (xsec,lum)) (rlst0 ++ rlst1)
-    let r = maximum . map maximum3 . map sigoversqrtbkg . map snd . joinTable bkgtbl $ rs
+    let r = maximum . map maximum4 . map sigoversqrtbkg . map snd . joinTable bkgtbl $ rs
     return (m,tb,r)
 {- 
   where 
@@ -162,9 +163,9 @@ work bkgtbl lum (EffXsec m tb xsec) = do
 -}
 
 
-data BJetChoice = BJet1 | BJet2 | BJet3 deriving Show
+data BJetChoice = BJet0 | BJet1 | BJet2 | BJet3 deriving Show
 
-work2 :: [(Int,Int,Int,Int,Int,Double, Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,[(Double,(Int,Int,Int,Int,Int,Double),BJetChoice)])
+work2 :: [(Int,Int,Int,Int,Int,Double, Double,Double,Double,Double)] -> Double -> EffXsec -> IO (Int,Int,[(Double,(Int,Int,Int,Int,Int,Double),BJetChoice)])
 work2 bkgtbl lum (EffXsec m tb xsec) = do 
     rlst0 <- parse1file (sigfile0 m)
     rlst1 <- parse1file (sigfile1 m)
@@ -178,14 +179,14 @@ work2 bkgtbl lum (EffXsec m tb xsec) = do
     -- (mapM_ print . map (parseOptOne . words) . drop 3 . take 10) ls
 
     let f x = let bkgsig = snd x
-                  (ssqrtb1,ssqrtb2,ssqrtb3) = sigoversqrtbkg bkgsig
-               in [(ssqrtb1,fst x,BJet1),(ssqrtb2,fst x,BJet2),(ssqrtb3,fst x,BJet3)]
+                  (ssqrtb0,ssqrtb1,ssqrtb2,ssqrtb3) = sigoversqrtbkg bkgsig
+               in [(ssqrtb0,fst x,BJet0),(ssqrtb1,fst x,BJet1),(ssqrtb2,fst x,BJet2),(ssqrtb3,fst x,BJet3)]
         results = sortBy (flip compare `on` (view _1)) . concatMap f $ bkgsigtbl
     print (m,tb,head results)
     return (m,tb,results)
 
 
-tupling3to2 (a,b,c) = ((a,b),c)
+-- tupling3to2 (a,b,c) = ((a,b),c)
 
 
 findrow :: Int -> HM.HashMap (Int,Int) Double -> [Double] 

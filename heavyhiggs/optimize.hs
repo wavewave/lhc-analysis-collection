@@ -31,6 +31,7 @@ import           Pipes
 import qualified Pipes.ByteString  as PB
 import qualified Pipes.Prelude as PPrelude
 import qualified Pipes.Zlib as PZ
+import           System.Directory
 import           System.Environment
 import           System.FilePath
 import           System.IO as IO
@@ -91,11 +92,11 @@ data CutChoice = CutChoice { choice_ht :: Double
 type CCO = [(Double,[(Double,[(Double,[(Double,[Double])])])])]
 
 
-testht ht = [ht] -- [400,450..800]
-testl ht = map (\x->(x,testht ht)) [0,5..20]
-testj56 ht j234 = map (\x->(x,testl ht)) ((-1):[20,30..if j234 > 80 then 80 else j234])
-testj234 ht j1 = map (\x->(x,testj56 ht x)) [30,40..if j1 > 90 then 90 else j1]
-testj1 ht = map (\x->(x,testj234 ht x)) [70,80..180]
+testht = [100,200..1000]
+testl = map (\x->(x,testht)) [0,10,20]
+testj56 j234 = map (\x->(x,testl)) ((-1):[20,40..if j234 > 100 then 100 else j234])
+testj234 j1 = map (\x->(x,testj56 x)) [20,40..if j1 > 100 then 100 else j1]
+testj1 = map (\x->(x,testj234 x)) [50,100..300]
 
 {- 
 testht = [400,450..800]
@@ -208,7 +209,7 @@ work fpaths ccos = do
              pipesLHCOEvent (gunzip hin >-> PPrelude.map T.decodeUtf8)
              liftIO $ hClose hin 
            -- >-> PPrelude.take 10000
-           >-> PPrelude.tee (countmark 1000 0 >-> PPrelude.drain)
+           >-> PPrelude.tee (countmark 100 0 >-> PPrelude.drain)
            >-> PPrelude.map (((,,) <$> filterEtaRange . mergeBJetFromNoTauEv <*> id <*> id) . mkPhyEventNoTau)
            >-> analysisL0 ccos
            >-> PPrelude.drain
@@ -242,8 +243,7 @@ work fpaths ccos = do
     analysisL5 j1 j234 j56 l h = 
       PPrelude.map (\(ev,r)->(ev,(htcut h . view _1) ev))
       >-> PPrelude.filter (view _2) >-> PPrelude.tee (countM1 (cut5Map.at (j1,j234,j56,l,h)))
-      -- >-> foldr1 (>->) (map (PPrelude.tee . analysisL5 j1 j234 j56 l) hs)
-      >-> PPrelude.map (\(ev,r)->(ev, numOfB j56 (view _2 ev)))
+      >-> PPrelude.map (\(ev,r)->(ev, numOfB (view _2 ev)))
       >-> PPrelude.filter ((>=1) . view (_2)) >-> PPrelude.tee (countM1 (b1Map.at (j1,j234,j56,l,h)))
       >-> PPrelude.filter ((>=2) . view (_2)) >-> PPrelude.tee (countM1 (b2Map.at (j1,j234,j56,l,h)))
       >-> PPrelude.filter ((>=3) . view (_2)) >-> PPrelude.tee (countM1 (b3Map.at (j1,j234,j56,l,h)))
@@ -259,6 +259,7 @@ count l = forever $ do await
                        lift (put m')
 
 
+{- 
 countm :: CutChoice -> Simple Lens CounterState1 Int -> Consumer a (StateT TotalCS IO) ()
 countm c l = forever $ do 
                await 
@@ -272,15 +273,16 @@ countm c l = forever $ do
                    let !x' = set l (y+1) x 
                        m' = M.update (const (Just x')) c m
                    lift (put (set cutStateMap m' tcs))
+-}
 
 countM1 :: Simple Lens TotalCS (Maybe Int) -> Consumer a (StateT TotalCS IO) ()
 countM1 l = forever $ do 
                 await 
                 tcs <- lift get
-                let mx = view l tcs 
+                let !mx = view l tcs 
                 case mx of
                   Nothing -> error "no map"
-                  Just x -> do
+                  Just !x -> do
                     let !tcs' = set l (Just (x+1)) tcs 
                     lift (put tcs')
 
@@ -334,17 +336,17 @@ checkj56 j56 (x1,x2,x3,x4,ptlst)
                   _ -> Nothing
 
 
-numOfB :: Double -> PhyEventNoTau -> Int
-numOfB j56 ev = let ptlst = (filter (> j56) . map pt . view bjets) ev
-                in length ptlst 
+numOfB :: PhyEventNoTau -> Int
+numOfB ev = let ptlst = (filter (> 20) . map pt . view bjets) ev
+            in length ptlst 
 
 leptonetas :: PhyEventNoTauNoBJet -> [Double]
 leptonetas = map eta . view leptons
 
 htcut :: Double -> PhyEventNoTauNoBJet -> Bool 
 htcut v ev = let ptlst = jetpts ev
-                 ht6 = sum ptlst -- (take 6 ptlst)
-             in ht6 > v
+                 ht = sum ptlst
+             in ht > v
 
 
 countmark :: (MonadIO m) => Int -> Int -> Pipe a a m r
@@ -373,37 +375,53 @@ format cut@CutChoice {..} tcs =
 
 
 
-main :: IO ()
-main = do
-    args <- getArgs
-    let massparam :: Double = read (args !! 0)
-        ht :: Double = read (args !! 1)
-    --  let massparam = 400 
-        set1 = map (massparam,) [1..10]
+    -- let massparam :: Double = read (args !! 0)
+        -- ht :: Double = read (args !! 1)
+        --  let massparam = 400 
+
+
+signal :: Double -> IO ()
+signal massparam = do
+    -- args <- getArgs
+    let set1 = map (massparam,) [1..10]
          
     ws1 <- -- HeavyHiggs2T2BInnerTop.getWSetup (massparam,1)
            HeavyHiggs4T.getWSetup (massparam,1)
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
-    let filename = resultdir </> rname' ++ "_cut_count_incHT" ++ show (round ht) ++ ".dat"
+    let filename = resultdir </> rname' ++ "_cut_count_add1.dat"
     withFile filename WriteMode $ \h -> do
-        sets <- map (eventdir </>) <$> mapM (prepare HeavyHiggs4T.getWSetup) set1
-        tcs <- work sets (testj1 ht)
-        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
+        sets <- map (eventdir </>) <$> mapM (prepare True HeavyHiggs4T.getWSetup) set1
+        tcs <- work sets testj1
+        hPutStrLn h "============================================================================================================"
+        hPutStrLn h "  H_T   pt_j1   j234   j56    pt_l   full    cut1    cut2    cut3    eta_l    H_T    bjet1   bjet2   bjet3"
+        hPutStrLn h "------------------------------------------------------------------------------------------------------------"
+        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
 
 
 
-eventdir = "/afs/cern.ch/work/i/ikim/event"
+eventdir = "/home/wavewave/temp/heavyhiggs"
 
-resultdir = "/afs/cern.ch/work/i/ikim/result"
+resultdir = "/home/wavewave/repo/src/lhc-analysis-collection/heavyhiggs/result_4t"
 
-{- 
-main :: IO ()
-main = do
-    args <- getArgs
-    let ht :: Double = read (args !! 0)
-    let set1 = [1..1000]
+
+smset = [ (   1,1000,[1..1000])
+        , (1001,2000,[1001..2000] Data.List.\\ [1059, 1061, 1064, 1065, 1213, 1802, 1805])
+        , (2001,3000,[2001..3000])
+        , (3001,4000,[3001..4000])
+        , (4001,5000,[4001..5000])
+        , (5001,6000,[5001..6000] \\ [5075,5085,5129,5186,5472,5489,5510,5515,5546,5772,5802,5803,5923])
+        , (6001,7000,[6001..7000] \\ [6038,6164,6206,6236,6277,6363,6399,6428,6452,6520,6536,6581,6833,6892,6895,6897,6900,6914,6919])
+        , (7001,8000,[7001..8000] \\ [7001,7016,7031,7094,7097,7121,7279,7307,7343,7443,7485,7495,7502,7505,7522,7533,7699,7730,7748,7832,7883,7916,7933,7945])
+        , (8001,9000,[8001..9000] \\ [8052,8073,8083,8090,8103,8167,8186,8260,8272,8300,8313,8319,8325,8332,8341,8361,8378,8408,8503,8505,8543,8548,8562,8574,8594,8634,8679,8683,8770,8789,8807,8811,8821,8863,8874,8886,8949,8954,8967])
+        , (9001,10000,[9001..10000] \\ [9005,9036,9045,9086,9087,9090,9108,9131,9133,9148,9188,9212,9218,9264,9265,9312,9328,9357,9428,9458,9472,9502,9535,9553,9583,9588,9598,9616,9630,9638,9677,9696,9706,9718,9751,9753,9781,9804])
+        ]
+
+
+background :: Int -> IO ()
+background n = do
+    let (i,f,set1) = smset !! n -- [1..1000]
 
                 -- [3001..4000]
                -- [2001..3000]
@@ -420,24 +438,40 @@ main = do
     let rname = makeRunName (ws_psetup ws1) (ws_param ws1) (ws_rsetup ws1)
         rname' = (intercalate "_" . init . splitOn "_") rname
 
-    let filename = resultdir </> rname' ++ "_set1to1000_cut_count_incHT" ++ show (round ht) ++  ".dat"
+    let filename = resultdir </> rname' ++ "_set" ++ show i ++ "to" ++ show f ++ "_cut_count_add1.dat"
     withFile filename WriteMode $ \h -> do
-        sets <- map (eventdir </>) <$> mapM (prepare SM.getWSetup) set1
-        tcs <- work sets (testj1 ht)
-        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices (testj1 ht))) 
--}
+        sets <- map (eventdir </>) <$> mapM (prepare False SM.getWSetup) set1
+        tcs <- work sets testj1
+        hPutStrLn h "============================================================================================================"
+        hPutStrLn h "  H_T   pt_j1   j234   j56    pt_l   full    cut1    cut2    cut3    eta_l    H_T    bjet1   bjet2   bjet3"
+        hPutStrLn h "------------------------------------------------------------------------------------------------------------"
+        mapM_ (hPutStrLn h . flip format tcs) (sort (mkChoices testj1)) 
 
-prepare :: (Model b) => (a -> IO (WorkSetup b)) -> a -> IO FilePath
-prepare getwsetup x = do
-  let pkey = "/repos/priv.txt" -- "/afs/cern.ch/work/i/ikim/private/webdav/priv.txt"
-      pswd = "/repos/cred.txt" -- "/afs/cern.ch/work/i/ikim/private/webdav/cred.txt"
+
+prepare :: (Model b) => Bool -> (a -> IO (WorkSetup b)) -> a -> IO FilePath
+prepare b getwsetup x = do
+  let pkey = "/home/wavewave/temp/madgraph/priv.txt" 
+      pswd = "/home/wavewave/temp/madgraph/cred.txt" 
   Just cr <- getCredential pkey pswd
   let whost = "http://top.physics.lsa.umich.edu:10080/webdav/"
       wdavcfg = WebDAVConfig cr whost
   ws <- getwsetup x
-  EV.download wdavcfg ws "_pgs_events.lhco.gz" 
- 
+  cdir <- getCurrentDirectory
+  setCurrentDirectory eventdir
+  when b $ 
+    EV.download wdavcfg ws "_pgs_events.lhco.gz" 
+  
   let rname = makeRunName (ws_psetup ws) (ws_param ws) (ws_rsetup ws)
       fname = rname ++ "_pgs_events.lhco.gz"
- 
+  setCurrentDirectory cdir 
   return fname
+
+
+main' = mapM_ signal [550,600..1000]
+
+main = do 
+  args <- getArgs
+  background (read (args !! 0))
+
+-- main = do
+--     mapM (prepare SM.getWSetup) [1..5]
